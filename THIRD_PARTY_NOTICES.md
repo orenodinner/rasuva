@@ -10,6 +10,7 @@ This project uses the following third-party OSS packages (licenses verified at t
 - react-router-dom (MIT)
 - zustand (MIT)
 - zod (MIT)
+- exceljs (MIT)
 
 ## Development dependencies
 

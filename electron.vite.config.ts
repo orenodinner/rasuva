@@ -11,7 +11,7 @@ export default defineConfig({
         entry: resolve(rootDir, 'electron/main/index.ts')
       },
       rollupOptions: {
-        external: ['better-sqlite3']
+        external: ['better-sqlite3', 'exceljs']
       }
     },
     resolve: {

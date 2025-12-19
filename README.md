@@ -11,7 +11,7 @@ Member -> Project -> Task timelines alongside diff summaries and audit-friendly 
 - JSON import with preview + validation warnings.
 - Diff summary (Added / Updated / Archived / Invalid / Unscheduled).
 - Gantt timeline view, plus Unscheduled and Invalid lists.
-- Import history, Saved Views, CSV export.
+- Import history, Saved Views, CSV/Excel export (Excel includes a Gantt sheet).
 
 ## Tech stack
 
@@ -103,6 +103,7 @@ Date rules:
 - `views.list`
 - `views.save`
 - `export.csv`
+- `export.xlsx`
 
 All IPC payloads are validated with zod in the main process.
 
@@ -144,7 +145,7 @@ OSS のみで構成された Electron + TypeScript + React デスクトップア
 - JSON インポートにプレビューとバリデーション警告を追加。
 - 差分サマリー（Added / Updated / Archived / Invalid / Unscheduled）。
 - ガントタイムラインと Unscheduled / Invalid の専用一覧。
-- インポート履歴、Saved Views、CSV エクスポート。
+- インポート履歴、Saved Views、CSV / Excel エクスポート（Excel はガントシート付き）。
 
 ## 技術スタック
 
@@ -236,6 +237,7 @@ npm run test
 - `views.list`
 - `views.save`
 - `export.csv`
+- `export.xlsx`
 
 IPC の入力はすべて main プロセス側で zod により検証されます。
 

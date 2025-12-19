@@ -326,6 +326,12 @@ body {
   flex-wrap: wrap;
 }
 
+.export-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .file-input {
   display: none;
 }

@@ -16,6 +16,7 @@ const api = {
   viewsSave: (name: string, state: SavedViewState) =>
     ipcRenderer.invoke(IPC_CHANNELS.viewsSave, { name, state }),
   exportCsv: (importId?: number) => ipcRenderer.invoke(IPC_CHANNELS.exportCsv, { importId }),
+  exportXlsx: (importId?: number) => ipcRenderer.invoke(IPC_CHANNELS.exportXlsx, { importId }),
   taskUpdate: (
     importId: number | undefined,
     taskKeyFull: string,

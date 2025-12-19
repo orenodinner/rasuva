@@ -4,7 +4,43 @@ import { diffTasks, normalizeImport, parseDateStrict, parseImportJson } from '@d
 import type { DbClient } from '@db';
 import type { NormalizedTask } from '@domain';
 import { writeFileSync } from 'fs';
+import ExcelJS from 'exceljs';
 import { IPC_CHANNELS } from '../shared/ipcChannels';
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const parseIsoDate = (value: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return null;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  return new Date(Date.UTC(year, month - 1, day));
+};
+
+const formatIsoDate = (date: Date) => {
+  const year = date.getUTCFullYear();
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getUTCDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const addUtcDays = (date: Date, days: number) => {
+  return new Date(date.getTime() + MS_PER_DAY * days);
+};
+
+const toColumnLetter = (index: number) => {
+  let result = '';
+  let current = index;
+  while (current > 0) {
+    const remainder = (current - 1) % 26;
+    result = String.fromCharCode(65 + remainder) + result;
+    current = Math.floor((current - 1) / 26);
+  }
+  return result;
+};
 
 const previewSchema = z.object({
   jsonText: z.string()
@@ -221,6 +257,162 @@ export const registerIpcHandlers = (db: DbClient) => {
     }
 
     writeFileSync(dialogResult.filePath, csv, 'utf-8');
+    return { ok: true, path: dialogResult.filePath };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.exportXlsx, async (_event, payload) => {
+    const parsedPayload = exportSchema.safeParse(payload ?? {});
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const importId = parsedPayload.data.importId ?? db.getLatestImportId();
+    if (!importId) {
+      return { ok: false, error: 'No import available.' };
+    }
+
+    const tasks = db.getTasksByImportId(importId);
+    const workbook = new ExcelJS.Workbook();
+    const ganttSheet = workbook.addWorksheet('Gantt');
+    const baseColumns = [
+      { header: 'member_name', key: 'memberName', width: 20 },
+      { header: 'project_id', key: 'projectId', width: 18 },
+      { header: 'project_group', key: 'projectGroup', width: 18 },
+      { header: 'task_name', key: 'taskName', width: 28 },
+      { header: 'start', key: 'start', width: 14 },
+      { header: 'end', key: 'end', width: 14 },
+      { header: 'status', key: 'status', width: 14 }
+    ];
+
+    const scheduledTasks = tasks.filter(
+      (task) => task.status === 'scheduled' && task.start && task.end
+    );
+
+    if (scheduledTasks.length === 0) {
+      ganttSheet.columns = baseColumns;
+      ganttSheet.addRow({});
+      ganttSheet.addRow({ taskName: '予定ありタスクがありません。' });
+    } else {
+      const startDates = scheduledTasks
+        .map((task) => parseIsoDate(task.start!))
+        .filter((date): date is Date => date !== null)
+        .sort((a, b) => a.getTime() - b.getTime());
+      const endDates = scheduledTasks
+        .map((task) => parseIsoDate(task.end!))
+        .filter((date): date is Date => date !== null)
+        .sort((a, b) => a.getTime() - b.getTime());
+
+      const rangeStart = startDates[0];
+      const rangeEnd = endDates[endDates.length - 1];
+
+      const dateColumns: Array<{ header: string; key: string; width: number }> = [];
+      const dates: Date[] = [];
+      for (let cursor = rangeStart; cursor <= rangeEnd; cursor = addUtcDays(cursor, 1)) {
+        const iso = formatIsoDate(cursor);
+        dates.push(cursor);
+        dateColumns.push({ header: iso, key: `date_${iso}`, width: 3 });
+      }
+
+      ganttSheet.columns = [...baseColumns, ...dateColumns];
+      ganttSheet.views = [
+        {
+          state: 'frozen',
+          ySplit: 1,
+          xSplit: baseColumns.length
+        }
+      ];
+
+      const headerRow = ganttSheet.getRow(1);
+      headerRow.font = { bold: true };
+      baseColumns.forEach((_column, index) => {
+        headerRow.getCell(index + 1).alignment = { vertical: 'middle' };
+      });
+
+      dates.forEach((date, index) => {
+        const cell = headerRow.getCell(baseColumns.length + index + 1);
+        cell.value = date;
+        cell.numFmt = 'm/d';
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+
+      const startColumnIndex = baseColumns.findIndex((column) => column.key === 'start') + 1;
+      const endColumnIndex = baseColumns.findIndex((column) => column.key === 'end') + 1;
+      const statusColumnIndex = baseColumns.findIndex((column) => column.key === 'status') + 1;
+      const dateColumnStartIndex = baseColumns.length + 1;
+
+      ganttSheet.getColumn(startColumnIndex).numFmt = 'yyyy-mm-dd';
+      ganttSheet.getColumn(endColumnIndex).numFmt = 'yyyy-mm-dd';
+
+      tasks.forEach((task) => {
+        const row = ganttSheet.addRow({
+          memberName: task.memberName,
+          projectId: task.projectId,
+          projectGroup: task.projectGroup ?? '',
+          taskName: task.taskName,
+          start: task.start ? parseIsoDate(task.start) : null,
+          end: task.end ? parseIsoDate(task.end) : null,
+          status: task.status
+        });
+
+        const rowIndex = row.number;
+        const startCell = toColumnLetter(startColumnIndex);
+        const endCell = toColumnLetter(endColumnIndex);
+        const statusCell = toColumnLetter(statusColumnIndex);
+
+        dates.forEach((_date, index) => {
+          const columnIndex = dateColumnStartIndex + index;
+          const columnLetter = toColumnLetter(columnIndex);
+          const formula = `IF(AND($${statusCell}${rowIndex}="scheduled",$${startCell}${rowIndex}<=${columnLetter}$1,$${endCell}${rowIndex}>=${columnLetter}$1),IF($${startCell}${rowIndex}=${columnLetter}$1,"★","■"),"")`;
+          const cell = ganttSheet.getCell(rowIndex, columnIndex);
+          cell.value = { formula, result: '' };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+      });
+    }
+
+    const sheet = workbook.addWorksheet('Tasks');
+
+    sheet.columns = [
+      { header: 'member_name', key: 'memberName', width: 20 },
+      { header: 'project_id', key: 'projectId', width: 18 },
+      { header: 'project_group', key: 'projectGroup', width: 18 },
+      { header: 'task_name', key: 'taskName', width: 28 },
+      { header: 'start', key: 'start', width: 14 },
+      { header: 'end', key: 'end', width: 14 },
+      { header: 'status', key: 'status', width: 14 },
+      { header: 'note', key: 'note', width: 30 },
+      { header: 'raw_date', key: 'rawDate', width: 22 },
+      { header: 'task_key_full', key: 'taskKeyFull', width: 32 }
+    ];
+
+    tasks.forEach((task) => {
+      sheet.addRow({
+        memberName: task.memberName,
+        projectId: task.projectId,
+        projectGroup: task.projectGroup ?? '',
+        taskName: task.taskName,
+        start: task.start ?? '',
+        end: task.end ?? '',
+        status: task.status,
+        note: task.note ?? '',
+        rawDate: task.rawDate,
+        taskKeyFull: task.taskKeyFull
+      });
+    });
+
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    const dialogResult = await dialog.showSaveDialog({
+      title: 'Export Excel',
+      defaultPath: `rasuva_export_${importId}.xlsx`,
+      filters: [{ name: 'Excel', extensions: ['xlsx'] }]
+    });
+
+    if (dialogResult.canceled || !dialogResult.filePath) {
+      return { ok: false, error: 'Export canceled.' };
+    }
+
+    await workbook.xlsx.writeFile(dialogResult.filePath);
     return { ok: true, path: dialogResult.filePath };
   });
 
