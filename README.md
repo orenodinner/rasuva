@@ -11,7 +11,7 @@ Member -> Project -> Task timelines alongside diff summaries and audit-friendly 
 - JSON import with preview + validation warnings.
 - Diff summary (Added / Updated / Archived / Invalid / Unscheduled).
 - Gantt timeline view, plus Unscheduled and Invalid lists.
-- Import history, Saved Views, CSV/Excel export (Excel includes a Gantt sheet).
+- Import history, Saved Views, CSV/Excel export (Excel includes a Gantt sheet with green ■ and red ★).
 
 ## Tech stack
 
@@ -145,7 +145,7 @@ OSS のみで構成された Electron + TypeScript + React デスクトップア
 - JSON インポートにプレビューとバリデーション警告を追加。
 - 差分サマリー（Added / Updated / Archived / Invalid / Unscheduled）。
 - ガントタイムラインと Unscheduled / Invalid の専用一覧。
-- インポート履歴、Saved Views、CSV / Excel エクスポート（Excel はガントシート付き）。
+- インポート履歴、Saved Views、CSV / Excel エクスポート（Excel はガントシート付き。■=緑、★=赤）。
 
 ## 技術スタック
 
