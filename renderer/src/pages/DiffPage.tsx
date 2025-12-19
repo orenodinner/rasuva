@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { useAppStore } from '../state/store';
 import TaskList from '../components/TaskList';
 
@@ -15,8 +15,8 @@ const DiffPage = () => {
     return (
       <div className="page">
         <div className="page-header">
-          <h1>Diff Summary</h1>
-          <p>No diff available yet.</p>
+          <h1>差分サマリー</h1>
+          <p>差分情報がありません。</p>
         </div>
       </div>
     );
@@ -25,58 +25,58 @@ const DiffPage = () => {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Diff Summary</h1>
-        <p>Changes compared to the previous import.</p>
+        <h1>差分サマリー</h1>
+        <p>直前のインポートとの差分を表示します。</p>
       </div>
       <div className="stat-grid">
         <div className="stat-card">
-          <span>Added</span>
+          <span>追加</span>
           <strong>{diff.summary.added}</strong>
         </div>
         <div className="stat-card">
-          <span>Updated</span>
+          <span>更新</span>
           <strong>{diff.summary.updated}</strong>
         </div>
         <div className="stat-card">
-          <span>Archived</span>
+          <span>アーカイブ</span>
           <strong>{diff.summary.archived}</strong>
         </div>
         <div className="stat-card">
-          <span>Unscheduled</span>
+          <span>未確定</span>
           <strong>{diff.summary.unscheduled}</strong>
         </div>
         <div className="stat-card">
-          <span>Invalid</span>
+          <span>不正</span>
           <strong>{diff.summary.invalid}</strong>
         </div>
       </div>
 
       <section className="section">
         <div className="section-header">
-          <h2>Added</h2>
+          <h2>追加</h2>
         </div>
-        <TaskList tasks={diff.added} onSelect={setSelectedTask} emptyLabel="No added tasks." />
+        <TaskList tasks={diff.added} onSelect={setSelectedTask} emptyLabel="追加はありません。" />
       </section>
 
       <section className="section">
         <div className="section-header">
-          <h2>Updated</h2>
+          <h2>更新</h2>
         </div>
         <TaskList
           tasks={diff.updated}
           onSelect={setSelectedTask}
-          emptyLabel="No updated tasks."
+          emptyLabel="更新はありません。"
         />
       </section>
 
       <section className="section">
         <div className="section-header">
-          <h2>Archived</h2>
+          <h2>アーカイブ</h2>
         </div>
         <TaskList
           tasks={diff.archived}
           onSelect={setSelectedTask}
-          emptyLabel="No archived tasks."
+          emptyLabel="アーカイブはありません。"
         />
       </section>
     </div>

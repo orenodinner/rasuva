@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+﻿import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../state/store';
 
@@ -17,23 +17,23 @@ const CommandBar = () => {
     <div className="command-bar">
       <div className="command-bar__left">
         <button className="cmd-button" onClick={() => navigate('/import')}>
-          Import
+          インポート
         </button>
         <button className="cmd-button" onClick={() => navigate('/diff')}>
-          Diff
+          差分
         </button>
         <button
           className="cmd-button cmd-button--ghost"
           onClick={() => setFocusDate(new Date().toISOString().slice(0, 10))}
         >
-          Today
+          今日
         </button>
       </div>
       <div className="command-bar__center">
         <input
           ref={searchRef}
           className="search-input"
-          placeholder="Search tasks, members, projects"
+          placeholder="タスク・担当者・プロジェクトを検索"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
@@ -49,7 +49,13 @@ const CommandBar = () => {
               onClick={() => setZoom(level)}
               aria-pressed={zoom === level}
             >
-              {level[0].toUpperCase() + level.slice(1)}
+              {level === 'day'
+                ? '日'
+                : level === 'week'
+                  ? '週'
+                  : level === 'month'
+                    ? '月'
+                    : '四半期'}
             </button>
           ))}
         </div>

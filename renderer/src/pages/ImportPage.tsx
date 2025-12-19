@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+﻿import { useEffect, useRef } from 'react';
 import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../state/store';
@@ -44,12 +44,12 @@ const ImportPage = () => {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Import</h1>
-        <p>Paste JSON or load from a file.</p>
+        <h1>インポート</h1>
+        <p>JSON を貼り付けるか、ファイルを読み込みます。</p>
       </div>
       <div className="import-actions">
         <button className="cmd-button" onClick={() => fileRef.current?.click()}>
-          Select JSON File
+          JSONファイルを選択
         </button>
         <input
           ref={fileRef}
@@ -59,12 +59,12 @@ const ImportPage = () => {
           onChange={handleFileChange}
         />
         <button className="cmd-button cmd-button--ghost" onClick={handlePreview}>
-          Preview
+          プレビュー
         </button>
       </div>
       <textarea
         className="json-input"
-        placeholder="Paste JSON here..."
+        placeholder="ここに JSON を貼り付けてください..."
         value={jsonText}
         onChange={(event) => {
           setJsonText(event.target.value);

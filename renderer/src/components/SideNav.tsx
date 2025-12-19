@@ -1,19 +1,19 @@
-import { NavLink } from 'react-router-dom';
+﻿import { NavLink } from 'react-router-dom';
 
 const navItems = [
-  { to: '/', label: 'Home' },
-  { to: '/import', label: 'Import' },
-  { to: '/preview', label: 'Preview' },
-  { to: '/diff', label: 'Diff Summary' },
-  { to: '/gantt', label: 'Gantt' },
-  { to: '/members', label: 'Members' },
-  { to: '/groups', label: 'Groups' },
-  { to: '/unscheduled', label: 'Unscheduled' },
-  { to: '/invalid', label: 'Invalid' },
-  { to: '/imports', label: 'Imports' },
-  { to: '/views', label: 'Views' },
-  { to: '/export', label: 'Export' },
-  { to: '/settings', label: 'Settings' }
+  { to: '/', label: 'ホーム' },
+  { to: '/import', label: 'インポート' },
+  { to: '/preview', label: 'プレビュー' },
+  { to: '/diff', label: '差分サマリー' },
+  { to: '/gantt', label: 'ガント' },
+  { to: '/members', label: '担当者' },
+  { to: '/groups', label: 'グループ' },
+  { to: '/unscheduled', label: '未確定' },
+  { to: '/invalid', label: '不正日付' },
+  { to: '/imports', label: '履歴' },
+  { to: '/views', label: '保存ビュー' },
+  { to: '/export', label: 'エクスポート' },
+  { to: '/settings', label: '設定' }
 ];
 
 const SideNav = () => {
@@ -39,7 +39,7 @@ const SideNav = () => {
           </NavLink>
         ))}
       </nav>
-      <div className="side-nav__footer">Offline �E Local only</div>
+      <div className="side-nav__footer">オフライン · ローカル専用</div>
     </aside>
   );
 };

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../state/store';
 
@@ -14,41 +14,41 @@ const HomePage = () => {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Home</h1>
-        <p>Recent imports and quick actions.</p>
+        <h1>ホーム</h1>
+        <p>最近のインポートとクイック操作。</p>
       </div>
       <div className="card-grid">
         <button className="card" onClick={() => navigate('/import')}>
-          <h3>Import JSON</h3>
-          <p>Paste or load a file to start a new import.</p>
+          <h3>JSONをインポート</h3>
+          <p>貼り付けまたはファイル読み込みで開始します。</p>
         </button>
         <button className="card" onClick={() => navigate('/gantt')}>
-          <h3>Open Gantt</h3>
-          <p>Review the latest timeline and drill down.</p>
+          <h3>ガントを開く</h3>
+          <p>最新のタイムラインを確認します。</p>
         </button>
         <button className="card" onClick={() => navigate('/diff')}>
-          <h3>View Diff</h3>
-          <p>Check what changed since the last import.</p>
+          <h3>差分を見る</h3>
+          <p>直近インポートとの差分を確認します。</p>
         </button>
       </div>
       <section className="section">
         <div className="section-header">
-          <h2>Recent Imports</h2>
+          <h2>最近のインポート</h2>
         </div>
         {imports.length === 0 ? (
-          <div className="empty-state">No imports yet.</div>
+          <div className="empty-state">インポート履歴がありません。</div>
         ) : (
           <div className="list">
             {imports.slice(0, 5).map((item) => (
               <div key={item.id} className="list-row">
                 <div>
-                  <div className="list-title">Import #{item.id}</div>
+                  <div className="list-title">インポート #{item.id}</div>
                   <div className="list-subtitle">{item.createdAt}</div>
                 </div>
                 <div className="list-metrics">
-                  <span>Added {item.addedCount}</span>
-                  <span>Updated {item.updatedCount}</span>
-                  <span>Archived {item.archivedCount}</span>
+                  <span>追加 {item.addedCount}</span>
+                  <span>更新 {item.updatedCount}</span>
+                  <span>アーカイブ {item.archivedCount}</span>
                 </div>
               </div>
             ))}

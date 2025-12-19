@@ -43,7 +43,7 @@ const normalizeTaskDates = (
   if (startRaw !== null && start === null) {
     warnings.push({
       code: 'invalid_date_format',
-      message: 'Invalid start date format (expected YYYY-MM-DD).',
+      message: '開始日が不正です（YYYY-MM-DD を想定）。',
       context: { ...context, value: startRaw }
     });
     return { status: 'invalid_date', start: null, end: null };
@@ -52,7 +52,7 @@ const normalizeTaskDates = (
   if (endRaw !== null && end === null) {
     warnings.push({
       code: 'invalid_date_format',
-      message: 'Invalid end date format (expected YYYY-MM-DD).',
+      message: '終了日が不正です（YYYY-MM-DD を想定）。',
       context: { ...context, value: endRaw }
     });
     return { status: 'invalid_date', start: null, end: null };
@@ -62,7 +62,7 @@ const normalizeTaskDates = (
     if (start !== end) {
       warnings.push({
         code: 'partial_date',
-        message: 'Start or end date is missing; task treated as unscheduled.',
+        message: '開始日または終了日が欠落しているため、未確定として扱います。',
         context
       });
     }
@@ -72,7 +72,7 @@ const normalizeTaskDates = (
   if (end < start) {
     warnings.push({
       code: 'date_range_invalid',
-      message: 'End date precedes start date; task treated as invalid.',
+      message: '終了日が開始日より前のため、不正日付として扱います。',
       context: { ...context, start, end }
     });
     return { status: 'invalid_date', start: null, end: null };
@@ -94,14 +94,14 @@ export const normalizeImport = (raw: RawImport) => {
   let invalidCount = 0;
 
   raw.members.forEach((member) => {
-    const memberName = toTrimmed(member.name) ?? 'Unknown';
+    const memberName = toTrimmed(member.name) ?? '不明';
 
     member.projects.forEach((project) => {
       const projectId = toTrimmed(project.project_id);
       if (!projectId) {
         warnings.push({
           code: 'project_id_missing',
-          message: 'Project ID is missing; project skipped.',
+          message: 'project_id が無いため、このプロジェクトをスキップしました。',
           context: { member: memberName }
         });
         skippedProjects += 1;
@@ -113,7 +113,7 @@ export const normalizeImport = (raw: RawImport) => {
 
       project.tasks.forEach((task) => {
         totalTasks += 1;
-        const taskName = toTrimmed(task.task_name) ?? 'Untitled task';
+        const taskName = toTrimmed(task.task_name) ?? '無題タスク';
         const baseKey = `${projectId}::${taskName}`;
         const count = (taskKeyCounts.get(baseKey) ?? 0) + 1;
         taskKeyCounts.set(baseKey, count);
@@ -123,7 +123,7 @@ export const normalizeImport = (raw: RawImport) => {
           taskKeyFull = `${baseKey}#${count}`;
           warnings.push({
             code: 'duplicate_task_key',
-            message: 'Duplicate task key detected; suffixed to keep uniqueness.',
+            message: 'タスクキーが重複したため、サフィックスで一意化しました。',
             context: { taskKey: baseKey, member: memberName, occurrence: count }
           });
         }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+﻿import { useEffect, useMemo, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import type { NormalizedTask } from '@domain';
 import { useAppStore } from '../state/store';
@@ -25,7 +25,7 @@ const addDays = (start: string, days: number) => {
 
 const formatLabel = (date: string) => {
   const [year, month, day] = date.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString('en-US', {
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString('ja-JP', {
     month: 'short',
     day: '2-digit'
   });
@@ -146,11 +146,11 @@ const GanttView = () => {
   }, [focusDate, rangeStart, zoom, setFocusDate]);
 
   if (!gantt || gantt.tasks.length === 0) {
-    return <div className="empty-state">No imports loaded yet.</div>;
+    return <div className="empty-state">インポート済みデータがありません。</div>;
   }
 
   if (!rangeStart || !rangeEnd) {
-    return <div className="empty-state">No scheduled tasks to render on the timeline.</div>;
+    return <div className="empty-state">予定ありタスクがありません。</div>;
   }
 
   const { unitDays, columnWidth } = zoomConfig[zoom];
@@ -167,7 +167,7 @@ const GanttView = () => {
         <div className="gantt-grid" style={{ minWidth: labelWidth + timelineWidth }}>
           <div className="gantt-row gantt-row--header">
             <div className="gantt-label gantt-label--header" style={{ width: labelWidth }}>
-              Workstream
+              担当/プロジェクト
             </div>
             <div className="gantt-timeline" style={{ width: timelineWidth }}>
               {Array.from({ length: columnCount }).map((_, index) => {

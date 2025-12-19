@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+﻿import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../state/store';
 
 const PreviewPage = () => {
@@ -21,11 +21,11 @@ const PreviewPage = () => {
     return (
       <div className="page">
         <div className="page-header">
-          <h1>Preview</h1>
-          <p>No preview available yet.</p>
+          <h1>プレビュー</h1>
+          <p>プレビューがありません。</p>
         </div>
         <button className="cmd-button" onClick={() => navigate('/import')}>
-          Go to Import
+          インポートへ
         </button>
       </div>
     );
@@ -36,37 +36,37 @@ const PreviewPage = () => {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Preview</h1>
-        <p>Validation summary before applying.</p>
+        <h1>プレビュー</h1>
+        <p>適用前の検証結果です。</p>
       </div>
       <div className="stat-grid">
         <div className="stat-card">
-          <span>Total tasks</span>
+          <span>総タスク</span>
           <strong>{summary.totalTasks}</strong>
         </div>
         <div className="stat-card">
-          <span>Scheduled</span>
+          <span>予定あり</span>
           <strong>{summary.scheduledCount}</strong>
         </div>
         <div className="stat-card">
-          <span>Unscheduled</span>
+          <span>未確定</span>
           <strong>{summary.unscheduledCount}</strong>
         </div>
         <div className="stat-card">
-          <span>Invalid</span>
+          <span>不正</span>
           <strong>{summary.invalidCount}</strong>
         </div>
         <div className="stat-card">
-          <span>Warnings</span>
+          <span>警告</span>
           <strong>{summary.warningsCount}</strong>
         </div>
       </div>
       <div className="section">
         <div className="section-header">
-          <h2>Warnings</h2>
+          <h2>警告</h2>
         </div>
         {warnings.length === 0 ? (
-          <div className="empty-state">No warnings.</div>
+          <div className="empty-state">警告はありません。</div>
         ) : (
           <div className="warning-list">
             {warnings.map((warning, index) => (
@@ -81,7 +81,7 @@ const PreviewPage = () => {
       {lastError ? <div className="alert">{lastError}</div> : null}
       <div className="action-row">
         <button className="cmd-button" onClick={handleApply}>
-          Apply Import
+          インポートを適用
         </button>
       </div>
     </div>

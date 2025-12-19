@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import GanttView from '../components/GanttView';
 import { useAppStore } from '../state/store';
 
@@ -15,8 +15,8 @@ const GanttPage = () => {
   return (
     <div className="page gantt-page">
       <div className="page-header">
-        <h1>Gantt</h1>
-        <p>Member �� Project �� Task timeline view.</p>
+        <h1>ガント</h1>
+        <p>担当者 → プロジェクト → タスクのタイムラインです。</p>
       </div>
       <GanttView />
     </div>

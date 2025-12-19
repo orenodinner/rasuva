@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+﻿import { useEffect, useMemo } from 'react';
 import TaskList from '../components/TaskList';
 import { useAppStore } from '../state/store';
 
@@ -20,10 +20,10 @@ const InvalidPage = () => {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Invalid Dates</h1>
-        <p>Tasks with invalid date formats.</p>
+        <h1>不正日付</h1>
+        <p>日付フォーマット不正のタスク一覧です。</p>
       </div>
-      <TaskList tasks={tasks} onSelect={setSelectedTask} emptyLabel="No invalid tasks." />
+      <TaskList tasks={tasks} onSelect={setSelectedTask} emptyLabel="不正日付はありません。" />
     </div>
   );
 };

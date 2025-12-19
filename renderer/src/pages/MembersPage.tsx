@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+﻿import { useEffect, useMemo } from 'react';
 import { useAppStore } from '../state/store';
 
 const MembersPage = () => {
@@ -25,18 +25,18 @@ const MembersPage = () => {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Members</h1>
-        <p>Task totals by member.</p>
+        <h1>担当者</h1>
+        <p>担当者ごとのタスク数です。</p>
       </div>
       {members.length === 0 ? (
-        <div className="empty-state">No members found.</div>
+        <div className="empty-state">担当者が見つかりません。</div>
       ) : (
         <div className="list">
           {members.map((member) => (
             <div key={member.name} className="list-row">
               <div className="list-title">{member.name}</div>
               <div className="list-metrics">
-                <span>{member.taskCount} tasks</span>
+                <span>{member.taskCount} 件</span>
               </div>
             </div>
           ))}

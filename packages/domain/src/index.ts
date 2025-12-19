@@ -10,7 +10,7 @@ export const parseImportJson = (jsonText: string) => {
     if (!result.success) {
       return {
         ok: false as const,
-        error: 'Schema validation failed.',
+        error: 'スキーマ検証に失敗しました。',
         issues: result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       };
     }
@@ -19,8 +19,8 @@ export const parseImportJson = (jsonText: string) => {
   } catch (error) {
     return {
       ok: false as const,
-      error: 'Invalid JSON payload.',
-      issues: [error instanceof Error ? error.message : 'Unknown JSON error']
+      error: 'JSON が不正です。',
+      issues: [error instanceof Error ? error.message : '不明な JSON エラー']
     };
   }
 };

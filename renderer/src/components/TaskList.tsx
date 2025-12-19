@@ -1,4 +1,5 @@
-import type { NormalizedTask } from '@domain';
+﻿import type { NormalizedTask } from '@domain';
+import { getStatusLabel } from './status';
 
 interface TaskListProps {
   tasks: NormalizedTask[];
@@ -8,18 +9,18 @@ interface TaskListProps {
 
 const TaskList = ({ tasks, onSelect, emptyLabel }: TaskListProps) => {
   if (tasks.length === 0) {
-    return <div className="empty-state">{emptyLabel ?? 'No tasks found.'}</div>;
+    return <div className="empty-state">{emptyLabel ?? '該当タスクはありません。'}</div>;
   }
 
   return (
     <div className="task-table">
       <div className="task-table__head">
-        <div>Member</div>
-        <div>Project</div>
-        <div>Task</div>
-        <div>Start</div>
-        <div>End</div>
-        <div>Status</div>
+        <div>担当者</div>
+        <div>プロジェクト</div>
+        <div>タスク</div>
+        <div>開始</div>
+        <div>終了</div>
+        <div>状態</div>
       </div>
       {tasks.map((task) => (
         <button
@@ -30,10 +31,12 @@ const TaskList = ({ tasks, onSelect, emptyLabel }: TaskListProps) => {
           <div>{task.memberName}</div>
           <div>{task.projectId}</div>
           <div className="task-table__task">{task.taskName}</div>
-          <div>{task.start ?? '?'}</div>
-          <div>{task.end ?? '?'}</div>
+          <div>{task.start ?? '—'}</div>
+          <div>{task.end ?? '—'}</div>
           <div>
-            <span className={`status-pill status-pill--${task.status}`}>{task.status}</span>
+            <span className={`status-pill status-pill--${task.status}`}>
+              {getStatusLabel(task.status)}
+            </span>
           </div>
         </button>
       ))}

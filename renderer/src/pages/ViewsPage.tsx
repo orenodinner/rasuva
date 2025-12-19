@@ -1,6 +1,14 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useAppStore } from '../state/store';
 import type { SavedViewState } from '@domain';
+
+const zoomLabel = (value: string) => {
+  if (value === 'day') return '日';
+  if (value === 'week') return '週';
+  if (value === 'month') return '月';
+  if (value === 'quarter') return '四半期';
+  return value;
+};
 
 const ViewsPage = () => {
   const [name, setName] = useState('');
@@ -34,33 +42,33 @@ const ViewsPage = () => {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Saved Views</h1>
-        <p>Store filter and zoom presets.</p>
+        <h1>保存ビュー</h1>
+        <p>検索条件やズームを保存します。</p>
       </div>
       <div className="view-save">
         <input
           className="text-input"
-          placeholder="View name"
+          placeholder="ビュー名"
           value={name}
           onChange={(event) => setName(event.target.value)}
         />
         <button className="cmd-button" onClick={handleSave}>
-          Save Current View
+          現在のビューを保存
         </button>
       </div>
       {views.length === 0 ? (
-        <div className="empty-state">No saved views yet.</div>
+        <div className="empty-state">保存されたビューはありません。</div>
       ) : (
         <div className="list">
           {views.map((view) => (
             <div key={view.id} className="list-row list-row--action">
               <div>
                 <div className="list-title">{view.name}</div>
-                <div className="list-subtitle">Updated {view.updatedAt}</div>
+                <div className="list-subtitle">更新 {view.updatedAt}</div>
               </div>
               <div className="list-metrics">
-                <span>Zoom {view.state.zoom}</span>
-                <span>Search {view.state.search || '?'}</span>
+                <span>ズーム {zoomLabel(view.state.zoom)}</span>
+                <span>検索 {view.state.search || '—'}</span>
               </div>
               <div className="list-actions">
                 <button
@@ -70,7 +78,7 @@ const ViewsPage = () => {
                     setZoom(view.state.zoom);
                   }}
                 >
-                  Apply
+                  適用
                 </button>
               </div>
             </div>

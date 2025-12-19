@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+﻿import { useEffect, useMemo } from 'react';
 import TaskList from '../components/TaskList';
 import { useAppStore } from '../state/store';
 
@@ -20,10 +20,10 @@ const UnscheduledPage = () => {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Unscheduled</h1>
-        <p>Tasks missing dates (start/end null).</p>
+        <h1>未確定</h1>
+        <p>開始日/終了日が空のタスク一覧です。</p>
       </div>
-      <TaskList tasks={tasks} onSelect={setSelectedTask} emptyLabel="No unscheduled tasks." />
+      <TaskList tasks={tasks} onSelect={setSelectedTask} emptyLabel="未確定はありません。" />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useAppStore } from '../state/store';
 
 const ExportPage = () => {
@@ -8,7 +8,7 @@ const ExportPage = () => {
   const handleExport = async () => {
     const response = await window.api.exportCsv(gantt?.importId ?? undefined);
     if (response.ok) {
-      setMessage(`Saved to ${response.path}`);
+      setMessage(`保存先: ${response.path}`);
     } else {
       setMessage(response.error);
     }
@@ -17,11 +17,11 @@ const ExportPage = () => {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Export</h1>
-        <p>Export the latest import as CSV.</p>
+        <h1>エクスポート</h1>
+        <p>最新インポートを CSV で出力します。</p>
       </div>
       <button className="cmd-button" onClick={handleExport}>
-        Export CSV
+        CSV をエクスポート
       </button>
       {message ? <div className="alert">{message}</div> : null}
     </div>

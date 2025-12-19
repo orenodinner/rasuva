@@ -8,7 +8,7 @@ let db: ReturnType<typeof createDb> | null = null;
 
 const createMainWindow = () => {
   const preloadPath = join(__dirname, '../preload/index.js');
-  const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
+  const isDev = !app.isPackaged;
   const window = new BrowserWindow({
     width: 1400,
     height: 900,
