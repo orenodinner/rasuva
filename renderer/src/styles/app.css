@@ -411,6 +411,47 @@ body {
   flex-wrap: wrap;
 }
 
+.view-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.diff-legend {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.diff-legend__item {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.diff-legend__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.diff-legend__swatch--added {
+  background: #2c62d6;
+}
+
+.diff-legend__swatch--updated {
+  background: #c23a32;
+}
+
+.diff-legend__swatch--archived {
+  background: #7b7b7b;
+}
+
 .task-table {
   display: grid;
   gap: 6px;
@@ -547,10 +588,25 @@ body {
 
 .gantt-tick {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text);
   padding: 4px 6px;
   border-right: 1px solid rgba(230, 220, 203, 0.6);
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.1;
+}
+
+.gantt-tick__week {
+  font-weight: 700;
+}
+
+.gantt-tick__date {
+  font-size: 10px;
+  color: var(--text-muted);
 }
 
 .gantt-bar {
@@ -570,6 +626,21 @@ body {
 
 .gantt-bar span {
   white-space: nowrap;
+}
+
+.gantt-bar--added {
+  background: linear-gradient(90deg, #2c62d6, #4a86ff);
+  box-shadow: 0 6px 10px rgba(44, 98, 214, 0.25);
+}
+
+.gantt-bar--updated {
+  background: linear-gradient(90deg, #c23a32, #e1635b);
+  box-shadow: 0 6px 10px rgba(194, 58, 50, 0.25);
+}
+
+.gantt-bar--archived {
+  background: linear-gradient(90deg, #7b7b7b, #9a9a9a);
+  box-shadow: 0 6px 10px rgba(123, 123, 123, 0.25);
 }
 
 @media (max-width: 1200px) {

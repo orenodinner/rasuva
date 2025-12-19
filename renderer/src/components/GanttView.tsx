@@ -4,38 +4,75 @@ import type { NormalizedTask } from '@domain';
 import { useAppStore } from '../state/store';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MS_PER_WEEK = MS_PER_DAY * 7;
 
-const toUtc = (value: string) => {
+const toUtcDate = (value: string) => {
   const [year, month, day] = value.split('-').map(Number);
-  return Date.UTC(year, month - 1, day);
+  return new Date(Date.UTC(year, month - 1, day));
 };
 
-const diffDays = (start: string, end: string) => {
-  return Math.floor((toUtc(end) - toUtc(start)) / MS_PER_DAY);
+const formatIsoDate = (date: Date) => {
+  const year = date.getUTCFullYear();
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getUTCDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
-const addDays = (start: string, days: number) => {
-  const [year, month, day] = start.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day + days));
-  const nextYear = date.getUTCFullYear();
-  const nextMonth = `${date.getUTCMonth() + 1}`.padStart(2, '0');
-  const nextDay = `${date.getUTCDate()}`.padStart(2, '0');
-  return `${nextYear}-${nextMonth}-${nextDay}`;
+const addDays = (date: Date, days: number) => {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
 };
 
-const formatLabel = (date: string) => {
-  const [year, month, day] = date.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString('ja-JP', {
-    month: 'short',
+const diffDays = (start: Date, end: Date) => {
+  return Math.floor((end.getTime() - start.getTime()) / MS_PER_DAY);
+};
+
+const getSundayOnOrBefore = (date: Date) => {
+  const day = date.getUTCDay();
+  return addDays(date, -day);
+};
+
+const getNextSundayAfter = (date: Date) => {
+  const day = date.getUTCDay();
+  const offset = day === 0 ? 7 : 7 - day;
+  return addDays(date, offset);
+};
+
+const getWeekStart = (dateStr: string) => {
+  const date = toUtcDate(dateStr);
+  const year = date.getUTCFullYear();
+  const jan1 = new Date(Date.UTC(year, 0, 1));
+  const firstSunday = getNextSundayAfter(jan1);
+  if (date.getTime() < firstSunday.getTime()) {
+    return jan1;
+  }
+  return getSundayOnOrBefore(date);
+};
+
+const getWeekNumber = (weekStart: Date) => {
+  const year = weekStart.getUTCFullYear();
+  const jan1 = new Date(Date.UTC(year, 0, 1));
+  const firstSunday = getNextSundayAfter(jan1);
+
+  if (weekStart.getTime() <= jan1.getTime() || weekStart.getTime() < firstSunday.getTime()) {
+    return { week: 1, year };
+  }
+
+  const diffWeeks = Math.floor((weekStart.getTime() - firstSunday.getTime()) / MS_PER_WEEK);
+  return { week: diffWeeks + 2, year };
+};
+
+const formatMonthDay = (date: Date) => {
+  return date.toLocaleDateString('ja-JP', {
+    month: 'numeric',
     day: '2-digit'
   });
 };
 
 const zoomConfig = {
-  day: { unitDays: 1, columnWidth: 28 },
+  day: { unitDays: 7, columnWidth: 28 },
   week: { unitDays: 7, columnWidth: 48 },
-  month: { unitDays: 30, columnWidth: 72 },
-  quarter: { unitDays: 90, columnWidth: 90 }
+  month: { unitDays: 7, columnWidth: 72 },
+  quarter: { unitDays: 7, columnWidth: 90 }
 } as const;
 
 const groupTasks = (tasks: NormalizedTask[]) => {
@@ -53,7 +90,13 @@ const groupTasks = (tasks: NormalizedTask[]) => {
   return members;
 };
 
-const GanttView = () => {
+interface GanttViewProps {
+  tasks?: NormalizedTask[];
+  emptyLabel?: string;
+  getBarClassName?: (task: NormalizedTask) => string;
+}
+
+const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const gantt = useAppStore((state) => state.gantt);
   const search = useAppStore((state) => state.search);
   const zoom = useAppStore((state) => state.zoom);
@@ -62,17 +105,15 @@ const GanttView = () => {
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const sourceTasks: NormalizedTask[] = tasks ?? gantt?.tasks ?? [];
 
   const filteredTasks = useMemo(() => {
-    if (!gantt) {
-      return [] as NormalizedTask[];
-    }
     const query = search.trim().toLowerCase();
-    const tasks = gantt.tasks.filter((task) => task.status === 'scheduled');
+    const taskList = sourceTasks.filter((task) => task.status === 'scheduled');
     if (!query) {
-      return tasks;
+      return taskList;
     }
-    return tasks.filter((task) => {
+    return taskList.filter((task) => {
       const haystack = [
         task.memberName,
         task.projectId,
@@ -84,7 +125,7 @@ const GanttView = () => {
         .toLowerCase();
       return haystack.includes(query);
     });
-  }, [gantt, search]);
+  }, [sourceTasks, search]);
 
   const { rows, rangeStart, rangeEnd } = useMemo(() => {
     const scheduled = filteredTasks.filter((task) => task.start && task.end);
@@ -132,29 +173,35 @@ const GanttView = () => {
     return { rows, rangeStart, rangeEnd };
   }, [filteredTasks]);
 
+  const timelineStart = rangeStart ? getWeekStart(rangeStart) : null;
+  const timelineEnd = rangeEnd ? toUtcDate(rangeEnd) : null;
+
   useEffect(() => {
-    if (!focusDate || !rangeStart) {
+    if (!focusDate || !timelineStart) {
       return;
     }
     const config = zoomConfig[zoom];
-    const offsetDays = diffDays(rangeStart, focusDate);
+    const focus = toUtcDate(focusDate);
+    const offsetDays = diffDays(timelineStart, focus);
     const scrollLeft = Math.max(0, (offsetDays / config.unitDays) * config.columnWidth - 120);
     if (scrollRef.current) {
       scrollRef.current.scrollLeft = scrollLeft;
     }
     setFocusDate(null);
-  }, [focusDate, rangeStart, zoom, setFocusDate]);
+  }, [focusDate, timelineStart, zoom, setFocusDate]);
 
-  if (!gantt || gantt.tasks.length === 0) {
-    return <div className="empty-state">インポート済みデータがありません。</div>;
+  if (sourceTasks.length === 0) {
+    return (
+      <div className="empty-state">{emptyLabel ?? 'インポート済みデータがありません。'}</div>
+    );
   }
 
-  if (!rangeStart || !rangeEnd) {
+  if (!rangeStart || !rangeEnd || !timelineStart || !timelineEnd) {
     return <div className="empty-state">予定ありタスクがありません。</div>;
   }
 
   const { unitDays, columnWidth } = zoomConfig[zoom];
-  const rangeDays = diffDays(rangeStart, rangeEnd) + 1;
+  const rangeDays = diffDays(timelineStart, timelineEnd) + 1;
   const columnCount = Math.ceil(rangeDays / unitDays);
   const timelineWidth = columnCount * columnWidth;
   const labelWidth = 260;
@@ -171,14 +218,16 @@ const GanttView = () => {
             </div>
             <div className="gantt-timeline" style={{ width: timelineWidth }}>
               {Array.from({ length: columnCount }).map((_, index) => {
-                const labelDate = addDays(rangeStart, index * unitDays);
+                const tickDate = addDays(timelineStart, index * unitDays);
+                const { week } = getWeekNumber(tickDate);
                 return (
                   <div
-                    key={labelDate}
+                    key={formatIsoDate(tickDate)}
                     className="gantt-tick"
                     style={{ width: columnWidth }}
                   >
-                    {formatLabel(labelDate)}
+                    <span className="gantt-tick__week">{week}W</span>
+                    <span className="gantt-tick__date">{formatMonthDay(tickDate)}</span>
                   </div>
                 );
               })}
@@ -199,15 +248,18 @@ const GanttView = () => {
               <div className="gantt-timeline" style={{ width: timelineWidth }}>
                 {row.type === 'task' && row.task && row.task.start && row.task.end ? (
                   <div
-                    className="gantt-bar"
+                    className={`gantt-bar ${getBarClassName?.(row.task) ?? ''}`}
                     style={{
                       left:
-                        (diffDays(rangeStart, row.task.start) / unitDays) * columnWidth,
+                        (diffDays(timelineStart, toUtcDate(row.task.start)) / unitDays) *
+                        columnWidth,
                       width:
                         Math.max(
                           columnWidth,
-                          Math.ceil((diffDays(row.task.start, row.task.end) + 1) / unitDays) *
-                            columnWidth
+                          Math.ceil(
+                            (diffDays(toUtcDate(row.task.start), toUtcDate(row.task.end)) + 1) /
+                              unitDays
+                          ) * columnWidth
                         )
                     }}
                   >

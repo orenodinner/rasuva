@@ -1,15 +1,32 @@
-﻿import { useEffect } from 'react';
+﻿import { useEffect, useMemo } from 'react';
 import { useAppStore } from '../state/store';
-import TaskList from '../components/TaskList';
+import GanttView from '../components/GanttView';
 
 const DiffPage = () => {
   const diff = useAppStore((state) => state.diff);
   const loadDiff = useAppStore((state) => state.loadDiff);
-  const setSelectedTask = useAppStore((state) => state.setSelectedTask);
 
   useEffect(() => {
     loadDiff();
   }, [loadDiff]);
+
+  const diffTasks = useMemo(() => {
+    if (!diff) {
+      return [];
+    }
+    return [...diff.added, ...diff.updated, ...diff.archived];
+  }, [diff]);
+
+  const taskClassMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!diff) {
+      return map;
+    }
+    diff.added.forEach((task) => map.set(task.taskKeyFull, 'gantt-bar--added'));
+    diff.updated.forEach((task) => map.set(task.taskKeyFull, 'gantt-bar--updated'));
+    diff.archived.forEach((task) => map.set(task.taskKeyFull, 'gantt-bar--archived'));
+    return map;
+  }, [diff]);
 
   if (!diff) {
     return (
@@ -51,32 +68,26 @@ const DiffPage = () => {
         </div>
       </div>
 
-      <section className="section">
-        <div className="section-header">
-          <h2>追加</h2>
+      <div className="diff-legend">
+        <div className="diff-legend__item">
+          <span className="diff-legend__swatch diff-legend__swatch--added" />
+          追加
         </div>
-        <TaskList tasks={diff.added} onSelect={setSelectedTask} emptyLabel="追加はありません。" />
-      </section>
+        <div className="diff-legend__item">
+          <span className="diff-legend__swatch diff-legend__swatch--updated" />
+          更新
+        </div>
+        <div className="diff-legend__item">
+          <span className="diff-legend__swatch diff-legend__swatch--archived" />
+          アーカイブ
+        </div>
+      </div>
 
       <section className="section">
-        <div className="section-header">
-          <h2>更新</h2>
-        </div>
-        <TaskList
-          tasks={diff.updated}
-          onSelect={setSelectedTask}
-          emptyLabel="更新はありません。"
-        />
-      </section>
-
-      <section className="section">
-        <div className="section-header">
-          <h2>アーカイブ</h2>
-        </div>
-        <TaskList
-          tasks={diff.archived}
-          onSelect={setSelectedTask}
-          emptyLabel="アーカイブはありません。"
+        <GanttView
+          tasks={diffTasks}
+          emptyLabel="差分はありません。"
+          getBarClassName={(task) => taskClassMap.get(task.taskKeyFull) ?? ''}
         />
       </section>
     </div>

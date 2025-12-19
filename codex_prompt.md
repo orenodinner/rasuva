@@ -1,158 +1,154 @@
-# Codex Prompt: OSS Electron ガント管理アプリ（Windows 11 / 社内利用）
+﻿# Codex Prompt: Rasuva（OSS Electron ガント管理アプリ / Windows 11）
 
-あなたは熟練したテックリード兼フルスタックエンジニアです。以下の要件に基づき、**OSSのみ**で構築される **Electron + TypeScript + React** のデスクトップアプリを実装してください。対象OSは **Windows 11**（ただしクロスプラットフォームでも動作してよい）。  
-本プロジェクトは社内利用を想定し、**セキュリティ、可搬性、保守性、監査性、使いやすさ**を最優先にします。
-
----
-
-## 0. 成果物（このリポジトリで実装すべきもの）
-
-- Electronアプリ一式（Main / Preload / Renderer）
-- JSONインポート（貼り付け / ファイル） + プレビュー/バリデーション
-- 差分サマリー（Added/Updated/Archived/Invalid/Unscheduled）
-- ガント表示（担当者→プロジェクト→タスクの階層）
-- 未確定タスク表示（start/endがnull）
-- 不正日付タスク表示（invalid_date）
-- インポート履歴（過去比較の土台）
-- 保存ビュー（フィルタ条件、ズーム、期間、折りたたみ状態）
-- エクスポート（MVPはCSV、可能ならPDFは後回し）
-- README（実行/開発/ビルド手順）
-- ライセンス/依存ライセンス通知（THIRD_PARTY_NOTICES）
+このファイルは **現在実装されている仕様** を反映した最新のプロンプトです。
 
 ---
 
-## 1. 入力データ（JSON契約）
+## 0. 目的
 
-JSONは以下の階層構造です。
+- OSS のみで構築する Electron + TypeScript + React デスクトップアプリ。
+- Windows 11 を主対象としつつクロスプラットフォーム動作も許容。
+- セキュリティ、可搬性、保守性、監査性、使いやすさを最優先。
 
-- `members[]`
-  - `name: string`
-  - `projects[]`
-    - `project_id: string`（空/ null はスキップ）
-    - `group?: string`（空可）
-    - `tasks[]`
-      - `task_name: string`
-      - `start: "YYYY-MM-DD" | null`
-      - `end: "YYYY-MM-DD" | null`
-      - `raw_date: string`（原文保持。UIは詳細のみ）
-      - `note?: string`（空可）
+---
 
-日付ルール:
-- `start/end` がnull → `unscheduled` 扱い（ガントのタイムラインには出さず、専用セクションに表示）
-- `start/end` が不正フォーマット → `invalid_date` 扱い（タイムラインから除外、一覧に表示。raw_dateを警告に残す）
+## 1. 実装済み機能（現状）
+
+### 1.1 アプリ骨格
+- Electron / Preload / Renderer を分離。
+- SideNav + CommandBar + Main + Details の 3 ペイン構成。
+- 画面ルーティング（HashRouter）。
+
+### 1.2 JSON インポート
+- JSON の貼り付け・ファイル選択に対応。
+- Preview でバリデーション結果と警告一覧を表示。
+- Apply で DB 保存 + Diff 計算。
+
+### 1.3 差分サマリー
+- Added / Updated / Archived / Invalid / Unscheduled の件数表示。
+- 差分を 1 つのガントチャートでも表示可能（追加=青、更新=赤、アーカイブ=グレー）。
+
+### 1.4 ガント表示
+- Member → Project → Task の階層表示。
+- 簡易タイムライン（独自実装、ズーム/検索/Today 対応）。
+- 上部日付は週単位（1月1日=1W、日曜到来で+1）で表示し、週ラベルの下に月日を表示。
+- 未確定 / 不正日付の専用一覧。
+
+### 1.5 監査・履歴
+- インポート履歴一覧。
+- Saved Views（検索語/ズームのみ保存）。
+- CSV エクスポート（保存ダイアログで出力）。
+
+### 1.6 日本語対応
+- UI 文言は日本語。
+- 日付ラベルは `ja-JP` で表示。
+- HTML の `lang` は `ja`。
+- エラーメッセージ/警告文は日本語化済み。
+
+---
+
+## 2. 入力データ（JSON 契約）
+
+```json
+{
+  "members": [
+    {
+      "name": "Alice",
+      "projects": [
+        {
+          "project_id": "P-001",
+          "group": "Core",
+          "tasks": [
+            {
+              "task_name": "Design",
+              "start": "2024-01-10",
+              "end": "2024-01-12",
+              "raw_date": "2024-01-10..2024-01-12",
+              "note": "Optional"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 日付ルール
+- `start/end` が `null` → `unscheduled`
+- 不正フォーマット → `invalid_date`
 - 1日タスクは `start=end`
 
-差分更新ルール:
-- キーは `project_id + task_name`（同一プロジェクトで同名タスクが重複する場合は衝突警告）
-- `start`/`end`/`note` の変更は更新
-- JSONに無くなったタスクは **非表示（archived）**（物理削除はせず、監査のため保持推奨）
+### 差分ルール
+- キー: `project_id + task_name`
+- 重複時はサフィックス（`#2`/`#3`）で一意化し警告。
+- JSON から消えたタスクは **archived**（物理削除はしない）。
 
 ---
 
-## 2. UX要件（Windows 11で最高に使いやすく）
+## 3. 技術スタック（実装済み）
 
-必須UI構成（3ペイン）:
-- 左: SideNav（Home / Import / Gantt / Members / Groups / Unscheduled / Invalid / Imports / Views / Export / Settings）
-- 上: CommandBar（Import / Diff / Search / Zoom / Today / Toggles）
-- 中央: ガント or 一覧
-- 右: 詳細ペイン（選択タスクの詳細。raw_dateはここだけに表示）
-
-MVPの画面:
-1) Home（最近のインポート、クイックアクション）  
-2) Import（貼り付け/ファイル）  
-3) Preview（バリデーション結果 + 件数サマリー）  
-4) Diff Summary（差分カード + 差分一覧）  
-5) Main Gantt（階層 + タイムライン + 検索/フィルタ）  
-6) Unscheduled（未確定一覧）  
-7) Invalid（不正データ一覧）  
-8) Imports（履歴一覧）  
-9) Saved Views  
-10) Settings  
-
-ショートカット（目標）:
-- Ctrl+K: 検索フォーカス
-- Ctrl+O: Import（ファイル）
-- T: Today
-- Ctrl+1/2/3/4: Day/Week/Month/Quarter
-
----
-
-## 3. 技術要件（OSS縛り / Electron）
-
-### 推奨スタック
 - Electron + TypeScript
 - React + Vite（renderer）
-- Zustand か Redux Toolkit（どちらかを選び、理由をREADMEに記載）
-- SQLite: `better-sqlite3`（ローカル永続化）
+- Zustand（状態管理）
+- SQLite: `better-sqlite3`（^11.5.0）
 - バリデーション: `zod`
-- ガント/タイムライン: **MIT/Apache/BSD等のOSSのみ**
-  - 優先候補: `vis-timeline`（MIT）または `gantt-task-react`（MIT）
+- `electron-vite` / `@electron/rebuild` を利用
 
-### セキュリティ必須
+---
+
+## 4. セキュリティ実装
+
 - `contextIsolation: true`
 - `nodeIntegration: false`
-- preloadで `window.api` のみ公開（最小API）
-- IPCはチャンネル固定 + 引数をzodで検証
-- ネットワーク送信/テレメトリは禁止（オフライン動作）
-- 外部URLのオープンは禁止（必要ならallowlist）
+- `sandbox: true`
+- `window.api` のみ公開（preload 経由）
+- IPC はチャンネル固定 + zod 検証
+- 外部 URL ナビゲーションをブロック
+- CSP 追加（dev 向けに `unsafe-eval` を許容）
 
 ---
 
-## 4. 実装スコープ（MVPの段階定義）
+## 5. IPC（実装済み）
 
-### Phase 1: 骨組み
-- プロジェクト雛形（electron + vite + react + ts）
-- SideNav + 画面ルーティング
-- Main/Preload/Rendererの安全設定
-
-### Phase 2: インポート〜差分
-- Import（貼り付け/ファイル）→ Preview（検証）→ Apply（DB保存）
-- 差分サマリー（前回インポートとの比較）
-- 警告ログ（invalid/skip/duplicate）
-
-### Phase 3: ガント表示
-- Member→Project→Task の行ツリー
-- タイムライン（期間レンジ、ズーム、Today）
-- 未確定/不正の専用画面
-- 詳細ペイン（raw_date表示はここだけ）
-
-### Phase 4: 便利機能
-- Saved Views
-- CSV Export
-- Imports一覧（履歴）
+- `import.preview`
+- `import.apply`
+- `diff.get`
+- `gantt.query`
+- `imports.list`
+- `views.list`
+- `views.save`
+- `export.csv`
 
 ---
 
-## 5. 進め方（Codexの作業手順）
+## 6. ショートカット（実装済み）
 
-- まず **リポジトリ構成** と **依存の選定** を確定し、`README` に記録する
-- 次に **データ層（domain + db + diff）** を先に作り、UIは後から接続する
-- UIは「壊れにくい骨格（AppShell）」→「Import/Diff」→「Gantt」の順で実装
-- 迷ったら **合理的な仮定** を置いて進め、READMEの「Assumptions」に必ず記録する
-- 依存追加時は `codex_rules.md` のライセンスルールに従い、禁止ライセンスを避ける
-
----
-
-## 6. 受け入れ基準（最低限のDone）
-
-- サンプルJSONを貼り付けて Import → Preview → Apply が完了する
-- Diff Summaryで Added/Updated/Archived/Invalid/Unscheduled の件数と一覧が見える
-- Ganttで担当者→プロジェクト→タスクが表示され、期間バーが出る（scheduledのみ）
-- Unscheduled/Invalid の一覧画面がある
-- 詳細ペインに raw_date が表示される（通常UIには出ない）
-- 過去インポート履歴が見える
-- Windows 11で起動し、操作が破綻しない
+- `Ctrl+K`: 検索フォーカス
+- `Ctrl+O`: インポート画面 + ファイル選択
+- `T`: Today
+- `Ctrl+1/2/3/4`: Day / Week / Month / Quarter
 
 ---
 
-## 7. 最初に着手する具体タスク（ここから開始）
+## 7. 既知の制限 / 未実装
 
-1) Electron+Vite+React+TSの雛形を作成（安全設定込み）
-2) packages/domain に Zodスキーマ + 正規化モデル + 差分計算を実装
-3) packages/db に SQLiteスキーマ + CRUD（imports/tasks/warnings）を実装
-4) IPC API（import.preview / import.apply / diff.get / gantt.query）を定義
-5) Import画面→Preview画面→Diff画面を接続
-6) 最後にGantt画面の表示（最初は簡易でOK、段階的に改善）
+- ガントは OSS ライブラリ未導入（簡易表示のみ）。
+- Saved Views の範囲/折りたたみ状態の保存は未実装。
+- PDF エクスポートは未実装（CSV のみ）。
+- 大量データ向けの仮想スクロールは未対応。
 
-このプロンプトに従って実装を開始してください。  
-追加の情報が無くても、上記仕様に基づいて進め、仮定はREADMEへ明記してください。
+---
+
+## 8. 次の作業候補
+
+- `vis-timeline` など OSS ガントライブラリの導入。
+- Saved Views の `rangeStart/end` と `collapsedGroups` の保存。
+- 大量件数の仮想スクロール対応。
+- PDF 出力の追加。
+
+---
+
+## 9. 依存ライセンス
+
+`THIRD_PARTY_NOTICES.md` に記載。
