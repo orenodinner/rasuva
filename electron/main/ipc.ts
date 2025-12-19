@@ -368,6 +368,35 @@ export const registerIpcHandlers = (db: DbClient) => {
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
         });
       });
+
+      if (tasks.length > 0) {
+        const dateColumnEndIndex = dateColumnStartIndex + dates.length - 1;
+        const startLetter = toColumnLetter(dateColumnStartIndex);
+        const endLetter = toColumnLetter(dateColumnEndIndex);
+        const rangeRef = `${startLetter}2:${endLetter}${tasks.length + 1}`;
+
+        ganttSheet.addConditionalFormatting({
+          ref: rangeRef,
+          rules: [
+            {
+              type: 'containsText',
+              operator: 'containsText',
+              text: '■',
+              style: {
+                font: { color: { argb: 'FF1E8E3E' } }
+              }
+            },
+            {
+              type: 'containsText',
+              operator: 'containsText',
+              text: '★',
+              style: {
+                font: { color: { argb: 'FFD93025' } }
+              }
+            }
+          ]
+        });
+      }
     }
 
     const sheet = workbook.addWorksheet('Tasks');
