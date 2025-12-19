@@ -22,6 +22,7 @@ const App = () => {
   const navigate = useNavigate();
   const loadImports = useAppStore((state) => state.loadImports);
   const loadGantt = useAppStore((state) => state.loadGantt);
+  const lastError = useAppStore((state) => state.lastError);
   const setZoom = useAppStore((state) => state.setZoom);
   const setFocusDate = useAppStore((state) => state.setFocusDate);
 
@@ -86,6 +87,7 @@ const App = () => {
         <CommandBar />
         <div className="content-shell">
           <main className="main-pane">
+            {lastError ? <div className="alert">{lastError}</div> : null}
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/import" element={<ImportPage />} />

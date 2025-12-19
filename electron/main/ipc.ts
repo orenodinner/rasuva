@@ -4,17 +4,7 @@ import { diffTasks, normalizeImport, parseImportJson } from '@domain';
 import type { DbClient } from '@db';
 import type { NormalizedTask } from '@domain';
 import { writeFileSync } from 'fs';
-
-export const IPC_CHANNELS = {
-  importPreview: 'import.preview',
-  importApply: 'import.apply',
-  diffGet: 'diff.get',
-  ganttQuery: 'gantt.query',
-  importsList: 'imports.list',
-  viewsList: 'views.list',
-  viewsSave: 'views.save',
-  exportCsv: 'export.csv'
-} as const;
+import { IPC_CHANNELS } from '../shared/ipcChannels';
 
 const previewSchema = z.object({
   jsonText: z.string()

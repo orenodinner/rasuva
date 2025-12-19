@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC_CHANNELS } from '../main/ipc';
+import { IPC_CHANNELS } from '../shared/ipcChannels';
 import type { SavedViewState } from '@domain';
 
 const api = {

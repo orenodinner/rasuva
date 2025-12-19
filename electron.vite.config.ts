@@ -5,9 +5,11 @@ const rootDir = __dirname;
 
 export default defineConfig({
   main: {
-    entry: resolve(rootDir, 'electron/main/index.ts'),
     build: {
       outDir: resolve(rootDir, 'dist-electron/main'),
+      lib: {
+        entry: resolve(rootDir, 'electron/main/index.ts')
+      },
       rollupOptions: {
         external: ['better-sqlite3']
       }
@@ -20,9 +22,11 @@ export default defineConfig({
     }
   },
   preload: {
-    entry: resolve(rootDir, 'electron/preload/index.ts'),
     build: {
-      outDir: resolve(rootDir, 'dist-electron/preload')
+      outDir: resolve(rootDir, 'dist-electron/preload'),
+      lib: {
+        entry: resolve(rootDir, 'electron/preload/index.ts')
+      }
     },
     resolve: {
       alias: {
@@ -33,7 +37,10 @@ export default defineConfig({
   renderer: {
     root: resolve(rootDir, 'renderer'),
     build: {
-      outDir: resolve(rootDir, 'dist/renderer')
+      outDir: resolve(rootDir, 'dist/renderer'),
+      rollupOptions: {
+        input: resolve(rootDir, 'renderer/index.html')
+      }
     },
     resolve: {
       alias: {

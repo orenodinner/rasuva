@@ -1,8 +1,8 @@
-# Rasuva
+﻿# Rasuva
 
 OSS-only Electron + TypeScript + React desktop app for internal Gantt tracking on Windows 11.
 The app imports structured JSON, validates and normalizes tasks, stores snapshots in SQLite, and renders
-Member �� Project �� Task timelines alongside diff summaries and audit-friendly history.
+Member -> Project -> Task timelines alongside diff summaries and audit-friendly history.
 
 ## Highlights
 
@@ -40,6 +40,8 @@ Member �� Project �� Task timelines alongside diff summaries and audit-friendly 
 npm install
 npm run dev
 ```
+
+Note: `postinstall` runs `electron-rebuild` (from `@electron/rebuild`) for better-sqlite3 to match the Electron runtime.
 
 ### Build
 
@@ -87,8 +89,8 @@ npm run test
 ```
 
 Date rules:
-- `start/end` null �� `unscheduled`
-- invalid date format �� `invalid_date`
+- `start/end` null -> `unscheduled`
+- invalid date format -> `invalid_date`
 - 1-day task uses `start=end`
 
 ## IPC surface (preload)
@@ -129,3 +131,135 @@ See `THIRD_PARTY_NOTICES.md` for OSS license attribution.
 - Renderer has no direct Node access; `window.api` is the only bridge.
 - External URL navigation is blocked by default.
 
+## 日本語
+
+OSS のみで構成された Electron + TypeScript + React デスクトップアプリです。
+構造化 JSON をインポートして検証・正規化し、SQLite にスナップショットとして保存します。担当者 -> プロジェクト -> タスクの
+タイムライン表示と差分サマリーに対応します。
+
+## 特長
+
+- オフライン動作のみ、ローカル SQLite へ保存（better-sqlite3）。
+- Electron の安全設定を有効化: `contextIsolation` on、`nodeIntegration` off、`sandbox` on。
+- JSON インポートにプレビューとバリデーション警告を追加。
+- 差分サマリー（Added / Updated / Archived / Invalid / Unscheduled）。
+- ガントタイムラインと Unscheduled / Invalid の専用一覧。
+- インポート履歴、Saved Views、CSV エクスポート。
+
+## 技術スタック
+
+- Electron + TypeScript
+- React + Vite（renderer）
+- Zustand（状態管理）
+  - 理由: API が小さく、MVP のボイラープレートを抑えつつ型を維持できるため。
+- SQLite: better-sqlite3
+- バリデーション: zod
+
+## プロジェクト構成
+
+```
+/electron
+  /main
+  /preload
+/renderer
+/packages
+  /domain
+  /db
+```
+
+## セットアップ
+
+```bash
+npm install
+npm run dev
+```
+
+補足: `postinstall` で `electron-rebuild`（`@electron/rebuild`）を実行し、better-sqlite3 を Electron のバージョンに合わせて再ビルドします。
+
+### ビルド
+
+```bash
+npm run build
+```
+
+### パッケージ（Windows）
+
+```bash
+npm run package
+```
+
+### テスト
+
+```bash
+npm run test
+```
+
+## JSON 契約
+
+```json
+{
+  "members": [
+    {
+      "name": "Alice",
+      "projects": [
+        {
+          "project_id": "P-001",
+          "group": "Core",
+          "tasks": [
+            {
+              "task_name": "Design",
+              "start": "2024-01-10",
+              "end": "2024-01-12",
+              "raw_date": "2024-01-10..2024-01-12",
+              "note": "Optional"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+日付ルール:
+- `start/end` が null -> `unscheduled`
+- 不正フォーマット -> `invalid_date`
+- 1 日タスクは `start=end`
+
+## IPC インターフェース（preload）
+
+- `import.preview`
+- `import.apply`
+- `diff.get`
+- `gantt.query`
+- `imports.list`
+- `views.list`
+- `views.save`
+- `export.csv`
+
+IPC の入力はすべて main プロセス側で zod により検証されます。
+
+## データ保存
+
+SQLite データベースは以下に作成されます:
+- Windows: `%APPDATA%/Rasuva/rasuva.db`
+
+インポートごとにスナップショットを保持し、監査向けに履歴を残します。
+アーカイブされたタスクは過去インポート内に保持され、差分サマリーで確認できます。
+
+## 仮定
+
+- 重複タスクキー（`project_id + task_name`）は `#2`/`#3` のサフィックスで一意化します。
+- `end` が `start` より前の場合は `invalid_date` として扱います。
+- メンバー変更やグループ変更は diff の更新として扱います。
+- `project_id` が欠落したプロジェクトは警告を出してスキップします。
+
+## 依存とライセンス
+
+OSS のライセンス表記は `THIRD_PARTY_NOTICES.md` を参照してください。
+
+## セキュリティ
+
+- 外部ネットワーク送信やテレメトリはありません。
+- Renderer は Node API に直接アクセスできず、`window.api` のみを経由します。
+- 外部 URL への遷移はデフォルトでブロックされます。

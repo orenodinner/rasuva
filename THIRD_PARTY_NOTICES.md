@@ -15,6 +15,7 @@ This project uses the following third-party OSS packages (licenses verified at t
 
 - electron (MIT)
 - electron-builder (MIT)
+- @electron/rebuild (MIT)
 - electron-vite (MIT)
 - vite (MIT)
 - typescript (Apache-2.0)

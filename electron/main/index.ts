@@ -8,6 +8,7 @@ let db: ReturnType<typeof createDb> | null = null;
 
 const createMainWindow = () => {
   const preloadPath = join(__dirname, '../preload/index.js');
+  const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
   const window = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -24,15 +25,34 @@ const createMainWindow = () => {
 
   window.once('ready-to-show', () => {
     window.show();
+    if (isDev) {
+      window.webContents.openDevTools({ mode: 'detach' });
+    }
   });
 
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  const devServerUrl =
+    process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_RENDERER_URL || null;
   if (devServerUrl) {
     window.loadURL(devServerUrl);
+  } else if (isDev) {
+    window.loadURL('http://localhost:5173/');
   } else {
     const indexPath = join(__dirname, '../../dist/renderer/index.html');
     window.loadFile(indexPath);
   }
+
+  window.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('Renderer load failed', { errorCode, errorDescription, validatedURL });
+  });
+
+  window.webContents.on('render-process-gone', (_event, details) => {
+    console.error('Renderer process gone', details);
+  });
+
+  window.webContents.on('console-message', (_event, level, message) => {
+    const levelLabel = ['LOG', 'WARN', 'ERROR'][level] ?? 'LOG';
+    console.log(`[renderer:${levelLabel}] ${message}`);
+  });
 
   return window;
 };

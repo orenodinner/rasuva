@@ -62,6 +62,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setFocusDate: (value) => set({ focusDate: value }),
   clearError: () => set({ lastError: null }),
   loadPreview: async () => {
+    if (!window.api) {
+      set({ lastError: 'Preload API が利用できません。preload の読み込みを確認してください。' });
+      return false;
+    }
     const jsonText = get().jsonText;
     const response = await window.api.importPreview(jsonText);
     if (response.ok) {
@@ -73,6 +77,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   applyImport: async (source) => {
+    if (!window.api) {
+      set({ lastError: 'Preload API が利用できません。preload の読み込みを確認してください。' });
+      return null;
+    }
     const jsonText = get().jsonText;
     const response = await window.api.importApply(jsonText, source);
     if (response.ok) {
@@ -88,6 +96,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     return null;
   },
   loadDiff: async (importId) => {
+    if (!window.api) {
+      set({ lastError: 'Preload API が利用できません。preload の読み込みを確認してください。' });
+      return;
+    }
     const response = await window.api.diffGet(importId);
     if (response.ok) {
       set({ diff: response.diff, lastError: null });
@@ -96,6 +108,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   loadGantt: async (importId) => {
+    if (!window.api) {
+      set({ lastError: 'Preload API が利用できません。preload の読み込みを確認してください。' });
+      return;
+    }
     const response = await window.api.ganttQuery(importId);
     if (response.ok) {
       set({ gantt: response.result, lastError: null });
@@ -104,6 +120,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   loadImports: async () => {
+    if (!window.api) {
+      set({ lastError: 'Preload API が利用できません。preload の読み込みを確認してください。' });
+      return;
+    }
     const response = await window.api.importsList();
     if (response.ok) {
       set({ imports: response.imports, lastError: null });
@@ -112,6 +132,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   loadViews: async () => {
+    if (!window.api) {
+      set({ lastError: 'Preload API が利用できません。preload の読み込みを確認してください。' });
+      return;
+    }
     const response = await window.api.viewsList();
     if (response.ok) {
       set({ views: response.views, lastError: null });
@@ -120,6 +144,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   saveView: async (name, state) => {
+    if (!window.api) {
+      set({ lastError: 'Preload API が利用できません。preload の読み込みを確認してください。' });
+      return;
+    }
     const response = await window.api.viewsSave(name, state);
     if (response.ok) {
       set({ lastError: null });
