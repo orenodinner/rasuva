@@ -182,8 +182,9 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     }
     const config = zoomConfig[zoom];
     const focus = toUtcDate(focusDate);
+    const dayWidth = config.columnWidth / config.unitDays;
     const offsetDays = diffDays(timelineStart, focus);
-    const scrollLeft = Math.max(0, (offsetDays / config.unitDays) * config.columnWidth - 120);
+    const scrollLeft = Math.max(0, offsetDays * dayWidth - 120);
     if (scrollRef.current) {
       scrollRef.current.scrollLeft = scrollLeft;
     }
@@ -201,6 +202,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   }
 
   const { unitDays, columnWidth } = zoomConfig[zoom];
+  const dayWidth = columnWidth / unitDays;
   const rangeDays = diffDays(timelineStart, timelineEnd) + 1;
   const columnCount = Math.ceil(rangeDays / unitDays);
   const timelineWidth = columnCount * columnWidth;
@@ -247,24 +249,36 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
               </div>
               <div className="gantt-timeline" style={{ width: timelineWidth }}>
                 {row.type === 'task' && row.task && row.task.start && row.task.end ? (
-                  <div
-                    className={`gantt-bar ${getBarClassName?.(row.task) ?? ''}`}
-                    style={{
-                      left:
-                        (diffDays(timelineStart, toUtcDate(row.task.start)) / unitDays) *
-                        columnWidth,
-                      width:
-                        Math.max(
-                          columnWidth,
-                          Math.ceil(
-                            (diffDays(toUtcDate(row.task.start), toUtcDate(row.task.end)) + 1) /
-                              unitDays
-                          ) * columnWidth
-                        )
-                    }}
-                  >
-                    <span>{row.task.taskName}</span>
-                  </div>
+                  (() => {
+                    const startDate = toUtcDate(row.task.start);
+                    const endDate = toUtcDate(row.task.end);
+                    const durationDays = diffDays(startDate, endDate) + 1;
+                    const left = diffDays(timelineStart, startDate) * dayWidth;
+                    const className = getBarClassName?.(row.task) ?? '';
+
+                    if (durationDays === 1) {
+                      return (
+                        <div
+                          className={`gantt-marker ${className}`}
+                          style={{ left: left + dayWidth / 2 }}
+                        >
+                          ★
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div
+                        className={`gantt-bar ${className}`}
+                        style={{
+                          left,
+                          width: Math.max(dayWidth, durationDays * dayWidth)
+                        }}
+                      >
+                        <span>{row.task.taskName}</span>
+                      </div>
+                    );
+                  })()
                 ) : null}
               </div>
             </div>

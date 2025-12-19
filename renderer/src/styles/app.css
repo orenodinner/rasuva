@@ -628,6 +628,27 @@ body {
   white-space: nowrap;
 }
 
+.gantt-marker {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  font-size: 14px;
+  color: var(--accent-strong);
+  text-shadow: 0 2px 4px rgba(22, 18, 14, 0.2);
+}
+
+.gantt-marker.gantt-bar--added {
+  color: #2c62d6;
+}
+
+.gantt-marker.gantt-bar--updated {
+  color: #c23a32;
+}
+
+.gantt-marker.gantt-bar--archived {
+  color: #7b7b7b;
+}
+
 .gantt-bar--added {
   background: linear-gradient(90deg, #2c62d6, #4a86ff);
   box-shadow: 0 6px 10px rgba(44, 98, 214, 0.25);
