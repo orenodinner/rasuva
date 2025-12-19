@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import type {
   DiffResult,
   ImportApplyResult,
@@ -12,6 +12,14 @@ import type {
 
 export type ZoomLevel = 'day' | 'week' | 'month' | 'quarter';
 
+interface TaskUpdateInput {
+  importId?: number;
+  taskKeyFull: string;
+  start: string | null;
+  end: string | null;
+  note: string | null;
+}
+
 interface AppState {
   jsonText: string;
   importSource: 'paste' | 'file';
@@ -24,6 +32,7 @@ interface AppState {
   search: string;
   zoom: ZoomLevel;
   focusDate: string | null;
+  currentImportId: number | null;
   lastError: string | null;
   setJsonText: (value: string) => void;
   setImportSource: (value: 'paste' | 'file') => void;
@@ -39,6 +48,7 @@ interface AppState {
   loadImports: () => Promise<void>;
   loadViews: () => Promise<void>;
   saveView: (name: string, state: SavedViewState) => Promise<void>;
+  updateTask: (input: TaskUpdateInput) => Promise<boolean>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -53,6 +63,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   search: '',
   zoom: 'month',
   focusDate: null,
+  currentImportId: null,
   lastError: null,
   setJsonText: (value) => set({ jsonText: value }),
   setImportSource: (value) => set({ importSource: value }),
@@ -71,10 +82,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (response.ok) {
       set({ preview: response.preview, lastError: null });
       return true;
-    } else {
-      set({ lastError: response.error });
-      return false;
     }
+    set({ lastError: response.error });
+    return false;
   },
   applyImport: async (source) => {
     if (!window.api) {
@@ -87,6 +97,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         diff: response.result.diff,
         preview: null,
+        currentImportId: response.result.importId,
         lastError: null
       });
       await get().loadImports();
@@ -102,7 +113,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     const response = await window.api.diffGet(importId);
     if (response.ok) {
-      set({ diff: response.diff, lastError: null });
+      set({ diff: response.diff, currentImportId: response.importId, lastError: null });
     } else {
       set({ lastError: response.error });
     }
@@ -114,7 +125,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     const response = await window.api.ganttQuery(importId);
     if (response.ok) {
-      set({ gantt: response.result, lastError: null });
+      set({ gantt: response.result, currentImportId: response.result.importId, lastError: null });
     } else {
       set({ lastError: response.error });
     }
@@ -155,5 +166,50 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else {
       set({ lastError: response.error });
     }
+  },
+  updateTask: async (input) => {
+    if (!window.api) {
+      set({ lastError: 'Preload API が利用できません。preload の読み込みを確認してください。' });
+      return false;
+    }
+
+    const importId = input.importId ?? get().currentImportId;
+    if (!importId) {
+      set({ lastError: 'インポートが選択されていません。' });
+      return false;
+    }
+
+    const response = await window.api.taskUpdate(
+      importId,
+      input.taskKeyFull,
+      input.start,
+      input.end,
+      input.note
+    );
+
+    if (!response.ok) {
+      set({ lastError: response.error });
+      return false;
+    }
+
+    const updated = response.task;
+    const replaceTask = (items: NormalizedTask[]) =>
+      items.map((task) => (task.taskKeyFull === updated.taskKeyFull ? updated : task));
+
+    set((state) => ({
+      gantt: state.gantt ? { ...state.gantt, tasks: replaceTask(state.gantt.tasks) } : state.gantt,
+      diff: state.diff
+        ? {
+            ...state.diff,
+            added: replaceTask(state.diff.added),
+            updated: replaceTask(state.diff.updated),
+            archived: replaceTask(state.diff.archived)
+          }
+        : state.diff,
+      selectedTask: updated,
+      lastError: null
+    }));
+
+    return true;
   }
 }));

@@ -54,6 +54,17 @@ describe('db', () => {
     expect(tasks.length).toBe(1);
     expect(tasks[0].taskName).toBe('Build');
 
+    db.updateTask(importId, tasks[0].taskKeyFull, {
+      start: '2024-01-02',
+      end: '2024-01-03',
+      note: 'Updated',
+      status: 'scheduled'
+    });
+
+    const updated = db.getTaskByKey(importId, tasks[0].taskKeyFull);
+    expect(updated?.start).toBe('2024-01-02');
+    expect(updated?.note).toBe('Updated');
+
     db.close();
   });
 });

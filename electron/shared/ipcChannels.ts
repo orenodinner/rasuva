@@ -6,5 +6,6 @@ export const IPC_CHANNELS = {
   importsList: 'imports.list',
   viewsList: 'views.list',
   viewsSave: 'views.save',
-  exportCsv: 'export.csv'
+  exportCsv: 'export.csv',
+  taskUpdate: 'task.update'
 } as const;

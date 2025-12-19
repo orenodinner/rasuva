@@ -83,6 +83,8 @@ export interface DbClient {
   getLatestImportId: () => number | null;
   getPreviousImportId: (importId: number) => number | null;
   getTasksByImportId: (importId: number) => NormalizedTask[];
+  getTaskByKey: (importId: number, taskKeyFull: string) => NormalizedTask | null;
+  updateTask: (importId: number, taskKeyFull: string, updates: Partial<NormalizedTask>) => void;
   getImportById: (importId: number) => ImportListItem | null;
   getSavedViews: () => SavedViewItem[];
   saveView: (name: string, state: SavedViewState) => number;
@@ -299,6 +301,26 @@ export const createDb = (dbPath: string): DbClient => {
     return rows.map(rowToTask);
   };
 
+  const getTaskByKey = (importId: number, taskKeyFull: string) => {
+    const row = db
+      .prepare(`SELECT * FROM tasks WHERE import_id = @importId AND task_key_full = @taskKeyFull`)
+      .get({ importId, taskKeyFull });
+    return row ? rowToTask(row) : null;
+  };
+
+  const updateTask = (importId: number, taskKeyFull: string, updates: Partial<NormalizedTask>) => {
+    const stmt = db.prepare(`\n      UPDATE tasks\n      SET start = @start,\n          end = @end,\n          note = @note,\n          status = @status\n      WHERE import_id = @importId AND task_key_full = @taskKeyFull\n    `);
+
+    stmt.run({
+      importId,
+      taskKeyFull,
+      start: updates.start ?? null,
+      end: updates.end ?? null,
+      note: updates.note ?? null,
+      status: updates.status
+    });
+  };
+
   const getImportById = (importId: number): ImportListItem | null => {
     const row = db
       .prepare(
@@ -347,6 +369,8 @@ export const createDb = (dbPath: string): DbClient => {
     getLatestImportId,
     getPreviousImportId,
     getTasksByImportId,
+    getTaskByKey,
+    updateTask,
     getImportById,
     getSavedViews,
     saveView

@@ -1,6 +1,6 @@
 import { dialog, ipcMain } from 'electron';
 import { z } from 'zod';
-import { diffTasks, normalizeImport, parseImportJson } from '@domain';
+import { diffTasks, normalizeImport, parseDateStrict, parseImportJson } from '@domain';
 import type { DbClient } from '@db';
 import type { NormalizedTask } from '@domain';
 import { writeFileSync } from 'fs';
@@ -38,6 +38,14 @@ const viewSaveSchema = z.object({
 
 const exportSchema = z.object({
   importId: z.number().int().positive().optional()
+});
+
+const taskUpdateSchema = z.object({
+  importId: z.number().int().positive().optional(),
+  taskKeyFull: z.string().min(1),
+  start: z.string().nullable(),
+  end: z.string().nullable(),
+  note: z.string().nullable().optional()
 });
 
 const escapeCsv = (value: string | null) => {
@@ -214,5 +222,55 @@ export const registerIpcHandlers = (db: DbClient) => {
 
     writeFileSync(dialogResult.filePath, csv, 'utf-8');
     return { ok: true, path: dialogResult.filePath };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.taskUpdate, async (_event, payload) => {
+    const parsedPayload = taskUpdateSchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const importId = parsedPayload.data.importId ?? db.getLatestImportId();
+    if (!importId) {
+      return { ok: false, error: 'No import available.' };
+    }
+
+    const { taskKeyFull } = parsedPayload.data;
+    const startRaw = parsedPayload.data.start;
+    const endRaw = parsedPayload.data.end;
+    const note = parsedPayload.data.note ?? null;
+
+    const start = startRaw === null ? null : parseDateStrict(startRaw);
+    const end = endRaw === null ? null : parseDateStrict(endRaw);
+
+    if (startRaw !== null && start === null) {
+      return { ok: false, error: '開始日が不正です（YYYY-MM-DD を想定）。' };
+    }
+
+    if (endRaw !== null && end === null) {
+      return { ok: false, error: '終了日が不正です（YYYY-MM-DD を想定）。' };
+    }
+
+    let status: 'scheduled' | 'unscheduled' | 'invalid_date' = 'scheduled';
+
+    if (start === null || end === null) {
+      status = 'unscheduled';
+    } else if (end < start) {
+      return { ok: false, error: '終了日が開始日より前です。' };
+    }
+
+    db.updateTask(importId, taskKeyFull, {
+      start: status === 'scheduled' ? start : null,
+      end: status === 'scheduled' ? end : null,
+      note,
+      status
+    });
+
+    const updated = db.getTaskByKey(importId, taskKeyFull);
+    if (!updated) {
+      return { ok: false, error: '更新対象のタスクが見つかりません。' };
+    }
+
+    return { ok: true, task: updated };
   });
 };

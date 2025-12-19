@@ -15,7 +15,21 @@ const api = {
   viewsList: () => ipcRenderer.invoke(IPC_CHANNELS.viewsList),
   viewsSave: (name: string, state: SavedViewState) =>
     ipcRenderer.invoke(IPC_CHANNELS.viewsSave, { name, state }),
-  exportCsv: (importId?: number) => ipcRenderer.invoke(IPC_CHANNELS.exportCsv, { importId })
+  exportCsv: (importId?: number) => ipcRenderer.invoke(IPC_CHANNELS.exportCsv, { importId }),
+  taskUpdate: (
+    importId: number | undefined,
+    taskKeyFull: string,
+    start: string | null,
+    end: string | null,
+    note: string | null
+  ) =>
+    ipcRenderer.invoke(IPC_CHANNELS.taskUpdate, {
+      importId,
+      taskKeyFull,
+      start,
+      end,
+      note
+    })
 };
 
 contextBridge.exposeInMainWorld('api', api);

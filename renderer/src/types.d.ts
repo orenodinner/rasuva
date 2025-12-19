@@ -33,6 +33,13 @@ declare global {
         state: SavedViewState
       ) => Promise<ApiSuccess<{ viewId: number }> | ApiFailure>;
       exportCsv: (importId?: number) => Promise<ApiSuccess<{ path: string }> | ApiFailure>;
+      taskUpdate: (
+        importId: number | undefined,
+        taskKeyFull: string,
+        start: string | null,
+        end: string | null,
+        note: string | null
+      ) => Promise<ApiSuccess<{ task: NormalizedTask }> | ApiFailure>;
     };
   }
 }

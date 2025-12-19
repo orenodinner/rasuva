@@ -225,6 +225,32 @@ body {
   font-weight: 600;
 }
 
+.detail-input,
+.detail-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fffef9;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.detail-textarea {
+  resize: vertical;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.detail-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .detail-raw {
   font-family: "Consolas", "Courier New", monospace;
   font-size: 12px;
@@ -525,6 +551,15 @@ body {
 .gantt-scroll {
   overflow: auto;
   max-height: 60vh;
+}
+
+.gantt-page .gantt {
+  height: calc(100vh - 220px);
+}
+
+.gantt-page .gantt-scroll {
+  max-height: none;
+  height: 100%;
 }
 
 .gantt-grid {
