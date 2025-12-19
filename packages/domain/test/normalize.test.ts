@@ -1,0 +1,73 @@
+import { describe, expect, it } from 'vitest';
+import { parseDateStrict, normalizeImport } from '../src/normalize';
+
+const sampleImport = {
+  members: [
+    {
+      name: 'Alice',
+      projects: [
+        {
+          project_id: 'P-1',
+          group: 'Core',
+          tasks: [
+            {
+              task_name: 'Design',
+              start: '2024-01-10',
+              end: '2024-01-12',
+              raw_date: '2024-01-10..2024-01-12'
+            },
+            {
+              task_name: 'Design',
+              start: '2024-01-13',
+              end: '2024-01-13',
+              raw_date: '2024-01-13'
+            },
+            {
+              task_name: 'Unscheduled',
+              start: null,
+              end: null,
+              raw_date: 'TBD'
+            },
+            {
+              task_name: 'Invalid',
+              start: '2024/01/01',
+              end: '2024-01-02',
+              raw_date: '2024/01/01-2024-01-02'
+            }
+          ]
+        }
+      ]
+    }
+  ]
+};
+
+describe('parseDateStrict', () => {
+  it('accepts valid YYYY-MM-DD dates', () => {
+    expect(parseDateStrict('2024-02-29')).toBe('2024-02-29');
+  });
+
+  it('rejects invalid dates', () => {
+    expect(parseDateStrict('2024-13-01')).toBeNull();
+    expect(parseDateStrict('2024-02-30')).toBeNull();
+    expect(parseDateStrict('2024/01/01')).toBeNull();
+  });
+});
+
+describe('normalizeImport', () => {
+  it('categorizes scheduled, unscheduled, and invalid tasks', () => {
+    const { tasks, summary, warnings } = normalizeImport(sampleImport);
+    const statusCounts = tasks.reduce(
+      (acc, task) => {
+        acc[task.status] += 1;
+        return acc;
+      },
+      { scheduled: 0, unscheduled: 0, invalid_date: 0 }
+    );
+
+    expect(statusCounts.scheduled).toBe(2);
+    expect(statusCounts.unscheduled).toBe(1);
+    expect(statusCounts.invalid_date).toBe(1);
+    expect(summary.totalTasks).toBe(4);
+    expect(warnings.some((warning) => warning.code === 'duplicate_task_key')).toBe(true);
+  });
+});
