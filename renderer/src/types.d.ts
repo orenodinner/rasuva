@@ -3,6 +3,7 @@ import type {
   ImportApplyResult,
   ImportListItem,
   ImportPreviewResult,
+  NormalizedTask,
   SavedViewItem,
   SavedViewState,
   GanttQueryResult
@@ -16,9 +17,12 @@ declare global {
   interface Window {
     api: {
       importPreview: (jsonText: string) => Promise<ApiSuccess<{ preview: ImportPreviewResult }> | ApiFailure>;
+      importExcel: () => Promise<
+        ApiSuccess<{ preview: ImportPreviewResult; jsonText: string }> | ApiFailure
+      >;
       importApply: (
         jsonText: string,
-        source: 'paste' | 'file'
+        source: 'paste' | 'file' | 'excel'
       ) => Promise<ApiSuccess<{ result: ImportApplyResult }> | ApiFailure>;
       diffGet: (
         importId?: number

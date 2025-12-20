@@ -5,7 +5,8 @@ import type { SavedViewState } from '@domain';
 const api = {
   importPreview: (jsonText: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.importPreview, { jsonText }),
-  importApply: (jsonText: string, source: 'paste' | 'file') =>
+  importExcel: () => ipcRenderer.invoke(IPC_CHANNELS.importExcel),
+  importApply: (jsonText: string, source: 'paste' | 'file' | 'excel') =>
     ipcRenderer.invoke(IPC_CHANNELS.importApply, { jsonText, source }),
   diffGet: (importId?: number) =>
     ipcRenderer.invoke(IPC_CHANNELS.diffGet, { importId }),

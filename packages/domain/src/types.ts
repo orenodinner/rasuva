@@ -120,3 +120,15 @@ export interface SavedViewItem {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface FlatTaskRow {
+  member_name: string | null;
+  project_id: string | null;
+  project_group?: string | null;
+  task_name: string | null;
+  assignees?: string[] | null;
+  start: string | null;
+  end: string | null;
+  note?: string | null;
+  raw_date?: string | null;
+}

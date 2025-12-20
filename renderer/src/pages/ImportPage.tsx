@@ -10,6 +10,7 @@ const ImportPage = () => {
   const setJsonText = useAppStore((state) => state.setJsonText);
   const setImportSource = useAppStore((state) => state.setImportSource);
   const loadPreview = useAppStore((state) => state.loadPreview);
+  const loadExcelImport = useAppStore((state) => state.loadExcelImport);
   const lastError = useAppStore((state) => state.lastError);
   const clearError = useAppStore((state) => state.clearError);
 
@@ -41,11 +42,19 @@ const ImportPage = () => {
     }
   };
 
+  const handleExcelImport = async () => {
+    clearError();
+    const ok = await loadExcelImport();
+    if (ok) {
+      navigate('/preview');
+    }
+  };
+
   return (
     <div className="page">
       <div className="page-header">
         <h1>インポート</h1>
-        <p>JSON を貼り付けるか、ファイルを読み込みます。</p>
+        <p>JSON を貼り付けるか、ファイル（JSON/Excel）を読み込みます。</p>
       </div>
       <div className="import-actions">
         <button className="cmd-button" onClick={() => fileRef.current?.click()}>
@@ -58,6 +67,9 @@ const ImportPage = () => {
           className="file-input"
           onChange={handleFileChange}
         />
+        <button className="cmd-button cmd-button--ghost" onClick={handleExcelImport}>
+          Excelからインポート
+        </button>
         <button className="cmd-button cmd-button--ghost" onClick={handlePreview}>
           プレビュー
         </button>

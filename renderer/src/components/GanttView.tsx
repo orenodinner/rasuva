@@ -237,7 +237,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
         });
         tasks.forEach((task) => {
           rows.push({
-            id: `task:${task.taskKeyFull}`,
+            id: `task:${memberName}:${projectId}:${task.taskKeyFull}`,
             type: 'task',
             label: task.taskName,
             task,
