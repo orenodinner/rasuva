@@ -6,6 +6,7 @@ const InvalidPage = () => {
   const gantt = useAppStore((state) => state.gantt);
   const loadGantt = useAppStore((state) => state.loadGantt);
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
+  const setTaskOrder = useAppStore((state) => state.setTaskOrder);
 
   useEffect(() => {
     if (!gantt) {
@@ -16,6 +17,10 @@ const InvalidPage = () => {
   const tasks = useMemo(() => {
     return gantt ? gantt.tasks.filter((task) => task.status === 'invalid_date') : [];
   }, [gantt]);
+
+  useEffect(() => {
+    setTaskOrder(tasks);
+  }, [tasks, setTaskOrder]);
 
   return (
     <div className="page">

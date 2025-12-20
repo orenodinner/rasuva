@@ -15,8 +15,10 @@ export interface GanttSlice {
   selectedTask: NormalizedTask | null;
   focusDate: string | null;
   currentImportId: number | null;
+  taskOrder: NormalizedTask[];
   setSelectedTask: (task: NormalizedTask | null) => void;
   setFocusDate: (value: string | null) => void;
+  setTaskOrder: (tasks: NormalizedTask[]) => void;
   loadGantt: (importId?: number) => Promise<void>;
   updateTask: (input: TaskUpdateInput) => Promise<boolean>;
 }
@@ -29,8 +31,10 @@ export const createGanttSlice: StateCreator<AppState, [], [], GanttSlice> = (set
   selectedTask: null,
   focusDate: null,
   currentImportId: null,
+  taskOrder: [],
   setSelectedTask: (task) => set({ selectedTask: task }),
   setFocusDate: (value) => set({ focusDate: value }),
+  setTaskOrder: (tasks) => set({ taskOrder: tasks }),
   loadGantt: async (importId) => {
     if (!window.api) {
       get().setLastError(API_MISSING_MESSAGE);

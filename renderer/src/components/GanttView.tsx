@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import type { NormalizedTask } from '@domain';
 import { useAppStore } from '../state/store';
@@ -17,6 +17,8 @@ const formatIsoDate = (date: Date) => {
   const day = `${date.getUTCDate()}`.padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+const getTodayIso = () => new Date().toISOString().slice(0, 10);
 
 const addDays = (date: Date, days: number) => {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
@@ -68,6 +70,16 @@ const formatMonthDay = (date: Date) => {
   });
 };
 
+const buildTooltip = (task: NormalizedTask) => {
+  const note = task.note?.trim();
+  const noteSnippet = note ? (note.length > 60 ? `${note.slice(0, 60)}…` : note) : null;
+  const parts = [`原文: ${task.rawDate}`];
+  if (noteSnippet) {
+    parts.push(`メモ: ${noteSnippet}`);
+  }
+  return parts.join('\n');
+};
+
 const zoomConfig = {
   day: { unitDays: 7, columnWidth: 28 },
   week: { unitDays: 7, columnWidth: 48 },
@@ -90,6 +102,18 @@ const groupTasks = (tasks: NormalizedTask[]) => {
   return members;
 };
 
+const buildSearchHaystack = (task: NormalizedTask) => {
+  return [
+    task.memberName,
+    task.projectId,
+    task.projectGroup ?? '',
+    task.taskName,
+    task.note ?? ''
+  ]
+    .join(' ')
+    .toLowerCase();
+};
+
 interface GanttViewProps {
   tasks?: NormalizedTask[];
   emptyLabel?: string;
@@ -99,64 +123,104 @@ interface GanttViewProps {
 const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const gantt = useAppStore((state) => state.gantt);
   const search = useAppStore((state) => state.search);
+  const statusFilter = useAppStore((state) => state.statusFilter);
   const zoom = useAppStore((state) => state.zoom);
   const focusDate = useAppStore((state) => state.focusDate);
+  const rangeStart = useAppStore((state) => state.rangeStart);
+  const rangeEnd = useAppStore((state) => state.rangeEnd);
+  const collapsedGroups = useAppStore((state) => state.collapsedGroups);
+  const toggleGroup = useAppStore((state) => state.toggleGroup);
   const setFocusDate = useAppStore((state) => state.setFocusDate);
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
+  const setTaskOrder = useAppStore((state) => state.setTaskOrder);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const sourceTasks: NormalizedTask[] = tasks ?? gantt?.tasks ?? [];
+  const query = search.trim().toLowerCase();
+  const isRangeBounded = Boolean(rangeStart || rangeEnd);
+  const rangeFilterStart = rangeStart ? toUtcDate(rangeStart) : null;
+  const rangeFilterEnd = rangeEnd ? toUtcDate(rangeEnd) : null;
 
   const filteredTasks = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const taskList = sourceTasks.filter((task) => task.status === 'scheduled');
+    let taskList = sourceTasks;
+    if (statusFilter !== 'all') {
+      taskList = taskList.filter((task) => task.status === statusFilter);
+    }
     if (!query) {
       return taskList;
     }
-    return taskList.filter((task) => {
-      const haystack = [
-        task.memberName,
-        task.projectId,
-        task.projectGroup ?? '',
-        task.taskName,
-        task.note ?? ''
-      ]
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(query);
-    });
-  }, [sourceTasks, search]);
+    return taskList.filter((task) => buildSearchHaystack(task).includes(query));
+  }, [sourceTasks, statusFilter, query]);
 
-  const { rows, rangeStart, rangeEnd } = useMemo(() => {
-    const scheduled = filteredTasks.filter((task) => task.start && task.end);
-    if (scheduled.length === 0) {
-      return { rows: [], rangeStart: null as string | null, rangeEnd: null as string | null };
+  const rangeFilteredTasks = useMemo(() => {
+    if (!isRangeBounded) {
+      return filteredTasks;
+    }
+    return filteredTasks.filter((task) => {
+      if (!task.start || !task.end) {
+        return true;
+      }
+      const startDate = toUtcDate(task.start);
+      const endDate = toUtcDate(task.end);
+      if (rangeFilterStart && endDate < rangeFilterStart) {
+        return false;
+      }
+      if (rangeFilterEnd && startDate > rangeFilterEnd) {
+        return false;
+      }
+      return true;
+    });
+  }, [filteredTasks, isRangeBounded, rangeFilterStart, rangeFilterEnd]);
+
+  const { rows, derivedRangeStart, derivedRangeEnd } = useMemo(() => {
+    const scheduled = rangeFilteredTasks.filter(
+      (task) => task.status === 'scheduled' && task.start && task.end
+    );
+
+    let derivedRangeStart: string | null = null;
+    let derivedRangeEnd: string | null = null;
+
+    if (scheduled.length > 0) {
+      const sortedByStart = [...scheduled].sort((a, b) =>
+        a.start!.localeCompare(b.start!)
+      );
+      const sortedByEnd = [...scheduled].sort((a, b) => a.end!.localeCompare(b.end!));
+      derivedRangeStart = sortedByStart[0].start!;
+      derivedRangeEnd = sortedByEnd[sortedByEnd.length - 1].end!;
+    } else {
+      const todayIso = getTodayIso();
+      derivedRangeStart = todayIso;
+      derivedRangeEnd = todayIso;
     }
 
-    const sortedByStart = [...scheduled].sort((a, b) =>
-      a.start!.localeCompare(b.start!)
-    );
-    const sortedByEnd = [...scheduled].sort((a, b) => a.end!.localeCompare(b.end!));
-    const rangeStart = sortedByStart[0].start!;
-    const rangeEnd = sortedByEnd[sortedByEnd.length - 1].end!;
-
-    const members = groupTasks(scheduled);
+    const members = groupTasks(rangeFilteredTasks);
     const rows: Array<{
       id: string;
       type: 'member' | 'project' | 'task';
       label: string;
       task?: NormalizedTask;
       level: number;
+      memberName: string;
+      projectId: string | null;
     }> = [];
 
     Array.from(members.entries()).forEach(([memberName, projects]) => {
-      rows.push({ id: `member:${memberName}`, type: 'member', label: memberName, level: 0 });
+      rows.push({
+        id: `member:${memberName}`,
+        type: 'member',
+        label: memberName,
+        level: 0,
+        memberName,
+        projectId: null
+      });
       Array.from(projects.entries()).forEach(([projectId, tasks]) => {
         rows.push({
           id: `project:${memberName}:${projectId}`,
           type: 'project',
           label: projectId,
-          level: 1
+          level: 1,
+          memberName,
+          projectId
         });
         tasks.forEach((task) => {
           rows.push({
@@ -164,17 +228,63 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
             type: 'task',
             label: task.taskName,
             task,
-            level: 2
+            level: 2,
+            memberName,
+            projectId
           });
         });
       });
     });
 
-    return { rows, rangeStart, rangeEnd };
-  }, [filteredTasks]);
+    return { rows, derivedRangeStart, derivedRangeEnd };
+  }, [rangeFilteredTasks]);
 
-  const timelineStart = rangeStart ? getWeekStart(rangeStart) : null;
-  const timelineEnd = rangeEnd ? toUtcDate(rangeEnd) : null;
+  const displayRangeStart = rangeStart ?? derivedRangeStart;
+  const displayRangeEnd = rangeEnd ?? derivedRangeEnd;
+
+  if (sourceTasks.length === 0) {
+    return (
+      <div className="empty-state">{emptyLabel ?? 'インポート済みデータがありません。'}</div>
+    );
+  }
+
+  if (!displayRangeStart || !displayRangeEnd) {
+    return <div className="empty-state">表示期間が設定されていません。</div>;
+  }
+
+  const rangeStartDate = toUtcDate(displayRangeStart);
+  const rangeEndDate = toUtcDate(displayRangeEnd);
+
+  if (rangeEndDate < rangeStartDate) {
+    return <div className="empty-state">表示期間が不正です。</div>;
+  }
+
+  const timelineStart = getWeekStart(displayRangeStart);
+  const timelineEnd = rangeEndDate;
+
+  const visibleRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (row.type === 'project') {
+        return !collapsedGroups.includes(`member:${row.memberName}`);
+      }
+      if (row.type === 'task') {
+        return (
+          !collapsedGroups.includes(`member:${row.memberName}`) &&
+          !collapsedGroups.includes(`project:${row.memberName}:${row.projectId}`)
+        );
+      }
+      return true;
+    });
+  }, [rows, collapsedGroups]);
+
+  const taskOrder = useMemo(
+    () => visibleRows.filter((row) => row.type === 'task').map((row) => row.task!) ?? [],
+    [visibleRows]
+  );
+
+  useEffect(() => {
+    setTaskOrder(taskOrder);
+  }, [taskOrder, setTaskOrder]);
 
   useEffect(() => {
     if (!focusDate || !timelineStart) {
@@ -185,21 +295,9 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     const dayWidth = config.columnWidth / config.unitDays;
     const offsetDays = diffDays(timelineStart, focus);
     const scrollLeft = Math.max(0, offsetDays * dayWidth - 120);
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollLeft;
-    }
+    scrollRef.current?.scrollTo({ left: scrollLeft, behavior: 'smooth' });
     setFocusDate(null);
   }, [focusDate, timelineStart, zoom, setFocusDate]);
-
-  if (sourceTasks.length === 0) {
-    return (
-      <div className="empty-state">{emptyLabel ?? 'インポート済みデータがありません。'}</div>
-    );
-  }
-
-  if (!rangeStart || !rangeEnd || !timelineStart || !timelineEnd) {
-    return <div className="empty-state">予定ありタスクがありません。</div>;
-  }
 
   const { unitDays, columnWidth } = zoomConfig[zoom];
   const dayWidth = columnWidth / unitDays;
@@ -235,54 +333,96 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
               })}
             </div>
           </div>
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              className={`gantt-row gantt-row--${row.type}`}
-              onClick={() => row.task && setSelectedTask(row.task)}
-            >
-              <div
-                className={`gantt-label gantt-label--level-${row.level}`}
-                style={{ width: labelWidth }}
-              >
-                {row.label}
-              </div>
-              <div className="gantt-timeline" style={{ width: timelineWidth }}>
-                {row.type === 'task' && row.task && row.task.start && row.task.end ? (
-                  (() => {
-                    const startDate = toUtcDate(row.task.start);
-                    const endDate = toUtcDate(row.task.end);
-                    const durationDays = diffDays(startDate, endDate) + 1;
-                    const left = diffDays(timelineStart, startDate) * dayWidth;
-                    const className = getBarClassName?.(row.task) ?? '';
+          {visibleRows.map((row) => {
+            const isGroup = row.type === 'member' || row.type === 'project';
+            const groupId =
+              row.type === 'member'
+                ? `member:${row.memberName}`
+                : row.type === 'project'
+                  ? `project:${row.memberName}:${row.projectId}`
+                  : null;
+            const isCollapsed = groupId ? collapsedGroups.includes(groupId) : false;
 
-                    if (durationDays === 1) {
+            return (
+              <div
+                key={row.id}
+                className={`gantt-row gantt-row--${row.type}`}
+                onClick={() => row.task && setSelectedTask(row.task)}
+              >
+                <div
+                  className={`gantt-label gantt-label--level-${row.level}`}
+                  style={{ width: labelWidth }}
+                >
+                  {isGroup && groupId ? (
+                    <button
+                      type="button"
+                      className="gantt-toggle"
+                      aria-expanded={!isCollapsed}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleGroup(groupId);
+                      }}
+                    >
+                      <span className="gantt-toggle__icon">{isCollapsed ? '▸' : '▾'}</span>
+                      <span>{row.label}</span>
+                    </button>
+                  ) : (
+                    row.label
+                  )}
+                </div>
+                <div className="gantt-timeline" style={{ width: timelineWidth }}>
+                  {row.type === 'task' && row.task && row.task.start && row.task.end ? (
+                    (() => {
+                      const startDate = toUtcDate(row.task.start);
+                      const endDate = toUtcDate(row.task.end);
+                      const originalDurationDays = diffDays(startDate, endDate) + 1;
+                      const clippedStart = startDate < timelineStart ? timelineStart : startDate;
+                      const clippedEnd = endDate > timelineEnd ? timelineEnd : endDate;
+                      if (clippedEnd < clippedStart) {
+                        return null;
+                      }
+                      const durationDays = diffDays(clippedStart, clippedEnd) + 1;
+                      const left = diffDays(timelineStart, clippedStart) * dayWidth;
+                      const baseClassName = getBarClassName?.(row.task) ?? '';
+                      const isHighlighted = query
+                        ? buildSearchHaystack(row.task).includes(query)
+                        : false;
+                      const highlightClass = isHighlighted ? 'gantt-bar--highlighted' : '';
+                      const className = [baseClassName, highlightClass]
+                        .filter(Boolean)
+                        .join(' ');
+                      const tooltip = buildTooltip(row.task);
+
+                      if (originalDurationDays === 1) {
+                        return (
+                          <div
+                            className={`gantt-marker ${className}`}
+                            style={{ left: Math.max(0, left + dayWidth / 2) }}
+                            data-tooltip={tooltip}
+                          >
+                            ★
+                          </div>
+                        );
+                      }
+
                       return (
                         <div
-                          className={`gantt-marker ${className}`}
-                          style={{ left: left + dayWidth / 2 }}
+                          className={`gantt-bar ${className}`}
+                          style={{
+                            left,
+                            width: Math.max(dayWidth, durationDays * dayWidth)
+                          }}
+                          data-tooltip={tooltip}
                         >
-                          ★
+                          <span>{row.task.taskName}</span>
                         </div>
                       );
-                    }
-
-                    return (
-                      <div
-                        className={`gantt-bar ${className}`}
-                        style={{
-                          left,
-                          width: Math.max(dayWidth, durationDays * dayWidth)
-                        }}
-                      >
-                        <span>{row.task.taskName}</span>
-                      </div>
-                    );
-                  })()
-                ) : null}
+                    })()
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

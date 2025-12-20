@@ -5,7 +5,7 @@ import { createUISlice, type UISlice } from './slices/uiSlice';
 import { createViewSlice, type ViewSlice } from './slices/viewSlice';
 
 export type AppState = ImportSlice & GanttSlice & UISlice & ViewSlice;
-export type { ZoomLevel } from './slices/uiSlice';
+export type { ZoomLevel, StatusFilter } from './slices/uiSlice';
 
 export const useAppStore = create<AppState>()((...args) => ({
   ...createImportSlice(...args),

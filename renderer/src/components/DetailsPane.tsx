@@ -1,9 +1,11 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { getStatusLabel } from './status';
 
 const DetailsPane = () => {
   const task = useAppStore((state) => state.selectedTask);
+  const taskOrder = useAppStore((state) => state.taskOrder);
+  const setSelectedTask = useAppStore((state) => state.setSelectedTask);
   const updateTask = useAppStore((state) => state.updateTask);
   const lastError = useAppStore((state) => state.lastError);
   const clearError = useAppStore((state) => state.clearError);
@@ -26,6 +28,20 @@ const DetailsPane = () => {
     setEnd(task.end ?? '');
     setNote(task.note ?? '');
   }, [task]);
+
+  const { prevTask, nextTask } = useMemo(() => {
+    if (!task) {
+      return { prevTask: null, nextTask: null };
+    }
+    const index = taskOrder.findIndex((item) => item.taskKeyFull === task.taskKeyFull);
+    if (index === -1) {
+      return { prevTask: null, nextTask: null };
+    }
+    return {
+      prevTask: index > 0 ? taskOrder[index - 1] : null,
+      nextTask: index < taskOrder.length - 1 ? taskOrder[index + 1] : null
+    };
+  }, [task, taskOrder]);
 
   const handleSave = async () => {
     if (!task) {
@@ -64,13 +80,30 @@ const DetailsPane = () => {
           </div>
           <div className="detail-block">
             <div className="detail-label">グループ</div>
-            <div className="detail-value">{task.projectGroup ?? '—'}</div>
+            <div className="detail-value">{task.projectGroup ?? '?'}</div>
           </div>
           <div className="detail-block">
             <div className="detail-label">状態</div>
             <div className={`status-pill status-pill--${task.status}`}>
               {getStatusLabel(task.status)}
             </div>
+          </div>
+
+          <div className="detail-nav">
+            <button
+              className="cmd-button cmd-button--ghost"
+              disabled={!prevTask || isEditing}
+              onClick={() => prevTask && setSelectedTask(prevTask)}
+            >
+              前へ
+            </button>
+            <button
+              className="cmd-button cmd-button--ghost"
+              disabled={!nextTask || isEditing}
+              onClick={() => nextTask && setSelectedTask(nextTask)}
+            >
+              次へ
+            </button>
           </div>
 
           {isEditing ? (
@@ -121,12 +154,12 @@ const DetailsPane = () => {
               <div className="detail-block">
                 <div className="detail-label">期間</div>
                 <div className="detail-value">
-                  {task.start ?? '—'} → {task.end ?? '—'}
+                  {task.start ?? '?'} → {task.end ?? '?'}
                 </div>
               </div>
               <div className="detail-block">
                 <div className="detail-label">メモ</div>
-                <div className="detail-value">{task.note ?? '—'}</div>
+                <div className="detail-value">{task.note ?? '?'}</div>
               </div>
               <div className="detail-block">
                 <div className="detail-label">原文日付</div>

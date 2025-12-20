@@ -13,6 +13,7 @@ Member -> Project -> Task timelines alongside diff summaries and audit-friendly 
 - Diff summary (Added / Updated / Archived / Invalid / Unscheduled).
 - Gantt timeline view, plus Unscheduled and Invalid lists.
 - Import history, Saved Views, CSV/Excel export (Excel includes a Gantt sheet with green ■ and red ★).
+- Saved Views restore search/zoom/range/collapsed groups; CommandBar has status quick filters.
 
 ## Tech stack
 
@@ -151,6 +152,7 @@ OSS のみで構成された Electron + TypeScript + React デスクトップア
 - 差分サマリー（Added / Updated / Archived / Invalid / Unscheduled）。
 - ガントタイムラインと Unscheduled / Invalid の専用一覧。
 - インポート履歴、Saved Views、CSV / Excel エクスポート（Excel はガントシート付き。■=緑、★=赤）。
+- 保存ビューは検索/ズーム/表示期間/折りたたみを復元し、CommandBar にステータスフィルタを備えます。
 
 ## 技術スタック
 
