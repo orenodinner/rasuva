@@ -9,6 +9,7 @@ const baseTask: NormalizedTask = {
   projectId: 'P-1',
   projectGroup: null,
   taskName: 'Build',
+  assignees: [],
   start: '2024-01-01',
   end: '2024-01-02',
   rawDate: '2024-01-01..2024-01-02',
@@ -38,5 +39,12 @@ describe('diffTasks', () => {
   it('detects archived tasks', () => {
     const diff = diffTasks([baseTask], []);
     expect(diff.summary.archived).toBe(1);
+  });
+
+  it('detects assignee changes as updates', () => {
+    const prev: NormalizedTask[] = [baseTask];
+    const next: NormalizedTask[] = [{ ...baseTask, assignees: ['Bob'] }];
+    const diff = diffTasks(prev, next);
+    expect(diff.summary.updated).toBe(1);
   });
 });

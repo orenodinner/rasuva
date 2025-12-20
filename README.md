@@ -13,6 +13,7 @@ Member -> Project -> Task timelines alongside diff summaries and audit-friendly 
 - Diff summary (Added / Updated / Archived / Invalid / Unscheduled).
 - Gantt timeline view, plus Unscheduled and Invalid lists.
 - Import history, Saved Views, CSV/Excel export (Excel includes a Gantt sheet with green ■ and red ★).
+- Sub-assignees supported via `assign`, showing the same task on multiple member rows.
 - Saved Views restore search/zoom/range/collapsed groups; CommandBar has status quick filters.
 
 ## Tech stack
@@ -82,7 +83,8 @@ Note: tests run under Node, so `better-sqlite3` is rebuilt for Node via `pretest
               "start": "2024-01-10",
               "end": "2024-01-12",
               "raw_date": "2024-01-10..2024-01-12",
-              "note": "Optional"
+              "note": "Optional",
+              "assign": ["Bob", "Charlie"]
             }
           ]
         }
@@ -152,6 +154,7 @@ OSS のみで構成された Electron + TypeScript + React デスクトップア
 - 差分サマリー（Added / Updated / Archived / Invalid / Unscheduled）。
 - ガントタイムラインと Unscheduled / Invalid の専用一覧。
 - インポート履歴、Saved Views、CSV / Excel エクスポート（Excel はガントシート付き。■=緑、★=赤）。
+- `assign` によるサブ担当に対応し、同一タスクを複数行に表示。
 - 保存ビューは検索/ズーム/表示期間/折りたたみを復元し、CommandBar にステータスフィルタを備えます。
 
 ## 技術スタック
@@ -221,7 +224,8 @@ npm run test
               "start": "2024-01-10",
               "end": "2024-01-12",
               "raw_date": "2024-01-10..2024-01-12",
-              "note": "Optional"
+              "note": "Optional",
+              "assign": ["Bob", "Charlie"]
             }
           ]
         }

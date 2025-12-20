@@ -10,6 +10,24 @@ const toTrimmed = (value: string | null | undefined): string | null => {
   return trimmed.length === 0 ? null : trimmed;
 };
 
+const normalizeAssignees = (value: string[] | null | undefined, memberName: string) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const unique = new Set<string>();
+  value.forEach((name) => {
+    const trimmed = toTrimmed(name);
+    if (!trimmed) {
+      return;
+    }
+    if (trimmed === memberName) {
+      return;
+    }
+    unique.add(trimmed);
+  });
+  return Array.from(unique).sort((a, b) => a.localeCompare(b));
+};
+
 export const parseDateStrict = (value: string): string | null => {
   if (!DATE_REGEX.test(value)) {
     return null;
@@ -114,6 +132,7 @@ export const normalizeImport = (raw: RawImport) => {
       project.tasks.forEach((task) => {
         totalTasks += 1;
         const taskName = toTrimmed(task.task_name) ?? '無題タスク';
+        const assignees = normalizeAssignees(task.assign, memberName);
         const baseKey = `${projectId}::${taskName}`;
         const count = (taskKeyCounts.get(baseKey) ?? 0) + 1;
         taskKeyCounts.set(baseKey, count);
@@ -149,6 +168,7 @@ export const normalizeImport = (raw: RawImport) => {
           projectId,
           projectGroup,
           taskName,
+          assignees,
           start,
           end,
           rawDate: task.raw_date,

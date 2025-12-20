@@ -8,6 +8,7 @@ interface TaskUpdateInput {
   start: string | null;
   end: string | null;
   note: string | null;
+  assignees: string[];
 }
 
 export interface GanttSlice {
@@ -65,7 +66,8 @@ export const createGanttSlice: StateCreator<AppState, [], [], GanttSlice> = (set
       input.taskKeyFull,
       input.start,
       input.end,
-      input.note
+      input.note,
+      input.assignees
     );
 
     if (!response.ok) {

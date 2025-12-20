@@ -14,6 +14,7 @@ const DetailsPane = () => {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [note, setNote] = useState('');
+  const [assigneesText, setAssigneesText] = useState('');
 
   useEffect(() => {
     if (!task) {
@@ -21,12 +22,14 @@ const DetailsPane = () => {
       setStart('');
       setEnd('');
       setNote('');
+      setAssigneesText('');
       return;
     }
     setIsEditing(false);
     setStart(task.start ?? '');
     setEnd(task.end ?? '');
     setNote(task.note ?? '');
+    setAssigneesText(task.assignees.join(', '));
   }, [task]);
 
   const { prevTask, nextTask } = useMemo(() => {
@@ -48,11 +51,20 @@ const DetailsPane = () => {
       return;
     }
     clearError();
+    const assignees = Array.from(
+      new Set(
+        assigneesText
+          .split(',')
+          .map((value) => value.trim())
+          .filter((value) => value.length > 0 && value !== task.memberName)
+      )
+    );
     const ok = await updateTask({
       taskKeyFull: task.taskKeyFull,
       start: start.trim() ? start.trim() : null,
       end: end.trim() ? end.trim() : null,
-      note: note.trim() ? note.trim() : null
+      note: note.trim() ? note.trim() : null,
+      assignees
     });
     if (ok) {
       setIsEditing(false);
@@ -135,6 +147,16 @@ const DetailsPane = () => {
                   onChange={(event) => setNote(event.target.value)}
                 />
               </div>
+              <div className="detail-block">
+                <div className="detail-label">サブ担当</div>
+                <textarea
+                  className="detail-textarea"
+                  rows={2}
+                  value={assigneesText}
+                  onChange={(event) => setAssigneesText(event.target.value)}
+                  placeholder="Bob, Charlie"
+                />
+              </div>
               <div className="detail-hint">開始/終了を空にすると未確定として保存します。</div>
               {lastError ? <div className="alert">{lastError}</div> : null}
               <div className="detail-actions">
@@ -164,6 +186,12 @@ const DetailsPane = () => {
               <div className="detail-block">
                 <div className="detail-label">原文日付</div>
                 <div className="detail-value detail-raw">{task.rawDate}</div>
+              </div>
+              <div className="detail-block">
+                <div className="detail-label">サブ担当</div>
+                <div className="detail-value">
+                  {task.assignees.length > 0 ? task.assignees.join(', ') : '-'}
+                </div>
               </div>
               <div className="detail-actions">
                 <button className="cmd-button" onClick={() => setIsEditing(true)}>

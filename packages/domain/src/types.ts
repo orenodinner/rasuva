@@ -21,6 +21,7 @@ export interface RawTask {
   end: string | null;
   raw_date: string;
   note?: string | null;
+  assign?: string[] | null;
 }
 
 export interface NormalizedTask {
@@ -30,6 +31,7 @@ export interface NormalizedTask {
   projectId: string;
   projectGroup: string | null;
   taskName: string;
+  assignees: string[];
   start: string | null;
   end: string | null;
   rawDate: string;

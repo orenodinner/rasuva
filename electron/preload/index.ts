@@ -22,14 +22,16 @@ const api = {
     taskKeyFull: string,
     start: string | null,
     end: string | null,
-    note: string | null
+    note: string | null,
+    assignees: string[]
   ) =>
     ipcRenderer.invoke(IPC_CHANNELS.taskUpdate, {
       importId,
       taskKeyFull,
       start,
       end,
-      note
+      note,
+      assignees
     })
 };
 

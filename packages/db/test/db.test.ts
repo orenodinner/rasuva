@@ -9,6 +9,7 @@ const makeTask = (): NormalizedTask => ({
   projectId: 'P-1',
   projectGroup: null,
   taskName: 'Build',
+  assignees: ['Bob'],
   start: '2024-01-01',
   end: '2024-01-02',
   rawDate: '2024-01-01..2024-01-02',
@@ -58,12 +59,14 @@ describe('db', () => {
       start: '2024-01-02',
       end: '2024-01-03',
       note: 'Updated',
-      status: 'scheduled'
+      status: 'scheduled',
+      assignees: ['Bob', 'Eve']
     });
 
     const updated = db.getTaskByKey(importId, tasks[0].taskKeyFull);
     expect(updated?.start).toBe('2024-01-02');
     expect(updated?.note).toBe('Updated');
+    expect(updated?.assignees).toEqual(['Bob', 'Eve']);
 
     db.close();
   });

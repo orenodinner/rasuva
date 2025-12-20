@@ -5,7 +5,8 @@ export const RawTaskSchema = z.object({
   start: z.string().nullable(),
   end: z.string().nullable(),
   raw_date: z.string(),
-  note: z.string().nullable().optional()
+  note: z.string().nullable().optional(),
+  assign: z.array(z.string()).nullable().optional()
 });
 
 export const RawProjectSchema = z.object({

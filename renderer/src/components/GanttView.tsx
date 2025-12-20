@@ -89,22 +89,35 @@ const zoomConfig = {
 
 const groupTasks = (tasks: NormalizedTask[]) => {
   const members = new Map<string, Map<string, NormalizedTask[]>>();
+
+  const addTaskToRow = (memberName: string, projectId: string, task: NormalizedTask) => {
+    if (!members.has(memberName)) {
+      members.set(memberName, new Map());
+    }
+    const projects = members.get(memberName)!;
+    if (!projects.has(projectId)) {
+      projects.set(projectId, []);
+    }
+    projects.get(projectId)!.push(task);
+  };
+
   tasks.forEach((task) => {
-    if (!members.has(task.memberName)) {
-      members.set(task.memberName, new Map());
-    }
-    const projects = members.get(task.memberName)!;
-    if (!projects.has(task.projectId)) {
-      projects.set(task.projectId, []);
-    }
-    projects.get(task.projectId)!.push(task);
+    const memberSet = new Set<string>([task.memberName, ...(task.assignees ?? [])]);
+    memberSet.forEach((memberName) => {
+      if (memberName.trim().length === 0) {
+        return;
+      }
+      addTaskToRow(memberName, task.projectId, task);
+    });
   });
+
   return members;
 };
 
 const buildSearchHaystack = (task: NormalizedTask) => {
   return [
     task.memberName,
+    ...(task.assignees ?? []),
     task.projectId,
     task.projectGroup ?? '',
     task.taskName,
@@ -277,10 +290,17 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     });
   }, [rows, collapsedGroups]);
 
-  const taskOrder = useMemo(
-    () => visibleRows.filter((row) => row.type === 'task').map((row) => row.task!) ?? [],
-    [visibleRows]
-  );
+  const taskOrder = useMemo(() => {
+    const unique = new Map<string, NormalizedTask>();
+    visibleRows.forEach((row) => {
+      if (row.type === 'task' && row.task) {
+        if (!unique.has(row.task.taskKeyFull)) {
+          unique.set(row.task.taskKeyFull, row.task);
+        }
+      }
+    });
+    return Array.from(unique.values());
+  }, [visibleRows]);
 
   useEffect(() => {
     setTaskOrder(taskOrder);
