@@ -44,12 +44,18 @@ const sampleImport = {
 describe('parseDateStrict', () => {
   it('accepts valid YYYY-MM-DD dates', () => {
     expect(parseDateStrict('2024-02-29')).toBe('2024-02-29');
+    expect(parseDateStrict('9999-12-31')).toBe('9999-12-31');
   });
 
   it('rejects invalid dates', () => {
     expect(parseDateStrict('2024-13-01')).toBeNull();
     expect(parseDateStrict('2024-02-30')).toBeNull();
     expect(parseDateStrict('2024/01/01')).toBeNull();
+  });
+
+  it('rejects invalid leap year dates', () => {
+    expect(parseDateStrict('2023-02-29')).toBeNull();
+    expect(parseDateStrict('2024-02-29')).toBe('2024-02-29');
   });
 });
 
@@ -69,5 +75,52 @@ describe('normalizeImport', () => {
     expect(statusCounts.invalid_date).toBe(1);
     expect(summary.totalTasks).toBe(4);
     expect(warnings.some((warning) => warning.code === 'duplicate_task_key')).toBe(true);
+  });
+
+  it('handles triple duplicate task keys correctly', () => {
+    const raw = {
+      members: [
+        {
+          name: 'Bob',
+          projects: [
+            {
+              project_id: 'P1',
+              tasks: [
+                { task_name: 'Fix', start: '2024-01-01', end: '2024-01-01', raw_date: '' },
+                { task_name: 'Fix', start: '2024-01-01', end: '2024-01-01', raw_date: '' },
+                { task_name: 'Fix', start: '2024-01-01', end: '2024-01-01', raw_date: '' }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+    const { tasks } = normalizeImport(raw as any);
+    expect(tasks[0].taskKeyFull).toBe('P1::Fix');
+    expect(tasks[1].taskKeyFull).toBe('P1::Fix#2');
+    expect(tasks[2].taskKeyFull).toBe('P1::Fix#3');
+  });
+
+  it('handles empty members list', () => {
+    const { tasks, summary } = normalizeImport({ members: [] } as any);
+    expect(tasks.length).toBe(0);
+    expect(summary.totalMembers).toBe(0);
+    expect(summary.totalProjects).toBe(0);
+    expect(summary.totalTasks).toBe(0);
+  });
+
+  it('handles project with empty tasks array', () => {
+    const raw = {
+      members: [
+        {
+          name: 'Kana',
+          projects: [{ project_id: 'P-Empty', tasks: [] }]
+        }
+      ]
+    };
+    const { tasks, summary } = normalizeImport(raw as any);
+    expect(tasks.length).toBe(0);
+    expect(summary.totalProjects).toBe(1);
+    expect(summary.totalTasks).toBe(0);
   });
 });

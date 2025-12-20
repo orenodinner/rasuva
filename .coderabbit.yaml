@@ -1,0 +1,19 @@
+language: "ja"
+
+reviews:
+  profile: "assertive"
+  high_level_summary: true
+  review_status: true
+  request_changes_workflow: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/dist-electron/**"
+    - "!**/release/**"
+    - "!**/.git/**"
+    - "!**/*.lock"
+    - "!**/*.log"
+    - "**/*"

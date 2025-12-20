@@ -83,6 +83,7 @@
 
 - TypeScript `strict: true`。
 - Domain 層は Electron 依存禁止（純粋ロジック）。
+- Zustand ストアは Slice パターンを維持（import / gantt / ui / view）。
 - Unit Test（最低限）:
   - 日付パース
   - unscheduled/invalid 判定
@@ -96,6 +97,8 @@
 - `npm run dev` / `npm run build` / `npm run package` を提供。
 - `better-sqlite3` は Electron に合わせてビルドが必要。
   - `postinstall` で `@electron/rebuild` を実行する。
+- テストは Node 実行のため `pretest` で Node 向けに再ビルドする。
+- SQLite のスキーマ変更は `PRAGMA user_version` マイグレーションで管理する。
 - Electron dev 起動時は **localhost:5173** へフォールバック。
 - CSP は dev のみ `unsafe-eval` を許容（本番は不要）。
 

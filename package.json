@@ -9,15 +9,21 @@
     "packages/db"
   ],
   "scripts": {
-    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
+    "rebuild:node": "npm rebuild better-sqlite3 --build-from-source",
+    "postinstall": "npm run rebuild:electron",
+    "predev": "npm run rebuild:electron",
     "dev": "electron-vite dev",
+    "prebuild": "npm run rebuild:electron",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier -w .",
+    "pretest": "npm run rebuild:node",
     "test": "vitest run",
     "test:watch": "vitest",
+    "prepackage": "npm run rebuild:electron",
     "package": "electron-builder --win --x64"
   },
   "dependencies": {

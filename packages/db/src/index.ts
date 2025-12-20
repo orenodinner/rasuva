@@ -9,7 +9,8 @@ import type {
   SavedViewState
 } from '@domain';
 
-const schema = `
+const migrations: string[] = [
+  `
 CREATE TABLE IF NOT EXISTS imports (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at TEXT NOT NULL,
@@ -63,7 +64,26 @@ CREATE TABLE IF NOT EXISTS saved_views (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
-`;
+`
+];
+
+const runMigrations = (db: Database.Database) => {
+  const userVersion = db.pragma('user_version', { simple: true }) as number;
+  if (userVersion > migrations.length) {
+    console.warn(
+      `Database user_version (${userVersion}) is newer than migrations (${migrations.length}).`
+    );
+    return;
+  }
+
+  for (let i = userVersion; i < migrations.length; i += 1) {
+    const nextVersion = i + 1;
+    db.transaction(() => {
+      db.exec(migrations[i]);
+      db.pragma(`user_version = ${nextVersion}`);
+    })();
+  }
+};
 
 export interface ImportInsertInput {
   createdAt: string;
@@ -130,7 +150,7 @@ export const createDb = (dbPath: string): DbClient => {
   db.pragma('journal_mode = WAL');
 
   const init = () => {
-    db.exec(schema);
+    runMigrations(db);
   };
 
   const insertImport = (input: ImportInsertInput) => {

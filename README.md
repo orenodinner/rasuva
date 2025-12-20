@@ -7,6 +7,7 @@ Member -> Project -> Task timelines alongside diff summaries and audit-friendly 
 ## Highlights
 
 - Offline-only, local SQLite storage (better-sqlite3).
+- SQLite schema migrations via `PRAGMA user_version`.
 - Secure Electron defaults: `contextIsolation` on, `nodeIntegration` off, `sandbox` on.
 - JSON import with preview + validation warnings.
 - Diff summary (Added / Updated / Archived / Invalid / Unscheduled).
@@ -61,6 +62,8 @@ npm run package
 npm run test
 ```
 
+Note: tests run under Node, so `better-sqlite3` is rebuilt for Node via `pretest`. Electron dev/build/package uses the Electron rebuild scripts.
+
 ## JSON contract
 
 ```json
@@ -114,6 +117,7 @@ SQLite database is created at:
 
 Snapshots are stored per import for auditability. Archived tasks remain in historical imports and are
 reported in diff summaries.
+Schema changes are applied via `PRAGMA user_version` migrations at startup.
 
 ## Assumptions
 
@@ -141,6 +145,7 @@ OSS のみで構成された Electron + TypeScript + React デスクトップア
 ## 特長
 
 - オフライン動作のみ、ローカル SQLite へ保存（better-sqlite3）。
+- `PRAGMA user_version` を使った SQLite マイグレーション。
 - Electron の安全設定を有効化: `contextIsolation` on、`nodeIntegration` off、`sandbox` on。
 - JSON インポートにプレビューとバリデーション警告を追加。
 - 差分サマリー（Added / Updated / Archived / Invalid / Unscheduled）。
@@ -195,6 +200,8 @@ npm run package
 npm run test
 ```
 
+補足: テストは Node 実行のため `pretest` で `better-sqlite3` を Node 向けに再ビルドします。Electron の開発/ビルド/パッケージは Electron 向けに再ビルドします。
+
 ## JSON 契約
 
 ```json
@@ -248,6 +255,7 @@ SQLite データベースは以下に作成されます:
 
 インポートごとにスナップショットを保持し、監査向けに履歴を残します。
 アーカイブされたタスクは過去インポート内に保持され、差分サマリーで確認できます。
+スキーマ変更は起動時に `PRAGMA user_version` マイグレーションで適用されます。
 
 ## 仮定
 

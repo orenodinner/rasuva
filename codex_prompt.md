@@ -51,6 +51,10 @@
 - HTML の `lang` は `ja`。
 - エラーメッセージ/警告文は日本語化済み。
 
+### 1.8 開発基盤
+- Zustand ストアは Slice パターンで分割（import / gantt / ui / view）。
+- SQLite は `PRAGMA user_version` を使ったマイグレーションに対応。
+
 ---
 
 ## 2. 入力データ（JSON 契約）
