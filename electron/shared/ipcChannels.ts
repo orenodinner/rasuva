@@ -1,6 +1,7 @@
 export const IPC_CHANNELS = {
   importPreview: 'import.preview',
   importApply: 'import.apply',
+  importExcel: 'import.excel',
   diffGet: 'diff.get',
   ganttQuery: 'gantt.query',
   importsList: 'imports.list',

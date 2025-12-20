@@ -1,5 +1,5 @@
 import { RawImportSchema } from './schema';
-import { normalizeImport, parseDateStrict } from './normalize';
+import { convertFlatTasksToRawImport, normalizeImport, parseDateStrict } from './normalize';
 import { diffTasks } from './diff';
 import type { RawImport } from './types';
 
@@ -25,5 +25,5 @@ export const parseImportJson = (jsonText: string) => {
   }
 };
 
-export { normalizeImport, parseDateStrict, diffTasks };
+export { convertFlatTasksToRawImport, normalizeImport, parseDateStrict, diffTasks };
 export * from './types';

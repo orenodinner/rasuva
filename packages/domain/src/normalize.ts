@@ -1,4 +1,11 @@
-import { RawImport, NormalizedTask, ImportWarning, ImportSummary, TaskStatus } from './types';
+import {
+  FlatTaskRow,
+  RawImport,
+  NormalizedTask,
+  ImportWarning,
+  ImportSummary,
+  TaskStatus
+} from './types';
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -191,4 +198,69 @@ export const normalizeImport = (raw: RawImport) => {
   };
 
   return { tasks, warnings, summary };
+};
+
+const buildRawDate = (start: string | null, end: string | null, rawDate: string | null) => {
+  if (rawDate && rawDate.trim().length > 0) {
+    return rawDate;
+  }
+  if (start && end) {
+    return start === end ? start : `${start}..${end}`;
+  }
+  if (start) {
+    return start;
+  }
+  if (end) {
+    return end;
+  }
+  return '';
+};
+
+export const convertFlatTasksToRawImport = (rows: FlatTaskRow[]): RawImport => {
+  const members: RawImport['members'] = [];
+  const memberIndex = new Map<string, { member: RawImport['members'][number]; projects: Map<string, RawImport['members'][number]['projects'][number]> }>();
+
+  rows.forEach((row) => {
+    const memberName = toTrimmed(row.member_name) ?? '不明';
+    let memberEntry = memberIndex.get(memberName);
+    if (!memberEntry) {
+      const member = { name: memberName, projects: [] as RawImport['members'][number]['projects'] };
+      memberEntry = { member, projects: new Map() };
+      memberIndex.set(memberName, memberEntry);
+      members.push(member);
+    }
+
+    const projectId = toTrimmed(row.project_id);
+    const projectKey = projectId ?? '__missing__';
+    let project = memberEntry.projects.get(projectKey);
+    if (!project) {
+      project = {
+        project_id: projectId,
+        group: toTrimmed(row.project_group),
+        tasks: []
+      };
+      memberEntry.projects.set(projectKey, project);
+      memberEntry.member.projects.push(project);
+    } else if (!project.group) {
+      const group = toTrimmed(row.project_group);
+      if (group) {
+        project.group = group;
+      }
+    }
+
+    const start = row.start ?? null;
+    const end = row.end ?? null;
+    const rawDate = buildRawDate(start, end, row.raw_date ?? null);
+
+    project.tasks.push({
+      task_name: toTrimmed(row.task_name) ?? '',
+      start,
+      end,
+      raw_date: rawDate,
+      note: toTrimmed(row.note),
+      assign: row.assignees ?? []
+    });
+  });
+
+  return { members };
 };

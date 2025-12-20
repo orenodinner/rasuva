@@ -17,7 +17,13 @@ const MembersPage = () => {
     }
     const counts = new Map<string, number>();
     gantt.tasks.forEach((task) => {
-      counts.set(task.memberName, (counts.get(task.memberName) ?? 0) + 1);
+      const members = new Set([task.memberName, ...(task.assignees ?? [])]);
+      members.forEach((name) => {
+        if (!name) {
+          return;
+        }
+        counts.set(name, (counts.get(name) ?? 0) + 1);
+      });
     });
     return Array.from(counts.entries()).map(([name, taskCount]) => ({ name, taskCount }));
   }, [gantt]);

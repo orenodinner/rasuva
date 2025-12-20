@@ -2,7 +2,7 @@ import type { StateCreator } from 'zustand';
 import type { DiffResult, ImportApplyResult, ImportListItem, ImportPreviewResult } from '@domain';
 import type { AppState } from '../store';
 
-export type ImportSource = 'paste' | 'file';
+export type ImportSource = 'paste' | 'file' | 'excel';
 
 export interface ImportSlice {
   jsonText: string;
@@ -13,6 +13,7 @@ export interface ImportSlice {
   setJsonText: (value: string) => void;
   setImportSource: (value: ImportSource) => void;
   loadPreview: () => Promise<boolean>;
+  loadExcelImport: () => Promise<boolean>;
   applyImport: (source: ImportSource) => Promise<ImportApplyResult | null>;
   loadDiff: (importId?: number) => Promise<void>;
   loadImports: () => Promise<void>;
@@ -37,6 +38,24 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
     const response = await window.api.importPreview(get().jsonText);
     if (response.ok) {
       set({ preview: response.preview });
+      get().setLastError(null);
+      return true;
+    }
+    get().setLastError(response.error);
+    return false;
+  },
+  loadExcelImport: async () => {
+    if (!window.api) {
+      get().setLastError(API_MISSING_MESSAGE);
+      return false;
+    }
+    const response = await window.api.importExcel();
+    if (response.ok) {
+      set({
+        jsonText: response.jsonText,
+        preview: response.preview,
+        importSource: 'excel'
+      });
       get().setLastError(null);
       return true;
     }

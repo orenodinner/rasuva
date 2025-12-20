@@ -24,6 +24,7 @@
 - Preview でバリデーション結果と警告一覧を表示。
 - Apply で DB 保存 + Diff 計算。
 - `assign` によるサブ担当者の登録に対応。
+- Excel インポート（Tasks シート）からの更新に対応。
 
 ### 1.3 差分サマリー
 - Added / Updated / Archived / Invalid / Unscheduled の件数表示。

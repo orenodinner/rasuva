@@ -14,6 +14,7 @@ Member -> Project -> Task timelines alongside diff summaries and audit-friendly 
 - Gantt timeline view, plus Unscheduled and Invalid lists.
 - Import history, Saved Views, CSV/Excel export (Excel includes a Gantt sheet with green ■ and red ★).
 - Sub-assignees supported via `assign`, showing the same task on multiple member rows.
+- Excel import (Tasks sheet) to update tasks via preview + diff.
 - Saved Views restore search/zoom/range/collapsed groups; CommandBar has status quick filters.
 
 ## Tech stack
@@ -99,9 +100,16 @@ Date rules:
 - invalid date format -> `invalid_date`
 - 1-day task uses `start=end`
 
+## Excel import rules
+
+- Use the exported `.xlsx` and edit the `Tasks` sheet.
+- Keep `project_id` and `task_name` to avoid creating new tasks.
+- Dates can be Excel dates or `YYYY-MM-DD` strings.
+
 ## IPC surface (preload)
 
 - `import.preview`
+- `import.excel`
 - `import.apply`
 - `diff.get`
 - `gantt.query`
@@ -155,6 +163,7 @@ OSS のみで構成された Electron + TypeScript + React デスクトップア
 - ガントタイムラインと Unscheduled / Invalid の専用一覧。
 - インポート履歴、Saved Views、CSV / Excel エクスポート（Excel はガントシート付き。■=緑、★=赤）。
 - `assign` によるサブ担当に対応し、同一タスクを複数行に表示。
+- Excel インポート（Tasks シート）で更新に対応。
 - 保存ビューは検索/ズーム/表示期間/折りたたみを復元し、CommandBar にステータスフィルタを備えます。
 
 ## 技術スタック
@@ -240,9 +249,16 @@ npm run test
 - 不正フォーマット -> `invalid_date`
 - 1 日タスクは `start=end`
 
+## Excel インポートのルール
+
+- エクスポートした `.xlsx` の `Tasks` シートを編集します。
+- `project_id` と `task_name` を変更すると新規扱いになります。
+- 日付は Excel 日付または `YYYY-MM-DD` 形式を使用します。
+
 ## IPC インターフェース（preload）
 
 - `import.preview`
+- `import.excel`
 - `import.apply`
 - `diff.get`
 - `gantt.query`

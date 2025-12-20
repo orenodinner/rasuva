@@ -1,8 +1,14 @@
 import { dialog, ipcMain } from 'electron';
 import { z } from 'zod';
-import { diffTasks, normalizeImport, parseDateStrict, parseImportJson } from '@domain';
+import {
+  convertFlatTasksToRawImport,
+  diffTasks,
+  normalizeImport,
+  parseDateStrict,
+  parseImportJson
+} from '@domain';
 import type { DbClient } from '@db';
-import type { NormalizedTask } from '@domain';
+import type { FlatTaskRow, NormalizedTask } from '@domain';
 import { writeFileSync } from 'fs';
 import ExcelJS from 'exceljs';
 import { IPC_CHANNELS } from '../shared/ipcChannels';
@@ -31,6 +37,66 @@ const addUtcDays = (date: Date, days: number) => {
   return new Date(date.getTime() + MS_PER_DAY * days);
 };
 
+const excelSerialToDate = (value: number) => {
+  const excelEpoch = Date.UTC(1899, 11, 30);
+  return new Date(excelEpoch + value * MS_PER_DAY);
+};
+
+const cellToText = (value: unknown): string | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? null : trimmed;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (value instanceof Date) {
+    return formatIsoDate(value);
+  }
+  if (typeof value === 'object') {
+    if ('text' in value && typeof (value as { text: unknown }).text === 'string') {
+      const trimmed = (value as { text: string }).text.trim();
+      return trimmed.length === 0 ? null : trimmed;
+    }
+    if ('result' in value) {
+      return cellToText((value as { result: unknown }).result);
+    }
+    if ('richText' in value && Array.isArray((value as { richText: unknown }).richText)) {
+      const parts = (value as { richText: Array<{ text?: string }> }).richText
+        .map((item) => item.text ?? '')
+        .join('');
+      const trimmed = parts.trim();
+      return trimmed.length === 0 ? null : trimmed;
+    }
+  }
+  return null;
+};
+
+const cellToDateString = (value: unknown): string | null => {
+  if (value instanceof Date) {
+    return formatIsoDate(value);
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return formatIsoDate(excelSerialToDate(value));
+  }
+  const text = cellToText(value);
+  return text && text.length > 0 ? text : null;
+};
+
+const parseAssigneesCell = (value: unknown) => {
+  const text = cellToText(value);
+  if (!text) {
+    return [];
+  }
+  return text
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+};
+
 const toColumnLetter = (index: number) => {
   let result = '';
   let current = index;
@@ -48,7 +114,7 @@ const previewSchema = z.object({
 
 const applySchema = z.object({
   jsonText: z.string(),
-  source: z.enum(['paste', 'file'])
+  source: z.enum(['paste', 'file', 'excel'])
 });
 
 const diffSchema = z.object({
@@ -152,6 +218,102 @@ export const registerIpcHandlers = (db: DbClient) => {
 
     const normalized = normalizeImport(parsed.data);
     return { ok: true, preview: { summary: normalized.summary, warnings: normalized.warnings } };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.importExcel, async () => {
+    const dialogResult = await dialog.showOpenDialog({
+      title: 'Import Excel',
+      filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+      properties: ['openFile']
+    });
+
+    if (dialogResult.canceled || dialogResult.filePaths.length === 0) {
+      return { ok: false, error: 'Import canceled.' };
+    }
+
+    const filePath = dialogResult.filePaths[0];
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+
+    const sheet = workbook.worksheets.find((worksheet) =>
+      worksheet.name.toLowerCase().trim() === 'tasks'
+    );
+
+    if (!sheet) {
+      return { ok: false, error: '"Tasks" シートが見つかりません。' };
+    }
+
+    const headerRow = sheet.getRow(1);
+    const headerMap = new Map<string, number>();
+    headerRow.eachCell((cell, colNumber) => {
+      const header = cellToText(cell.value);
+      if (!header) {
+        return;
+      }
+      headerMap.set(header.toLowerCase(), colNumber);
+    });
+
+    const requiredHeaders = ['member_name', 'project_id', 'task_name'];
+    const missing = requiredHeaders.filter((key) => !headerMap.has(key));
+    if (missing.length > 0) {
+      return { ok: false, error: `必要な列が見つかりません: ${missing.join(', ')}` };
+    }
+
+    const rows: FlatTaskRow[] = [];
+    sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (rowNumber === 1) {
+        return;
+      }
+
+      const memberName = cellToText(row.getCell(headerMap.get('member_name')!).value);
+      const projectId = cellToText(row.getCell(headerMap.get('project_id')!).value);
+      const taskName = cellToText(row.getCell(headerMap.get('task_name')!).value);
+
+      if (!memberName && !projectId && !taskName) {
+        return;
+      }
+
+      const projectGroup = headerMap.has('project_group')
+        ? cellToText(row.getCell(headerMap.get('project_group')!).value)
+        : null;
+      const assignees = headerMap.has('assignees')
+        ? parseAssigneesCell(row.getCell(headerMap.get('assignees')!).value)
+        : [];
+      const start = headerMap.has('start')
+        ? cellToDateString(row.getCell(headerMap.get('start')!).value)
+        : null;
+      const end = headerMap.has('end')
+        ? cellToDateString(row.getCell(headerMap.get('end')!).value)
+        : null;
+      const note = headerMap.has('note')
+        ? cellToText(row.getCell(headerMap.get('note')!).value)
+        : null;
+      const rawDate = headerMap.has('raw_date')
+        ? cellToText(row.getCell(headerMap.get('raw_date')!).value)
+        : null;
+
+      rows.push({
+        member_name: memberName,
+        project_id: projectId,
+        project_group: projectGroup,
+        task_name: taskName,
+        assignees,
+        start,
+        end,
+        note,
+        raw_date: rawDate
+      });
+    });
+
+    const rawImport = convertFlatTasksToRawImport(rows);
+    const normalized = normalizeImport(rawImport);
+    const jsonText = JSON.stringify(rawImport, null, 2);
+
+    return {
+      ok: true,
+      preview: { summary: normalized.summary, warnings: normalized.warnings },
+      jsonText
+    };
   });
 
   ipcMain.handle(IPC_CHANNELS.importApply, async (_event, payload) => {

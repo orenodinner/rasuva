@@ -40,6 +40,7 @@
 - `start/end = null` → `unscheduled`
 - 不正日付 → `invalid_date`
 - サブ担当は `assign: string[]` として受け取り、同一タスクを複数行に表示する。
+- Excel インポートは `Tasks` シートを対象にし、`project_id` と `task_name` をキーとする。
 - 差分キーは `project_id + task_name`。
 - 重複は `#2`/`#3` サフィックスで一意化し警告。
 - JSON から消えたタスクは `archived`（物理削除しない）。

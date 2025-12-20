@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseDateStrict, normalizeImport } from '../src/normalize';
+import { convertFlatTasksToRawImport, parseDateStrict, normalizeImport } from '../src/normalize';
 
 const sampleImport = {
   members: [
@@ -148,5 +148,26 @@ describe('normalizeImport', () => {
     };
     const { tasks } = normalizeImport(raw as any);
     expect(tasks[0].assignees).toEqual(['Bob', 'Charlie']);
+  });
+
+  it('converts flat rows into raw import structure', () => {
+    const raw = convertFlatTasksToRawImport([
+      {
+        member_name: 'Alice',
+        project_id: 'P-10',
+        project_group: 'Core',
+        task_name: 'Sync',
+        assignees: ['Bob'],
+        start: '2024-01-05',
+        end: '2024-01-06',
+        note: 'Note',
+        raw_date: '2024-01-05..2024-01-06'
+      }
+    ]);
+
+    expect(raw.members.length).toBe(1);
+    expect(raw.members[0].projects.length).toBe(1);
+    expect(raw.members[0].projects[0].tasks.length).toBe(1);
+    expect(raw.members[0].projects[0].tasks[0].assign).toEqual(['Bob']);
   });
 });
