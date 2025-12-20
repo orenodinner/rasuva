@@ -81,8 +81,21 @@ const taskUpdateSchema = z.object({
   taskKeyFull: z.string().min(1),
   start: z.string().nullable(),
   end: z.string().nullable(),
-  note: z.string().nullable().optional()
+  note: z.string().nullable().optional(),
+  assignees: z.array(z.string())
 });
+
+const normalizeAssignees = (values: string[]) => {
+  const unique = new Set<string>();
+  values.forEach((value) => {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return;
+    }
+    unique.add(trimmed);
+  });
+  return Array.from(unique).sort((a, b) => a.localeCompare(b));
+};
 
 const escapeCsv = (value: string | null) => {
   if (value === null) {
@@ -99,6 +112,7 @@ const tasksToCsv = (tasks: NormalizedTask[]) => {
     'project_id',
     'project_group',
     'task_name',
+    'assignees',
     'start',
     'end',
     'status',
@@ -111,6 +125,7 @@ const tasksToCsv = (tasks: NormalizedTask[]) => {
     task.projectId,
     task.projectGroup,
     task.taskName,
+    task.assignees.join(', '),
     task.start,
     task.end,
     task.status,
@@ -279,6 +294,7 @@ export const registerIpcHandlers = (db: DbClient) => {
       { header: 'project_id', key: 'projectId', width: 18 },
       { header: 'project_group', key: 'projectGroup', width: 18 },
       { header: 'task_name', key: 'taskName', width: 28 },
+      { header: 'assignees', key: 'assignees', width: 26 },
       { header: 'start', key: 'start', width: 14 },
       { header: 'end', key: 'end', width: 14 },
       { header: 'status', key: 'status', width: 14 }
@@ -349,6 +365,7 @@ export const registerIpcHandlers = (db: DbClient) => {
           projectId: task.projectId,
           projectGroup: task.projectGroup ?? '',
           taskName: task.taskName,
+          assignees: task.assignees.join(', '),
           start: task.start ? parseIsoDate(task.start) : null,
           end: task.end ? parseIsoDate(task.end) : null,
           status: task.status
@@ -406,6 +423,7 @@ export const registerIpcHandlers = (db: DbClient) => {
       { header: 'project_id', key: 'projectId', width: 18 },
       { header: 'project_group', key: 'projectGroup', width: 18 },
       { header: 'task_name', key: 'taskName', width: 28 },
+      { header: 'assignees', key: 'assignees', width: 26 },
       { header: 'start', key: 'start', width: 14 },
       { header: 'end', key: 'end', width: 14 },
       { header: 'status', key: 'status', width: 14 },
@@ -420,6 +438,7 @@ export const registerIpcHandlers = (db: DbClient) => {
         projectId: task.projectId,
         projectGroup: task.projectGroup ?? '',
         taskName: task.taskName,
+        assignees: task.assignees.join(', '),
         start: task.start ?? '',
         end: task.end ?? '',
         status: task.status,
@@ -460,6 +479,7 @@ export const registerIpcHandlers = (db: DbClient) => {
     const startRaw = parsedPayload.data.start;
     const endRaw = parsedPayload.data.end;
     const note = parsedPayload.data.note ?? null;
+    const assignees = normalizeAssignees(parsedPayload.data.assignees);
 
     const start = startRaw === null ? null : parseDateStrict(startRaw);
     const end = endRaw === null ? null : parseDateStrict(endRaw);
@@ -484,7 +504,8 @@ export const registerIpcHandlers = (db: DbClient) => {
       start: status === 'scheduled' ? start : null,
       end: status === 'scheduled' ? end : null,
       note,
-      status
+      status,
+      assignees
     });
 
     const updated = db.getTaskByKey(importId, taskKeyFull);

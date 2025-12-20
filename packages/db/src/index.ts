@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS saved_views (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
-`
+`,
+  `ALTER TABLE tasks ADD COLUMN assignees_json TEXT;`
 ];
 
 const runMigrations = (db: Database.Database) => {
@@ -110,6 +111,18 @@ export interface DbClient {
   saveView: (name: string, state: SavedViewState) => number;
 }
 
+const parseAssignees = (value: unknown): string[] => {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
 const rowToTask = (row: any): NormalizedTask => ({
   taskKey: row.task_key,
   taskKeyFull: row.task_key_full,
@@ -117,6 +130,7 @@ const rowToTask = (row: any): NormalizedTask => ({
   projectId: row.project_id,
   projectGroup: row.project_group,
   taskName: row.task_name,
+  assignees: parseAssignees(row.assignees_json),
   start: row.start,
   end: row.end,
   rawDate: row.raw_date,
@@ -212,6 +226,7 @@ export const createDb = (dbPath: string): DbClient => {
         project_id,
         project_group,
         task_name,
+        assignees_json,
         start,
         end,
         raw_date,
@@ -225,6 +240,7 @@ export const createDb = (dbPath: string): DbClient => {
         @project_id,
         @project_group,
         @task_name,
+        @assignees_json,
         @start,
         @end,
         @raw_date,
@@ -243,6 +259,7 @@ export const createDb = (dbPath: string): DbClient => {
           project_id: task.projectId,
           project_group: task.projectGroup,
           task_name: task.taskName,
+          assignees_json: JSON.stringify(task.assignees ?? []),
           start: task.start,
           end: task.end,
           raw_date: task.rawDate,
@@ -329,7 +346,10 @@ export const createDb = (dbPath: string): DbClient => {
   };
 
   const updateTask = (importId: number, taskKeyFull: string, updates: Partial<NormalizedTask>) => {
-    const stmt = db.prepare(`\n      UPDATE tasks\n      SET start = @start,\n          end = @end,\n          note = @note,\n          status = @status\n      WHERE import_id = @importId AND task_key_full = @taskKeyFull\n    `);
+    const stmt = db.prepare(`\n      UPDATE tasks\n      SET start = @start,\n          end = @end,\n          note = @note,\n          status = @status,\n          assignees_json = COALESCE(@assignees_json, assignees_json)\n      WHERE import_id = @importId AND task_key_full = @taskKeyFull\n    `);
+
+    const assigneesJson =
+      updates.assignees === undefined ? null : JSON.stringify(updates.assignees);
 
     stmt.run({
       importId,
@@ -337,7 +357,8 @@ export const createDb = (dbPath: string): DbClient => {
       start: updates.start ?? null,
       end: updates.end ?? null,
       note: updates.note ?? null,
-      status: updates.status
+      status: updates.status,
+      assignees_json: assigneesJson
     });
   };
 

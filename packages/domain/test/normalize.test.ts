@@ -123,4 +123,30 @@ describe('normalizeImport', () => {
     expect(summary.totalProjects).toBe(1);
     expect(summary.totalTasks).toBe(0);
   });
+
+  it('normalizes assignees from assign list', () => {
+    const raw = {
+      members: [
+        {
+          name: 'Alice',
+          projects: [
+            {
+              project_id: 'P-2',
+              tasks: [
+                {
+                  task_name: 'Review',
+                  start: '2024-01-01',
+                  end: '2024-01-01',
+                  raw_date: '2024-01-01',
+                  assign: ['Bob', '  ', 'Alice', 'Bob', 'Charlie']
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+    const { tasks } = normalizeImport(raw as any);
+    expect(tasks[0].assignees).toEqual(['Bob', 'Charlie']);
+  });
 });

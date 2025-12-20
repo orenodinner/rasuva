@@ -8,6 +8,7 @@ const hasTaskChanged = (prev: NormalizedTask, next: NormalizedTask) => {
     prev.rawDate !== next.rawDate ||
     prev.memberName !== next.memberName ||
     prev.projectGroup !== next.projectGroup ||
+    prev.assignees.join('|') !== next.assignees.join('|') ||
     prev.status !== next.status
   );
 };

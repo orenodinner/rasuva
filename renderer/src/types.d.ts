@@ -39,7 +39,8 @@ declare global {
         taskKeyFull: string,
         start: string | null,
         end: string | null,
-        note: string | null
+        note: string | null,
+        assignees: string[]
       ) => Promise<ApiSuccess<{ task: NormalizedTask }> | ApiFailure>;
     };
   }
