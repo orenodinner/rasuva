@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useRef } from 'react';
-import type { CSSProperties } from 'react';
+import { forwardRef, useEffect, useMemo, useRef } from 'react';
+import type { CSSProperties, HTMLAttributes } from 'react';
+import AutoSizer from 'react-virtualized-auto-sizer';
+import { FixedSizeList, type ListOnScrollProps } from 'react-window';
 import type { NormalizedTask } from '@domain';
 import { useAppStore } from '../state/store';
+import GanttHeader from './GanttHeader';
+import GanttRow, { type GanttRowData, type GanttRowItem } from './GanttRow';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MS_PER_WEEK = MS_PER_DAY * 7;
+const ROW_HEIGHT = 32;
 
 const toUtcDate = (value: string) => {
   const [year, month, day] = value.split('-').map(Number);
@@ -93,6 +98,19 @@ const zoomConfig = {
   quarter: { unitDays: 7, columnWidth: 90 }
 } as const;
 
+const GanttOuterElement = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className, style, ...rest }, ref) => (
+    <div
+      ref={ref}
+      {...rest}
+      className={['gantt-scroll', className].filter(Boolean).join(' ')}
+      style={style}
+    />
+  )
+);
+
+GanttOuterElement.displayName = 'GanttOuterElement';
+
 const groupTasks = (tasks: NormalizedTask[]) => {
   const members = new Map<string, Map<string, NormalizedTask[]>>();
 
@@ -154,6 +172,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const setTaskOrder = useAppStore((state) => state.setTaskOrder);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
   const sourceTasks: NormalizedTask[] = tasks ?? gantt?.tasks ?? [];
   const query = search.trim().toLowerCase();
   const isRangeBounded = Boolean(rangeStart || rangeEnd);
@@ -213,15 +232,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     }
 
     const members = groupTasks(rangeFilteredTasks);
-    const rows: Array<{
-      id: string;
-      type: 'member' | 'project' | 'task';
-      label: string;
-      task?: NormalizedTask;
-      level: number;
-      memberName: string;
-      projectId: string | null;
-    }> = [];
+    const rows: GanttRowItem[] = [];
 
     Array.from(members.entries()).forEach(([memberName, projects]) => {
       rows.push({
@@ -311,9 +322,96 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     const dayWidth = config.columnWidth / config.unitDays;
     const offsetDays = diffDays(timelineStart, focus);
     const scrollLeft = Math.max(0, offsetDays * dayWidth - 120);
-    scrollRef.current?.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+    }
+    if (headerScrollRef.current) {
+      headerScrollRef.current.scrollLeft = scrollLeft;
+    }
     setFocusDate(null);
   }, [focusDate, timelineStart, zoom, setFocusDate]);
+
+  const { unitDays, columnWidth } = zoomConfig[zoom];
+  const dayWidth = columnWidth / unitDays;
+  const rangeDays =
+    timelineStart && timelineEnd ? diffDays(timelineStart, timelineEnd) + 1 : 0;
+  const columnCount = timelineStart && timelineEnd ? Math.ceil(rangeDays / unitDays) : 0;
+  const timelineWidth = columnCount * columnWidth;
+  const labelWidth = 260;
+  const totalWidth = labelWidth + timelineWidth;
+
+  const ticks = useMemo(() => {
+    if (!timelineStart) {
+      return [];
+    }
+    return Array.from({ length: columnCount }).map((_, index) => {
+      const tickDate = addDays(timelineStart, index * unitDays);
+      const { week } = getWeekNumber(tickDate);
+      return {
+        key: formatIsoDate(tickDate),
+        weekLabel: `${week}W`,
+        dateLabel: formatMonthDay(tickDate)
+      };
+    });
+  }, [timelineStart, columnCount, unitDays]);
+
+  const listData = useMemo<GanttRowData | null>(() => {
+    if (!timelineStart || !timelineEnd) {
+      return null;
+    }
+    return {
+      rows: visibleRows,
+      labelWidth,
+      timelineWidth,
+      totalWidth,
+      dayWidth,
+      query,
+      timelineStart,
+      timelineEnd,
+      collapsedGroups,
+      toggleGroup,
+      setSelectedTask,
+      getBarClassName,
+      buildTooltip,
+      buildSearchHaystack,
+      toUtcDate,
+      diffDays
+    };
+  }, [
+    visibleRows,
+    labelWidth,
+    timelineWidth,
+    totalWidth,
+    dayWidth,
+    query,
+    timelineStart,
+    timelineEnd,
+    collapsedGroups,
+    toggleGroup,
+    setSelectedTask,
+    getBarClassName
+  ]);
+
+  const InnerElement = useMemo(() => {
+    const Inner = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+      ({ className, style, ...rest }, ref) => (
+        <div
+          ref={ref}
+          {...rest}
+          className={['gantt-grid', className].filter(Boolean).join(' ')}
+          style={{ ...(style as CSSProperties), width: totalWidth }}
+        />
+      )
+    );
+    Inner.displayName = 'GanttInnerElement';
+    return Inner;
+  }, [totalWidth]);
+
+  const handleScroll = ({ scrollLeft }: ListOnScrollProps) => {
+    if (headerScrollRef.current) {
+      headerScrollRef.current.scrollLeft = scrollLeft;
+    }
+  };
 
   if (sourceTasks.length === 0) {
     return (
@@ -329,130 +427,45 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     return <div className="empty-state">表示期間が不正です。</div>;
   }
 
-  const { unitDays, columnWidth } = zoomConfig[zoom];
-  const dayWidth = columnWidth / unitDays;
-  const rangeDays = diffDays(timelineStart, timelineEnd) + 1;
-  const columnCount = Math.ceil(rangeDays / unitDays);
-  const timelineWidth = columnCount * columnWidth;
-  const labelWidth = 260;
-
-  const ganttStyle: CSSProperties = { ['--column-width' as string]: `${columnWidth}px` };
+  const ganttStyle: CSSProperties = {
+    ['--column-width' as string]: `${columnWidth}px`,
+    ['--row-height' as string]: `${ROW_HEIGHT}px`
+  };
 
   return (
     <div className="gantt" style={ganttStyle}>
-      <div className="gantt-scroll" ref={scrollRef}>
-        <div className="gantt-grid" style={{ minWidth: labelWidth + timelineWidth }}>
-          <div className="gantt-row gantt-row--header">
-            <div className="gantt-label gantt-label--header" style={{ width: labelWidth }}>
-              担当/プロジェクト
-            </div>
-            <div className="gantt-timeline" style={{ width: timelineWidth }}>
-              {Array.from({ length: columnCount }).map((_, index) => {
-                const tickDate = addDays(timelineStart, index * unitDays);
-                const { week } = getWeekNumber(tickDate);
-                return (
-                  <div
-                    key={formatIsoDate(tickDate)}
-                    className="gantt-tick"
-                    style={{ width: columnWidth }}
-                  >
-                    <span className="gantt-tick__week">{week}W</span>
-                    <span className="gantt-tick__date">{formatMonthDay(tickDate)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          {visibleRows.map((row) => {
-            const isGroup = row.type === 'member' || row.type === 'project';
-            const groupId =
-              row.type === 'member'
-                ? `member:${row.memberName}`
-                : row.type === 'project'
-                  ? `project:${row.memberName}:${row.projectId}`
-                  : null;
-            const isCollapsed = groupId ? collapsedGroups.includes(groupId) : false;
-
-            return (
-              <div
-                key={row.id}
-                className={`gantt-row gantt-row--${row.type}`}
-                onClick={() => row.task && setSelectedTask(row.task)}
-              >
-                <div
-                  className={`gantt-label gantt-label--level-${row.level}`}
-                  style={{ width: labelWidth }}
+      <div className="gantt-container">
+        <div className="gantt-header" ref={headerScrollRef}>
+          <GanttHeader
+            labelWidth={labelWidth}
+            timelineWidth={timelineWidth}
+            columnWidth={columnWidth}
+            totalWidth={totalWidth}
+            labelText="担当者/プロジェクト"
+            ticks={ticks}
+          />
+        </div>
+        <div className="gantt-body">
+          {listData ? (
+            <AutoSizer>
+              {({ height, width }) => (
+                <FixedSizeList
+                  height={height}
+                  width={width}
+                  itemCount={visibleRows.length}
+                  itemSize={ROW_HEIGHT}
+                  itemData={listData}
+                  itemKey={(index, data) => data.rows[index]?.id ?? index}
+                  onScroll={handleScroll}
+                  outerRef={scrollRef}
+                  outerElementType={GanttOuterElement}
+                  innerElementType={InnerElement}
                 >
-                  {isGroup && groupId ? (
-                    <button
-                      type="button"
-                      className="gantt-toggle"
-                      aria-expanded={!isCollapsed}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleGroup(groupId);
-                      }}
-                    >
-                      <span className="gantt-toggle__icon">{isCollapsed ? '▸' : '▾'}</span>
-                      <span>{row.label}</span>
-                    </button>
-                  ) : (
-                    row.label
-                  )}
-                </div>
-                <div className="gantt-timeline" style={{ width: timelineWidth }}>
-                  {row.type === 'task' && row.task && row.task.start && row.task.end ? (
-                    (() => {
-                      const startDate = toUtcDate(row.task.start);
-                      const endDate = toUtcDate(row.task.end);
-                      const originalDurationDays = diffDays(startDate, endDate) + 1;
-                      const clippedStart = startDate < timelineStart ? timelineStart : startDate;
-                      const clippedEnd = endDate > timelineEnd ? timelineEnd : endDate;
-                      if (clippedEnd < clippedStart) {
-                        return null;
-                      }
-                      const durationDays = diffDays(clippedStart, clippedEnd) + 1;
-                      const left = diffDays(timelineStart, clippedStart) * dayWidth;
-                      const baseClassName = getBarClassName?.(row.task) ?? '';
-                      const isHighlighted = query
-                        ? buildSearchHaystack(row.task).includes(query)
-                        : false;
-                      const highlightClass = isHighlighted ? 'gantt-bar--highlighted' : '';
-                      const className = [baseClassName, highlightClass]
-                        .filter(Boolean)
-                        .join(' ');
-                      const tooltip = buildTooltip(row.task);
-
-                      if (originalDurationDays === 1) {
-                        return (
-                          <div
-                            className={`gantt-marker ${className}`}
-                            style={{ left: Math.max(0, left + dayWidth / 2) }}
-                            data-tooltip={tooltip}
-                          >
-                            ★
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div
-                          className={`gantt-bar ${className}`}
-                          style={{
-                            left,
-                            width: Math.max(dayWidth, durationDays * dayWidth)
-                          }}
-                          data-tooltip={tooltip}
-                        >
-                          <span>{row.task.taskName}</span>
-                        </div>
-                      );
-                    })()
-                  ) : null}
-                </div>
-              </div>
-            );
-          })}
+                  {GanttRow}
+                </FixedSizeList>
+              )}
+            </AutoSizer>
+          ) : null}
         </div>
       </div>
     </div>

@@ -648,11 +648,34 @@ body {
   background: var(--panel);
   overflow: hidden;
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 60vh;
+  --row-height: 32px;
+}
+
+.gantt-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.gantt-header {
+  overflow: hidden;
+  border-bottom: 1px solid rgba(230, 220, 203, 0.6);
+}
+
+.gantt-body {
+  flex: 1;
+  min-height: 0;
 }
 
 .gantt-scroll {
   overflow: auto;
-  max-height: 60vh;
+  width: 100%;
+  height: 100%;
   scroll-behavior: smooth;
 }
 
@@ -666,23 +689,22 @@ body {
 }
 
 .gantt-grid {
-  display: grid;
-  gap: 0;
+  position: relative;
+  display: block;
 }
 
 .gantt-row {
   display: grid;
   grid-template-columns: 260px 1fr;
-  min-height: 32px;
+  min-height: var(--row-height, 32px);
+  height: var(--row-height, 32px);
   align-items: center;
   border-bottom: 1px solid rgba(230, 220, 203, 0.6);
 }
 
 .gantt-row--header {
   background: var(--panel-strong);
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  position: relative;
 }
 
 .gantt-label {
@@ -729,7 +751,7 @@ body {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 32px;
+  min-height: var(--row-height, 32px);
   border-left: 1px solid rgba(230, 220, 203, 0.6);
   background-image: repeating-linear-gradient(
     90deg,
