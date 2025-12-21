@@ -3,7 +3,6 @@ import { join } from 'path';
 import { createDb } from '@db';
 import { registerIpcHandlers } from './ipc';
 
-let mainWindow: BrowserWindow | null = null;
 let db: ReturnType<typeof createDb> | null = null;
 
 const createMainWindow = () => {
@@ -88,11 +87,11 @@ app.whenReady().then(() => {
   db.init();
 
   registerIpcHandlers(db);
-  mainWindow = createMainWindow();
+  createMainWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      mainWindow = createMainWindow();
+      createMainWindow();
     }
   });
 });

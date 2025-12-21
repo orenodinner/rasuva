@@ -26,5 +26,9 @@ module.exports = {
       version: 'detect'
     }
   },
+  rules: {
+    'react/react-in-jsx-scope': 'off',
+    'react/jsx-uses-react': 'off'
+  },
   ignorePatterns: ['dist', 'dist-electron', 'release', 'node_modules']
 };

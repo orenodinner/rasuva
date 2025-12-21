@@ -8,6 +8,8 @@ This project uses the following third-party OSS packages (licenses verified at t
 - react (MIT)
 - react-dom (MIT)
 - react-router-dom (MIT)
+- react-virtualized-auto-sizer (MIT)
+- react-window (MIT)
 - zustand (MIT)
 - zod (MIT)
 - exceljs (MIT)
@@ -31,4 +33,6 @@ This project uses the following third-party OSS packages (licenses verified at t
 - @types/node (MIT)
 - @types/react (MIT)
 - @types/react-dom (MIT)
+- @types/react-virtualized-auto-sizer (MIT)
+- @types/react-window (MIT)
 

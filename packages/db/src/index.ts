@@ -91,6 +91,50 @@ CREATE INDEX IF NOT EXISTS idx_views_schedule_id ON saved_views(schedule_id);
 `
 ];
 
+interface TaskRow {
+  task_key: string;
+  task_key_full: string;
+  member_name: string;
+  project_id: string;
+  project_group: string | null;
+  task_name: string;
+  assignees_json: string | null;
+  start: string | null;
+  end: string | null;
+  raw_date: string;
+  note: string | null;
+  status: NormalizedTask['status'];
+}
+
+interface ImportRow {
+  id: number;
+  created_at: string;
+  source: string;
+  total_tasks: number;
+  added_count: number;
+  updated_count: number;
+  archived_count: number;
+  invalid_count: number;
+  unscheduled_count: number;
+  warnings_count: number;
+}
+
+interface ViewRow {
+  id: number;
+  name: string;
+  state_json: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ScheduleRow {
+  id: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const runMigrations = (db: Database.Database) => {
   const userVersion = db.pragma('user_version', { simple: true }) as number;
   if (userVersion > migrations.length) {
@@ -150,7 +194,7 @@ const parseAssignees = (value: unknown): string[] => {
   }
 };
 
-const rowToTask = (row: any): NormalizedTask => ({
+const rowToTask = (row: TaskRow): NormalizedTask => ({
   taskKey: row.task_key,
   taskKeyFull: row.task_key_full,
   memberName: row.member_name,
@@ -165,7 +209,7 @@ const rowToTask = (row: any): NormalizedTask => ({
   status: row.status
 });
 
-const rowToImportItem = (row: any): ImportListItem => ({
+const rowToImportItem = (row: ImportRow): ImportListItem => ({
   id: row.id,
   createdAt: row.created_at,
   source: row.source,
@@ -178,7 +222,7 @@ const rowToImportItem = (row: any): ImportListItem => ({
   warningsCount: row.warnings_count
 });
 
-const rowToViewItem = (row: any): SavedViewItem => ({
+const rowToViewItem = (row: ViewRow): SavedViewItem => ({
   id: row.id,
   name: row.name,
   state: JSON.parse(row.state_json) as SavedViewState,
@@ -186,7 +230,7 @@ const rowToViewItem = (row: any): SavedViewItem => ({
   updatedAt: row.updated_at
 });
 
-const rowToScheduleItem = (row: any): ScheduleItem => ({
+const rowToScheduleItem = (row: ScheduleRow): ScheduleItem => ({
   id: row.id,
   name: row.name,
   description: row.description,
@@ -351,7 +395,7 @@ export const createDb = (dbPath: string): DbClient => {
          WHERE schedule_id = @scheduleId
          ORDER BY id DESC`
       )
-      .all({ scheduleId });
+      .all({ scheduleId }) as ImportRow[];
 
     return rows.map(rowToImportItem);
   };
@@ -374,15 +418,17 @@ export const createDb = (dbPath: string): DbClient => {
 
   const getTasksByImportId = (importId: number) => {
     const rows = db
-      .prepare(`SELECT * FROM tasks WHERE import_id = @importId ORDER BY member_name, project_id, task_name`)
-      .all({ importId });
+      .prepare(
+        `SELECT * FROM tasks WHERE import_id = @importId ORDER BY member_name, project_id, task_name`
+      )
+      .all({ importId }) as TaskRow[];
     return rows.map(rowToTask);
   };
 
   const getTaskByKey = (importId: number, taskKeyFull: string) => {
     const row = db
       .prepare(`SELECT * FROM tasks WHERE import_id = @importId AND task_key_full = @taskKeyFull`)
-      .get({ importId, taskKeyFull });
+      .get({ importId, taskKeyFull }) as TaskRow | undefined;
     return row ? rowToTask(row) : null;
   };
 
@@ -410,7 +456,7 @@ export const createDb = (dbPath: string): DbClient => {
          FROM imports
          WHERE id = @importId AND schedule_id = @scheduleId`
       )
-      .get({ importId, scheduleId });
+      .get({ importId, scheduleId }) as ImportRow | undefined;
 
     return row ? rowToImportItem(row) : null;
   };
@@ -420,7 +466,7 @@ export const createDb = (dbPath: string): DbClient => {
       .prepare(
         `SELECT id, name, state_json, created_at, updated_at FROM saved_views WHERE schedule_id = @scheduleId ORDER BY id DESC`
       )
-      .all({ scheduleId });
+      .all({ scheduleId }) as ViewRow[];
     return rows.map(rowToViewItem);
   };
 
@@ -443,7 +489,7 @@ export const createDb = (dbPath: string): DbClient => {
   const listSchedules = (): ScheduleItem[] => {
     const rows = db
       .prepare(`SELECT id, name, description, created_at, updated_at FROM schedules ORDER BY id ASC`)
-      .all();
+      .all() as ScheduleRow[];
     return rows.map(rowToScheduleItem);
   };
 
@@ -452,7 +498,7 @@ export const createDb = (dbPath: string): DbClient => {
       .prepare(
         `SELECT id, name, description, created_at, updated_at FROM schedules WHERE id = @scheduleId`
       )
-      .get({ scheduleId });
+      .get({ scheduleId }) as ScheduleRow | undefined;
     return row ? rowToScheduleItem(row) : null;
   };
 
