@@ -1,5 +1,5 @@
-import { forwardRef, useEffect, useMemo, useRef } from 'react';
-import type { CSSProperties, HTMLAttributes } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { CSSProperties, HTMLAttributes, UIEvent } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { FixedSizeList, type ListOnScrollProps } from 'react-window';
 import type { NormalizedTask } from '@domain';
@@ -170,9 +170,12 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const setFocusDate = useAppStore((state) => state.setFocusDate);
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
   const setTaskOrder = useAppStore((state) => state.setTaskOrder);
+  const selectedTask = useAppStore((state) => state.selectedTask);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const headerScrollRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<FixedSizeList<GanttRowData> | null>(null);
+  const isSyncingScroll = useRef(false);
   const sourceTasks: NormalizedTask[] = tasks ?? gantt?.tasks ?? [];
   const query = search.trim().toLowerCase();
   const isRangeBounded = Boolean(rangeStart || rangeEnd);
@@ -297,6 +300,16 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     });
   }, [rows, collapsedGroups]);
 
+  const taskIndexByKey = useMemo(() => {
+    const indexByKey = new Map<string, number>();
+    visibleRows.forEach((row, index) => {
+      if (row.type === 'task' && row.task) {
+        indexByKey.set(row.task.taskKeyFull, index);
+      }
+    });
+    return indexByKey;
+  }, [visibleRows]);
+
   const taskOrder = useMemo(() => {
     const unique = new Map<string, NormalizedTask>();
     visibleRows.forEach((row) => {
@@ -313,6 +326,38 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     setTaskOrder(taskOrder);
   }, [taskOrder, setTaskOrder]);
 
+  const syncScrollLeft = useCallback((source: 'body' | 'header', scrollLeft: number) => {
+    if (isSyncingScroll.current) {
+      return;
+    }
+    isSyncingScroll.current = true;
+    if (source === 'body' && headerScrollRef.current) {
+      headerScrollRef.current.scrollLeft = scrollLeft;
+    }
+    if (source === 'header' && scrollRef.current) {
+      scrollRef.current.scrollLeft = scrollLeft;
+    }
+    requestAnimationFrame(() => {
+      isSyncingScroll.current = false;
+    });
+  }, []);
+
+  const setHorizontalScroll = useCallback(
+    (scrollLeft: number, behavior: ScrollBehavior = 'auto') => {
+      isSyncingScroll.current = true;
+      if (scrollRef.current) {
+        scrollRef.current.scrollTo({ left: scrollLeft, behavior });
+      }
+      if (headerScrollRef.current) {
+        headerScrollRef.current.scrollLeft = scrollLeft;
+      }
+      requestAnimationFrame(() => {
+        isSyncingScroll.current = false;
+      });
+    },
+    []
+  );
+
   useEffect(() => {
     if (!focusDate || !timelineStart) {
       return;
@@ -322,14 +367,9 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     const dayWidth = config.columnWidth / config.unitDays;
     const offsetDays = diffDays(timelineStart, focus);
     const scrollLeft = Math.max(0, offsetDays * dayWidth - 120);
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-    }
-    if (headerScrollRef.current) {
-      headerScrollRef.current.scrollLeft = scrollLeft;
-    }
+    setHorizontalScroll(scrollLeft, 'smooth');
     setFocusDate(null);
-  }, [focusDate, timelineStart, zoom, setFocusDate]);
+  }, [focusDate, timelineStart, zoom, setFocusDate, setHorizontalScroll]);
 
   const { unitDays, columnWidth } = zoomConfig[zoom];
   const dayWidth = columnWidth / unitDays;
@@ -407,11 +447,30 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     return Inner;
   }, [totalWidth]);
 
-  const handleScroll = ({ scrollLeft }: ListOnScrollProps) => {
-    if (headerScrollRef.current) {
-      headerScrollRef.current.scrollLeft = scrollLeft;
+  useEffect(() => {
+    if (!listData || !selectedTask) {
+      return;
     }
-  };
+    const rowIndex = taskIndexByKey.get(selectedTask.taskKeyFull);
+    if (rowIndex === undefined) {
+      return;
+    }
+    listRef.current?.scrollToItem(rowIndex, 'center');
+  }, [listData, selectedTask, taskIndexByKey]);
+
+  const handleBodyScroll = useCallback(
+    ({ scrollLeft }: ListOnScrollProps) => {
+      syncScrollLeft('body', scrollLeft);
+    },
+    [syncScrollLeft]
+  );
+
+  const handleHeaderScroll = useCallback(
+    (event: UIEvent<HTMLDivElement>) => {
+      syncScrollLeft('header', event.currentTarget.scrollLeft);
+    },
+    [syncScrollLeft]
+  );
 
   if (sourceTasks.length === 0) {
     return (
@@ -435,7 +494,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   return (
     <div className="gantt" style={ganttStyle}>
       <div className="gantt-container">
-        <div className="gantt-header" ref={headerScrollRef}>
+        <div className="gantt-header" ref={headerScrollRef} onScroll={handleHeaderScroll}>
           <GanttHeader
             labelWidth={labelWidth}
             timelineWidth={timelineWidth}
@@ -450,13 +509,14 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
             <AutoSizer>
               {({ height, width }) => (
                 <FixedSizeList
+                  ref={listRef}
                   height={height}
                   width={width}
                   itemCount={visibleRows.length}
                   itemSize={ROW_HEIGHT}
                   itemData={listData}
                   itemKey={(index, data) => data.rows[index]?.id ?? index}
-                  onScroll={handleScroll}
+                  onScroll={handleBodyScroll}
                   outerRef={scrollRef}
                   outerElementType={GanttOuterElement}
                   innerElementType={InnerElement}
