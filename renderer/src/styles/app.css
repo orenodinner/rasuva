@@ -653,6 +653,10 @@ body {
   height: 100%;
   min-height: 60vh;
   --row-height: 32px;
+  --grid-line-color: rgba(230, 220, 203, 0.6);
+  --grid-line-color-soft: rgba(230, 220, 203, 0.5);
+  --tick-font-size: 11px;
+  --tick-date-font-size: 10px;
 }
 
 .gantt-container {
@@ -663,8 +667,7 @@ body {
 }
 
 .gantt-header {
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
   border-bottom: 1px solid rgba(230, 220, 203, 0.6);
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -672,6 +675,11 @@ body {
 
 .gantt-header::-webkit-scrollbar {
   display: none;
+}
+
+.gantt-header-rows {
+  display: flex;
+  flex-direction: column;
 }
 
 .gantt-body {
@@ -754,27 +762,36 @@ body {
   font-weight: 500;
 }
 
+.gantt-timeline-clip {
+  overflow: hidden;
+  height: 100%;
+}
+
 .gantt-timeline {
   position: relative;
   display: flex;
   align-items: center;
   min-height: var(--row-height, 32px);
-  border-left: 1px solid rgba(230, 220, 203, 0.6);
+  border-left: 1px solid var(--grid-line-color);
   background-image: repeating-linear-gradient(
     90deg,
-    rgba(230, 220, 203, 0.5) 0,
-    rgba(230, 220, 203, 0.5) 1px,
+    var(--grid-line-color-soft) 0,
+    var(--grid-line-color-soft) 1px,
     transparent 1px,
     transparent var(--column-width, 28px)
   );
   background-size: var(--column-width, 28px) 100%;
 }
 
+.gantt-timeline--header-top {
+  background-image: none;
+}
+
 .gantt-tick {
-  font-size: 11px;
+  font-size: var(--tick-font-size, 11px);
   color: var(--text);
   padding: 4px 6px;
-  border-right: 1px solid rgba(230, 220, 203, 0.6);
+  border-right: 1px solid var(--grid-line-color);
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -782,15 +799,20 @@ body {
   justify-content: center;
   gap: 2px;
   line-height: 1.1;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .gantt-tick__week {
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .gantt-tick__date {
-  font-size: 10px;
+  font-size: var(--tick-date-font-size, 10px);
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .gantt-bar {
