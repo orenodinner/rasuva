@@ -16,20 +16,19 @@ import ExportPage from './pages/ExportPage';
 import SettingsPage from './pages/SettingsPage';
 import MembersPage from './pages/MembersPage';
 import GroupsPage from './pages/GroupsPage';
+import SchedulesPage from './pages/SchedulesPage';
 import { useAppStore } from './state/store';
 
 const App = () => {
   const navigate = useNavigate();
-  const loadImports = useAppStore((state) => state.loadImports);
-  const loadGantt = useAppStore((state) => state.loadGantt);
+  const initSchedules = useAppStore((state) => state.initSchedules);
   const lastError = useAppStore((state) => state.lastError);
   const setZoom = useAppStore((state) => state.setZoom);
   const setFocusDate = useAppStore((state) => state.setFocusDate);
 
   useEffect(() => {
-    loadImports();
-    loadGantt();
-  }, [loadImports, loadGantt]);
+    initSchedules();
+  }, [initSchedules]);
 
   useEffect(() => {
     const isTypingElement = (target: EventTarget | null) => {
@@ -100,6 +99,7 @@ const App = () => {
               <Route path="/invalid" element={<InvalidPage />} />
               <Route path="/imports" element={<ImportsPage />} />
               <Route path="/views" element={<ViewsPage />} />
+              <Route path="/schedules" element={<SchedulesPage />} />
               <Route path="/export" element={<ExportPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Routes>

@@ -28,7 +28,12 @@ export const createViewSlice: StateCreator<AppState, [], [], ViewSlice> = (set, 
       get().setLastError(API_MISSING_MESSAGE);
       return;
     }
-    const response = await window.api.viewsList();
+    const scheduleId = get().currentScheduleId;
+    if (!scheduleId) {
+      get().setLastError('スケジュールが選択されていません。');
+      return;
+    }
+    const response = await window.api.viewsList(scheduleId);
     if (response.ok) {
       set({ views: response.views });
       get().setLastError(null);
@@ -41,7 +46,12 @@ export const createViewSlice: StateCreator<AppState, [], [], ViewSlice> = (set, 
       get().setLastError(API_MISSING_MESSAGE);
       return;
     }
-    const response = await window.api.viewsSave(name, state);
+    const scheduleId = get().currentScheduleId;
+    if (!scheduleId) {
+      get().setLastError('スケジュールが選択されていません。');
+      return;
+    }
+    const response = await window.api.viewsSave(scheduleId, name, state);
     if (response.ok) {
       get().setLastError(null);
       await get().loadViews();
