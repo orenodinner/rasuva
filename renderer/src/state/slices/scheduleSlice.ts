@@ -65,7 +65,18 @@ export const createScheduleSlice: StateCreator<AppState, [], [], ScheduleSlice> 
       rangeEnd: null
     });
     get().setLastError(null);
-    await Promise.all([get().loadImports(), get().loadGantt(), get().loadViews()]);
+    const results = await Promise.allSettled([
+      get().loadImports(),
+      get().loadGantt(),
+      get().loadViews()
+    ]);
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const labels = ['imports', 'gantt', 'views'];
+        console.error(`Failed to load ${labels[index]}`, result.reason);
+        get().setLastError('スケジュールのデータ取得に失敗しました。');
+      }
+    });
   },
   createSchedule: async (name) => {
     if (!window.api) {
@@ -81,10 +92,16 @@ export const createScheduleSlice: StateCreator<AppState, [], [], ScheduleSlice> 
       get().setLastError(response.error);
       return null;
     }
-    set((state) => ({ schedules: [...state.schedules, response.schedule] }));
+    const created = response.schedule;
+    if (!created) {
+      get().setLastError('スケジュールの作成に失敗しました。');
+      return null;
+    }
+    set((state) => ({ schedules: [...state.schedules, created] }));
+    await get().loadSchedules();
     get().setLastError(null);
-    await get().switchSchedule(response.schedule.id);
-    return response.schedule.id;
+    await get().switchSchedule(created.id);
+    return created.id;
   },
   updateSchedule: async (scheduleId, name) => {
     if (!window.api) {

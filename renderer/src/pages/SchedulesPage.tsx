@@ -32,6 +32,10 @@ const SchedulesPage = () => {
   };
 
   const handleDelete = async (scheduleId: number, scheduleName: string) => {
+    if (scheduleId === currentScheduleId) {
+      window.alert('このスケジュールは現在使用中のため削除できません。');
+      return;
+    }
     const ok = window.confirm(`スケジュール「${scheduleName}」を削除します。よろしいですか？`);
     if (!ok) {
       return;
@@ -52,7 +56,7 @@ const SchedulesPage = () => {
           value={name}
           onChange={(event) => setName(event.target.value)}
         />
-        <button className="cmd-button" onClick={handleCreate}>
+        <button type="button" className="cmd-button" onClick={handleCreate}>
           作成
         </button>
       </div>
@@ -72,6 +76,7 @@ const SchedulesPage = () => {
               </div>
               <div className="list-actions">
                 <button
+                  type="button"
                   className="cmd-button cmd-button--ghost"
                   disabled={schedule.id === currentScheduleId}
                   onClick={() => switchSchedule(schedule.id)}
@@ -79,13 +84,16 @@ const SchedulesPage = () => {
                   {schedule.id === currentScheduleId ? '使用中' : '切り替え'}
                 </button>
                 <button
+                  type="button"
                   className="cmd-button cmd-button--ghost"
                   onClick={() => handleRename(schedule.id, schedule.name)}
                 >
                   名称変更
                 </button>
                 <button
+                  type="button"
                   className="cmd-button"
+                  disabled={schedule.id === currentScheduleId}
                   onClick={() => handleDelete(schedule.id, schedule.name)}
                 >
                   削除

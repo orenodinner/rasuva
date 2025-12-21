@@ -93,6 +93,7 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
     }
     const scheduleId = get().currentScheduleId;
     if (!scheduleId) {
+      get().setLastError('スケジュールが選択されていません。');
       return;
     }
     const response = await window.api.diffGet(scheduleId, importId);
@@ -110,6 +111,7 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
     }
     const scheduleId = get().currentScheduleId;
     if (!scheduleId) {
+      get().setLastError('スケジュールが選択されていません。');
       return;
     }
     const response = await window.api.importsList(scheduleId);

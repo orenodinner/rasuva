@@ -43,6 +43,7 @@ export const createGanttSlice: StateCreator<AppState, [], [], GanttSlice> = (set
     }
     const scheduleId = get().currentScheduleId;
     if (!scheduleId) {
+      get().setLastError('スケジュールが選択されていません。');
       return;
     }
     const response = await window.api.ganttQuery(scheduleId, importId);

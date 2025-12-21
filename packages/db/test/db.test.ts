@@ -21,9 +21,10 @@ describe('db', () => {
   it('inserts and reads imports and tasks', () => {
     const db = createDb(':memory:');
     db.init();
-    const scheduleId = db.listSchedules()[0]?.id ?? 1;
+    const scheduleId = db.listSchedules()[0]?.id;
+    expect(scheduleId).toBeTruthy();
 
-    const importId = db.insertImport(scheduleId, {
+    const importId = db.insertImport(scheduleId as number, {
       createdAt: new Date().toISOString(),
       source: 'test',
       rawJson: '{}',

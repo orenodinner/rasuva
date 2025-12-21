@@ -133,7 +133,7 @@ export interface DbClient {
   getSavedViews: (scheduleId: number) => SavedViewItem[];
   saveView: (scheduleId: number, name: string, state: SavedViewState) => number;
   listSchedules: () => ScheduleItem[];
-  createSchedule: (name: string, description?: string | null) => number;
+  createSchedule: (name: string, description?: string | null) => ScheduleItem | null;
   updateSchedule: (scheduleId: number, name: string, description?: string | null) => boolean;
   deleteSchedule: (scheduleId: number) => boolean;
 }
@@ -447,19 +447,33 @@ export const createDb = (dbPath: string): DbClient => {
     return rows.map(rowToScheduleItem);
   };
 
-  const createSchedule = (name: string, description?: string | null): number => {
+  const getScheduleById = (scheduleId: number): ScheduleItem | null => {
+    const row = db
+      .prepare(
+        `SELECT id, name, description, created_at, updated_at FROM schedules WHERE id = @scheduleId`
+      )
+      .get({ scheduleId });
+    return row ? rowToScheduleItem(row) : null;
+  };
+
+  const createSchedule = (name: string, description?: string | null): ScheduleItem | null => {
     const now = new Date().toISOString();
-    const stmt = db.prepare(`
-      INSERT INTO schedules (name, description, created_at, updated_at)
-      VALUES (@name, @description, @created_at, @updated_at)
-    `);
-    const info = stmt.run({
-      name,
-      description: description ?? null,
-      created_at: now,
-      updated_at: now
-    });
-    return Number(info.lastInsertRowid);
+    try {
+      const stmt = db.prepare(`
+        INSERT INTO schedules (name, description, created_at, updated_at)
+        VALUES (@name, @description, @created_at, @updated_at)
+      `);
+      const info = stmt.run({
+        name,
+        description: description ?? null,
+        created_at: now,
+        updated_at: now
+      });
+      const scheduleId = Number(info.lastInsertRowid);
+      return getScheduleById(scheduleId);
+    } catch {
+      return null;
+    }
   };
 
   const updateSchedule = (

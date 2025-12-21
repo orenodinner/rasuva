@@ -325,15 +325,6 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     return <div className="empty-state">表示期間が設定されていません。</div>;
   }
 
-  if (
-    !rangeStartDate ||
-    !rangeEndDate ||
-    Number.isNaN(rangeStartDate.getTime()) ||
-    Number.isNaN(rangeEndDate.getTime())
-  ) {
-    return <div className="empty-state">表示期間が不正です。</div>;
-  }
-
   if (!hasValidRange || !timelineStart || !timelineEnd) {
     return <div className="empty-state">表示期間が不正です。</div>;
   }

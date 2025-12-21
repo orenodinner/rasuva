@@ -255,8 +255,7 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: 'Invalid payload.' };
     }
 
-    const scheduleId = db.createSchedule(parsedPayload.data.name);
-    const schedule = db.listSchedules().find((item) => item.id === scheduleId);
+    const schedule = db.createSchedule(parsedPayload.data.name);
     if (!schedule) {
       return { ok: false, error: 'スケジュールの作成に失敗しました。' };
     }
@@ -271,7 +270,7 @@ export const registerIpcHandlers = (db: DbClient) => {
 
     const updated = db.updateSchedule(parsedPayload.data.id, parsedPayload.data.name);
     if (!updated) {
-      return { ok: false, error: 'スケジュールが見つかりません。' };
+      return { ok: false, error: 'スケジュールの更新に失敗しました。' };
     }
     const schedule = db.listSchedules().find((item) => item.id === parsedPayload.data.id);
     if (!schedule) {

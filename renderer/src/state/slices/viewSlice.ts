@@ -30,6 +30,7 @@ export const createViewSlice: StateCreator<AppState, [], [], ViewSlice> = (set, 
     }
     const scheduleId = get().currentScheduleId;
     if (!scheduleId) {
+      get().setLastError('スケジュールが選択されていません。');
       return;
     }
     const response = await window.api.viewsList(scheduleId);
