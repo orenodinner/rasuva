@@ -1,5 +1,5 @@
-import { forwardRef, useCallback, useEffect, useMemo, useRef } from 'react';
-import type { CSSProperties, HTMLAttributes, UIEvent } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, HTMLAttributes } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { FixedSizeList, type ListOnScrollProps } from 'react-window';
 import type { NormalizedTask } from '@domain';
@@ -24,6 +24,15 @@ const formatIsoDate = (date: Date) => {
   const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
   const day = `${date.getUTCDate()}`.padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const formatYearMonth = (date: Date) => {
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const year = date.getUTCFullYear();
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
+  return `${year}-${month}`;
 };
 
 const getTodayIso = () => new Date().toISOString().slice(0, 10);
@@ -75,10 +84,31 @@ const formatMonthDay = (date: Date) => {
   if (Number.isNaN(date.getTime())) {
     return '';
   }
-  return date.toLocaleDateString('ja-JP', {
-    month: 'numeric',
-    day: '2-digit'
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getUTCDate()}`.padStart(2, '0');
+  return `${month}/${day}`;
+};
+
+const formatDayWithWeekday = (date: Date) => {
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const day = `${date.getUTCDate()}`.padStart(2, '0');
+  const weekday = date.toLocaleDateString('ja-JP', {
+    weekday: 'short',
+    timeZone: 'UTC'
   });
+  return `${day} (${weekday})`;
+};
+
+const formatQuarterRange = (date: Date) => {
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const monthIndex = date.getUTCMonth();
+  const quarterStart = Math.floor(monthIndex / 3) * 3 + 1;
+  const quarterEnd = quarterStart + 2;
+  return `${quarterStart}\u6708-${quarterEnd}\u6708`;
 };
 
 const buildTooltip = (task: NormalizedTask) => {
@@ -92,10 +122,10 @@ const buildTooltip = (task: NormalizedTask) => {
 };
 
 const zoomConfig = {
-  day: { unitDays: 7, columnWidth: 28 },
-  week: { unitDays: 7, columnWidth: 48 },
-  month: { unitDays: 7, columnWidth: 72 },
-  quarter: { unitDays: 7, columnWidth: 90 }
+  day: { unitDays: 1, columnWidth: 40 },
+  week: { unitDays: 7, columnWidth: 60 },
+  month: { unitDays: 7, columnWidth: 20 },
+  quarter: { unitDays: 28, columnWidth: 50 }
 } as const;
 
 const GanttOuterElement = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
@@ -174,9 +204,10 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const selectedTask = useAppStore((state) => state.selectedTask);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const headerScrollRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<FixedSizeList<GanttRowData> | null>(null);
-  const isSyncingScroll = useRef(false);
+  const [headerScrollLeft, setHeaderScrollLeft] = useState(0);
+  const headerScrollLeftRef = useRef(0);
+  const headerScrollRaf = useRef<number | null>(null);
   const sourceTasks = useMemo<NormalizedTask[]>(() => {
     return tasks ?? gantt?.tasks ?? [];
   }, [tasks, gantt]);
@@ -355,36 +386,25 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     }
   }, [selectedTask, visibleRows, rows, collapsedGroups, setCollapsedGroups]);
 
-  const syncScrollLeft = useCallback((source: 'body' | 'header', scrollLeft: number) => {
-    if (isSyncingScroll.current) {
+  const scheduleHeaderScrollLeft = useCallback((scrollLeft: number) => {
+    headerScrollLeftRef.current = scrollLeft;
+    if (headerScrollRaf.current !== null) {
       return;
     }
-    isSyncingScroll.current = true;
-    if (source === 'body' && headerScrollRef.current) {
-      headerScrollRef.current.scrollLeft = scrollLeft;
-    }
-    if (source === 'header' && scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollLeft;
-    }
-    requestAnimationFrame(() => {
-      isSyncingScroll.current = false;
+    headerScrollRaf.current = requestAnimationFrame(() => {
+      headerScrollRaf.current = null;
+      setHeaderScrollLeft(headerScrollLeftRef.current);
     });
   }, []);
 
   const setHorizontalScroll = useCallback(
     (scrollLeft: number, behavior: ScrollBehavior = 'auto') => {
-      isSyncingScroll.current = true;
       if (scrollRef.current) {
         scrollRef.current.scrollTo({ left: scrollLeft, behavior });
       }
-      if (headerScrollRef.current) {
-        headerScrollRef.current.scrollLeft = scrollLeft;
-      }
-      requestAnimationFrame(() => {
-        isSyncingScroll.current = false;
-      });
+      scheduleHeaderScrollLeft(scrollLeft);
     },
-    []
+    [scheduleHeaderScrollLeft]
   );
 
   useEffect(() => {
@@ -413,16 +433,54 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     if (!timelineStart) {
       return [];
     }
-    return Array.from({ length: columnCount }).map((_, index) => {
+    const result: { key: string; weekLabel: string; dateLabel: string }[] = [];
+
+    for (let index = 0; index < columnCount; index += 1) {
       const tickDate = addDays(timelineStart, index * unitDays);
-      const { week } = getWeekNumber(tickDate);
-      return {
-        key: formatIsoDate(tickDate),
-        weekLabel: `${week}W`,
-        dateLabel: formatMonthDay(tickDate)
-      };
-    });
-  }, [timelineStart, columnCount, unitDays]);
+      const key = formatIsoDate(tickDate);
+
+      if (zoom === 'day') {
+        result.push({
+          key,
+          weekLabel: formatYearMonth(tickDate),
+          dateLabel: formatDayWithWeekday(tickDate)
+        });
+        continue;
+      }
+
+      if (zoom === 'week') {
+        const weekStart = getSundayOnOrBefore(tickDate);
+        const { week } = getWeekNumber(weekStart);
+        const monthLabel = formatYearMonth(weekStart);
+        result.push({
+          key,
+          weekLabel: monthLabel,
+          dateLabel: `${week}W ${formatMonthDay(weekStart)}`
+        });
+        continue;
+      }
+
+      if (zoom === 'month') {
+        const weekStart = getSundayOnOrBefore(tickDate);
+        const { week } = getWeekNumber(weekStart);
+        const monthLabel = formatYearMonth(weekStart);
+        result.push({
+          key,
+          weekLabel: monthLabel,
+          dateLabel: `${week}W`
+        });
+        continue;
+      }
+
+      result.push({
+        key,
+        weekLabel: `${tickDate.getUTCFullYear()}`,
+        dateLabel: formatQuarterRange(tickDate)
+      });
+    }
+
+    return result;
+  }, [timelineStart, columnCount, unitDays, zoom]);
 
   const listData = useMemo<GanttRowData | null>(() => {
     if (!timelineStart || !timelineEnd) {
@@ -487,20 +545,36 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     listRef.current?.scrollToItem(rowIndex, 'center');
   }, [listData, selectedTask, taskIndexByKey]);
 
+  useEffect(() => {
+    const scrollElement = scrollRef.current;
+    if (!scrollElement) {
+      return;
+    }
+    const handleScroll = () => {
+      scheduleHeaderScrollLeft(scrollElement.scrollLeft);
+    };
+    scheduleHeaderScrollLeft(scrollElement.scrollLeft);
+    scrollElement.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      scrollElement.removeEventListener('scroll', handleScroll);
+    };
+  }, [scheduleHeaderScrollLeft, listData]);
+
+  useEffect(() => {
+    return () => {
+      if (headerScrollRaf.current !== null) {
+        cancelAnimationFrame(headerScrollRaf.current);
+      }
+    };
+  }, []);
+
   const handleBodyScroll = useCallback(
     (scrollProps: ListOnScrollProps) => {
       void scrollProps;
       const scrollLeft = scrollRef.current?.scrollLeft ?? 0;
-      syncScrollLeft('body', scrollLeft);
+      scheduleHeaderScrollLeft(scrollLeft);
     },
-    [syncScrollLeft]
-  );
-
-  const handleHeaderScroll = useCallback(
-    (event: UIEvent<HTMLDivElement>) => {
-      syncScrollLeft('header', event.currentTarget.scrollLeft);
-    },
-    [syncScrollLeft]
+    [scheduleHeaderScrollLeft]
   );
 
   if (sourceTasks.length === 0) {
@@ -517,21 +591,30 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     return <div className="empty-state">表示期間が不正です。</div>;
   }
 
+  const isDenseView = zoom === 'month' || zoom === 'quarter';
   const ganttStyle: CSSProperties = {
     ['--column-width' as string]: `${columnWidth}px`,
-    ['--row-height' as string]: `${ROW_HEIGHT}px`
+    ['--row-height' as string]: `${ROW_HEIGHT}px`,
+    ['--grid-line-color' as string]:
+      zoom === 'day' ? 'rgba(230, 220, 203, 0.35)' : 'rgba(230, 220, 203, 0.6)',
+    ['--grid-line-color-soft' as string]:
+      zoom === 'day' ? 'rgba(230, 220, 203, 0.25)' : 'rgba(230, 220, 203, 0.5)',
+    ['--tick-font-size' as string]: isDenseView ? '10px' : '11px',
+    ['--tick-date-font-size' as string]: isDenseView ? '9px' : '10px'
   };
 
   return (
     <div className="gantt" style={ganttStyle}>
       <div className="gantt-container">
-        <div className="gantt-header" ref={headerScrollRef} onScroll={handleHeaderScroll}>
+        <div className="gantt-header">
           <GanttHeader
             labelWidth={labelWidth}
             timelineWidth={timelineWidth}
             columnWidth={columnWidth}
             totalWidth={totalWidth}
             labelText="担当者/プロジェクト"
+            zoom={zoom}
+            scrollLeft={headerScrollLeft}
             ticks={ticks}
           />
         </div>
