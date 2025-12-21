@@ -72,6 +72,13 @@
       "target": [
         "nsis"
       ]
-    }
+    },
+        "publish": [
+      {
+        "provider": "github",
+        "owner": "orenodinner", 
+        "repo": "rasuva"
+      }
+    ]
   }
 }
