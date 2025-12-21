@@ -12,6 +12,9 @@ const toUtcDate = (value: string) => {
 };
 
 const formatIsoDate = (date: Date) => {
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
   const year = date.getUTCFullYear();
   const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
   const day = `${date.getUTCDate()}`.padStart(2, '0');
@@ -64,6 +67,9 @@ const getWeekNumber = (weekStart: Date) => {
 };
 
 const formatMonthDay = (date: Date) => {
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
   return date.toLocaleDateString('ja-JP', {
     month: 'numeric',
     day: '2-digit'
@@ -254,26 +260,16 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
 
   const displayRangeStart = rangeStart ?? derivedRangeStart;
   const displayRangeEnd = rangeEnd ?? derivedRangeEnd;
-
-  if (sourceTasks.length === 0) {
-    return (
-      <div className="empty-state">{emptyLabel ?? 'インポート済みデータがありません。'}</div>
-    );
-  }
-
-  if (!displayRangeStart || !displayRangeEnd) {
-    return <div className="empty-state">表示期間が設定されていません。</div>;
-  }
-
-  const rangeStartDate = toUtcDate(displayRangeStart);
-  const rangeEndDate = toUtcDate(displayRangeEnd);
-
-  if (rangeEndDate < rangeStartDate) {
-    return <div className="empty-state">表示期間が不正です。</div>;
-  }
-
-  const timelineStart = getWeekStart(displayRangeStart);
-  const timelineEnd = rangeEndDate;
+  const rangeStartDate = displayRangeStart ? toUtcDate(displayRangeStart) : null;
+  const rangeEndDate = displayRangeEnd ? toUtcDate(displayRangeEnd) : null;
+  const hasValidRange =
+    Boolean(displayRangeStart && displayRangeEnd) &&
+    Boolean(rangeStartDate && rangeEndDate) &&
+    !Number.isNaN(rangeStartDate?.getTime() ?? NaN) &&
+    !Number.isNaN(rangeEndDate?.getTime() ?? NaN) &&
+    rangeEndDate!.getTime() >= rangeStartDate!.getTime();
+  const timelineStart = hasValidRange ? getWeekStart(displayRangeStart!) : null;
+  const timelineEnd = hasValidRange ? rangeEndDate : null;
 
   const visibleRows = useMemo(() => {
     return rows.filter((row) => {
@@ -318,6 +314,29 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     scrollRef.current?.scrollTo({ left: scrollLeft, behavior: 'smooth' });
     setFocusDate(null);
   }, [focusDate, timelineStart, zoom, setFocusDate]);
+
+  if (sourceTasks.length === 0) {
+    return (
+      <div className="empty-state">{emptyLabel ?? 'インポート済みデータがありません。'}</div>
+    );
+  }
+
+  if (!displayRangeStart || !displayRangeEnd) {
+    return <div className="empty-state">表示期間が設定されていません。</div>;
+  }
+
+  if (
+    !rangeStartDate ||
+    !rangeEndDate ||
+    Number.isNaN(rangeStartDate.getTime()) ||
+    Number.isNaN(rangeEndDate.getTime())
+  ) {
+    return <div className="empty-state">表示期間が不正です。</div>;
+  }
+
+  if (!hasValidRange || !timelineStart || !timelineEnd) {
+    return <div className="empty-state">表示期間が不正です。</div>;
+  }
 
   const { unitDays, columnWidth } = zoomConfig[zoom];
   const dayWidth = columnWidth / unitDays;

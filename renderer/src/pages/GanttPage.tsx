@@ -5,6 +5,7 @@ import { useAppStore } from '../state/store';
 const GanttPage = () => {
   const gantt = useAppStore((state) => state.gantt);
   const loadGantt = useAppStore((state) => state.loadGantt);
+  const currentScheduleId = useAppStore((state) => state.currentScheduleId);
   const rangeStart = useAppStore((state) => state.rangeStart);
   const rangeEnd = useAppStore((state) => state.rangeEnd);
   const setRange = useAppStore((state) => state.setRange);
@@ -12,10 +13,24 @@ const GanttPage = () => {
   const setCollapsedGroups = useAppStore((state) => state.setCollapsedGroups);
 
   useEffect(() => {
+    if (!currentScheduleId) {
+      return;
+    }
     if (!gantt) {
       loadGantt();
     }
-  }, [gantt, loadGantt]);
+  }, [gantt, loadGantt, currentScheduleId]);
+
+  if (!currentScheduleId) {
+    return (
+      <div className="page gantt-page">
+        <div className="page-header">
+          <h1>ガント</h1>
+          <p>スケジュールを選択してください。</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page gantt-page">
