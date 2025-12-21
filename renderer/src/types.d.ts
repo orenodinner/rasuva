@@ -3,6 +3,7 @@ import type {
   ImportApplyResult,
   ImportListItem,
   ImportPreviewResult,
+  ScheduleItem,
   NormalizedTask,
   SavedViewItem,
   SavedViewState,
@@ -22,24 +23,39 @@ declare global {
       >;
       importApply: (
         jsonText: string,
-        source: 'paste' | 'file' | 'excel'
+        source: 'paste' | 'file' | 'excel',
+        scheduleId: number
       ) => Promise<ApiSuccess<{ result: ImportApplyResult }> | ApiFailure>;
       diffGet: (
+        scheduleId: number,
         importId?: number
       ) => Promise<ApiSuccess<{ importId: number | null; diff: DiffResult }> | ApiFailure>;
       ganttQuery: (
+        scheduleId: number,
         importId?: number
       ) => Promise<ApiSuccess<{ result: GanttQueryResult }> | ApiFailure>;
-      importsList: () => Promise<ApiSuccess<{ imports: ImportListItem[] }> | ApiFailure>;
-      viewsList: () => Promise<ApiSuccess<{ views: SavedViewItem[] }> | ApiFailure>;
+      schedulesList: () => Promise<ApiSuccess<{ schedules: ScheduleItem[] }> | ApiFailure>;
+      schedulesCreate: (
+        name: string
+      ) => Promise<ApiSuccess<{ schedule: ScheduleItem }> | ApiFailure>;
+      schedulesUpdate: (
+        id: number,
+        name: string
+      ) => Promise<ApiSuccess<{ schedule: ScheduleItem }> | ApiFailure>;
+      schedulesDelete: (
+        id: number
+      ) => Promise<ApiSuccess<{ deleted: boolean }> | ApiFailure>;
+      importsList: (scheduleId: number) => Promise<ApiSuccess<{ imports: ImportListItem[] }> | ApiFailure>;
+      viewsList: (scheduleId: number) => Promise<ApiSuccess<{ views: SavedViewItem[] }> | ApiFailure>;
       viewsSave: (
+        scheduleId: number,
         name: string,
         state: SavedViewState
       ) => Promise<ApiSuccess<{ viewId: number }> | ApiFailure>;
-      exportCsv: (importId?: number) => Promise<ApiSuccess<{ path: string }> | ApiFailure>;
-      exportXlsx: (importId?: number) => Promise<ApiSuccess<{ path: string }> | ApiFailure>;
+      exportCsv: (scheduleId: number, importId?: number) => Promise<ApiSuccess<{ path: string }> | ApiFailure>;
+      exportXlsx: (scheduleId: number, importId?: number) => Promise<ApiSuccess<{ path: string }> | ApiFailure>;
       taskUpdate: (
-        importId: number | undefined,
+        importId: number,
         taskKeyFull: string,
         start: string | null,
         end: string | null,

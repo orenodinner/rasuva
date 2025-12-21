@@ -21,8 +21,9 @@ describe('db', () => {
   it('inserts and reads imports and tasks', () => {
     const db = createDb(':memory:');
     db.init();
+    const scheduleId = db.listSchedules()[0]?.id ?? 1;
 
-    const importId = db.insertImport({
+    const importId = db.insertImport(scheduleId, {
       createdAt: new Date().toISOString(),
       source: 'test',
       rawJson: '{}',
@@ -47,7 +48,7 @@ describe('db', () => {
 
     db.insertTasks(importId, [makeTask()]);
 
-    const imports = db.listImports();
+    const imports = db.listImports(scheduleId);
     expect(imports.length).toBe(1);
     expect(imports[0].id).toBe(importId);
 

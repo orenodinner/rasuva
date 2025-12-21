@@ -5,6 +5,7 @@ import type {
   ImportSummary,
   ImportWarning,
   NormalizedTask,
+  ScheduleItem,
   SavedViewItem,
   SavedViewState
 } from '@domain';
@@ -65,7 +66,29 @@ CREATE TABLE IF NOT EXISTS saved_views (
   updated_at TEXT NOT NULL
 );
 `,
-  `ALTER TABLE tasks ADD COLUMN assignees_json TEXT;`
+  `ALTER TABLE tasks ADD COLUMN assignees_json TEXT;`,
+  `
+CREATE TABLE IF NOT EXISTS schedules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+INSERT INTO schedules (id, name, description, created_at, updated_at)
+SELECT 1, 'メインスケジュール', NULL, datetime('now'), datetime('now')
+WHERE NOT EXISTS (SELECT 1 FROM schedules);
+
+ALTER TABLE imports ADD COLUMN schedule_id INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE saved_views ADD COLUMN schedule_id INTEGER NOT NULL DEFAULT 1;
+
+UPDATE imports SET schedule_id = 1 WHERE schedule_id IS NULL;
+UPDATE saved_views SET schedule_id = 1 WHERE schedule_id IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_imports_schedule_id ON imports(schedule_id);
+CREATE INDEX IF NOT EXISTS idx_views_schedule_id ON saved_views(schedule_id);
+`
 ];
 
 const runMigrations = (db: Database.Database) => {
@@ -97,18 +120,22 @@ export interface ImportInsertInput {
 export interface DbClient {
   init: () => void;
   close: () => void;
-  insertImport: (input: ImportInsertInput) => number;
+  insertImport: (scheduleId: number, input: ImportInsertInput) => number;
   insertTasks: (importId: number, tasks: NormalizedTask[]) => void;
   insertWarnings: (importId: number, warnings: ImportWarning[]) => void;
-  listImports: () => ImportListItem[];
-  getLatestImportId: () => number | null;
-  getPreviousImportId: (importId: number) => number | null;
+  listImports: (scheduleId: number) => ImportListItem[];
+  getLatestImportId: (scheduleId: number) => number | null;
+  getPreviousImportId: (scheduleId: number, importId: number) => number | null;
   getTasksByImportId: (importId: number) => NormalizedTask[];
   getTaskByKey: (importId: number, taskKeyFull: string) => NormalizedTask | null;
   updateTask: (importId: number, taskKeyFull: string, updates: Partial<NormalizedTask>) => void;
-  getImportById: (importId: number) => ImportListItem | null;
-  getSavedViews: () => SavedViewItem[];
-  saveView: (name: string, state: SavedViewState) => number;
+  getImportById: (scheduleId: number, importId: number) => ImportListItem | null;
+  getSavedViews: (scheduleId: number) => SavedViewItem[];
+  saveView: (scheduleId: number, name: string, state: SavedViewState) => number;
+  listSchedules: () => ScheduleItem[];
+  createSchedule: (name: string, description?: string | null) => number;
+  updateSchedule: (scheduleId: number, name: string, description?: string | null) => boolean;
+  deleteSchedule: (scheduleId: number) => boolean;
 }
 
 const parseAssignees = (value: unknown): string[] => {
@@ -159,6 +186,14 @@ const rowToViewItem = (row: any): SavedViewItem => ({
   updatedAt: row.updated_at
 });
 
+const rowToScheduleItem = (row: any): ScheduleItem => ({
+  id: row.id,
+  name: row.name,
+  description: row.description,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
 export const createDb = (dbPath: string): DbClient => {
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
@@ -167,9 +202,10 @@ export const createDb = (dbPath: string): DbClient => {
     runMigrations(db);
   };
 
-  const insertImport = (input: ImportInsertInput) => {
+  const insertImport = (scheduleId: number, input: ImportInsertInput) => {
     const stmt = db.prepare(`
       INSERT INTO imports (
+        schedule_id,
         created_at,
         source,
         raw_json,
@@ -183,6 +219,7 @@ export const createDb = (dbPath: string): DbClient => {
         unscheduled_count,
         warnings_count
       ) VALUES (
+        @schedule_id,
         @created_at,
         @source,
         @raw_json,
@@ -199,6 +236,7 @@ export const createDb = (dbPath: string): DbClient => {
     `);
 
     const info = stmt.run({
+      schedule_id: scheduleId,
       created_at: input.createdAt,
       source: input.source,
       raw_json: input.rawJson,
@@ -305,29 +343,32 @@ export const createDb = (dbPath: string): DbClient => {
     insertMany(warnings);
   };
 
-  const listImports = (): ImportListItem[] => {
+  const listImports = (scheduleId: number): ImportListItem[] => {
     const rows = db
       .prepare(
         `SELECT id, created_at, source, total_tasks, added_count, updated_count, archived_count, invalid_count, unscheduled_count, warnings_count
          FROM imports
+         WHERE schedule_id = @scheduleId
          ORDER BY id DESC`
       )
-      .all();
+      .all({ scheduleId });
 
     return rows.map(rowToImportItem);
   };
 
-  const getLatestImportId = () => {
+  const getLatestImportId = (scheduleId: number) => {
     const row = db
-      .prepare(`SELECT id FROM imports ORDER BY id DESC LIMIT 1`)
-      .get() as { id: number } | undefined;
+      .prepare(`SELECT id FROM imports WHERE schedule_id = @scheduleId ORDER BY id DESC LIMIT 1`)
+      .get({ scheduleId }) as { id: number } | undefined;
     return row ? row.id : null;
   };
 
-  const getPreviousImportId = (importId: number) => {
+  const getPreviousImportId = (scheduleId: number, importId: number) => {
     const row = db
-      .prepare(`SELECT id FROM imports WHERE id < @importId ORDER BY id DESC LIMIT 1`)
-      .get({ importId }) as { id: number } | undefined;
+      .prepare(
+        `SELECT id FROM imports WHERE schedule_id = @scheduleId AND id < @importId ORDER BY id DESC LIMIT 1`
+      )
+      .get({ scheduleId, importId }) as { id: number } | undefined;
     return row ? row.id : null;
   };
 
@@ -362,32 +403,35 @@ export const createDb = (dbPath: string): DbClient => {
     });
   };
 
-  const getImportById = (importId: number): ImportListItem | null => {
+  const getImportById = (scheduleId: number, importId: number): ImportListItem | null => {
     const row = db
       .prepare(
         `SELECT id, created_at, source, total_tasks, added_count, updated_count, archived_count, invalid_count, unscheduled_count, warnings_count
          FROM imports
-         WHERE id = @importId`
+         WHERE id = @importId AND schedule_id = @scheduleId`
       )
-      .get({ importId });
+      .get({ importId, scheduleId });
 
     return row ? rowToImportItem(row) : null;
   };
 
-  const getSavedViews = (): SavedViewItem[] => {
+  const getSavedViews = (scheduleId: number): SavedViewItem[] => {
     const rows = db
-      .prepare(`SELECT id, name, state_json, created_at, updated_at FROM saved_views ORDER BY id DESC`)
-      .all();
+      .prepare(
+        `SELECT id, name, state_json, created_at, updated_at FROM saved_views WHERE schedule_id = @scheduleId ORDER BY id DESC`
+      )
+      .all({ scheduleId });
     return rows.map(rowToViewItem);
   };
 
-  const saveView = (name: string, state: SavedViewState) => {
+  const saveView = (scheduleId: number, name: string, state: SavedViewState) => {
     const now = new Date().toISOString();
     const stmt = db.prepare(`
-      INSERT INTO saved_views (name, state_json, created_at, updated_at)
-      VALUES (@name, @state_json, @created_at, @updated_at)
+      INSERT INTO saved_views (schedule_id, name, state_json, created_at, updated_at)
+      VALUES (@schedule_id, @name, @state_json, @created_at, @updated_at)
     `);
     const info = stmt.run({
+      schedule_id: scheduleId,
       name,
       state_json: JSON.stringify(state),
       created_at: now,
@@ -396,13 +440,86 @@ export const createDb = (dbPath: string): DbClient => {
     return Number(info.lastInsertRowid);
   };
 
+  const listSchedules = (): ScheduleItem[] => {
+    const rows = db
+      .prepare(`SELECT id, name, description, created_at, updated_at FROM schedules ORDER BY id ASC`)
+      .all();
+    return rows.map(rowToScheduleItem);
+  };
+
+  const createSchedule = (name: string, description?: string | null): number => {
+    const now = new Date().toISOString();
+    const stmt = db.prepare(`
+      INSERT INTO schedules (name, description, created_at, updated_at)
+      VALUES (@name, @description, @created_at, @updated_at)
+    `);
+    const info = stmt.run({
+      name,
+      description: description ?? null,
+      created_at: now,
+      updated_at: now
+    });
+    return Number(info.lastInsertRowid);
+  };
+
+  const updateSchedule = (
+    scheduleId: number,
+    name: string,
+    description?: string | null
+  ): boolean => {
+    const now = new Date().toISOString();
+    const stmt = db.prepare(`
+      UPDATE schedules
+      SET name = @name,
+          description = @description,
+          updated_at = @updated_at
+      WHERE id = @scheduleId
+    `);
+    const info = stmt.run({
+      scheduleId,
+      name,
+      description: description ?? null,
+      updated_at: now
+    });
+    return info.changes > 0;
+  };
+
+  const deleteSchedule = (scheduleId: number): boolean => {
+    const countRow = db
+      .prepare(`SELECT COUNT(*) as count FROM schedules`)
+      .get() as { count: number };
+    if (countRow.count <= 1) {
+      return false;
+    }
+    const exists = db
+      .prepare(`SELECT 1 FROM schedules WHERE id = @scheduleId`)
+      .get({ scheduleId });
+    if (!exists) {
+      return false;
+    }
+
+    const tx = db.transaction(() => {
+      db.prepare(
+        `DELETE FROM tasks WHERE import_id IN (SELECT id FROM imports WHERE schedule_id = @scheduleId)`
+      ).run({ scheduleId });
+      db.prepare(
+        `DELETE FROM warnings WHERE import_id IN (SELECT id FROM imports WHERE schedule_id = @scheduleId)`
+      ).run({ scheduleId });
+      db.prepare(`DELETE FROM imports WHERE schedule_id = @scheduleId`).run({ scheduleId });
+      db.prepare(`DELETE FROM saved_views WHERE schedule_id = @scheduleId`).run({ scheduleId });
+      db.prepare(`DELETE FROM schedules WHERE id = @scheduleId`).run({ scheduleId });
+    });
+
+    tx();
+    return true;
+  };
+
   const close = () => {
     db.close();
   };
 
   return {
     init,
-    close,
     insertImport,
     insertTasks,
     insertWarnings,
@@ -414,6 +531,11 @@ export const createDb = (dbPath: string): DbClient => {
     updateTask,
     getImportById,
     getSavedViews,
-    saveView
+    saveView,
+    listSchedules,
+    createSchedule,
+    updateSchedule,
+    deleteSchedule,
+    close
   };
 };

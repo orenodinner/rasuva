@@ -121,6 +121,14 @@ export interface SavedViewItem {
   updatedAt: string;
 }
 
+export interface ScheduleItem {
+  id: number;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface FlatTaskRow {
   member_name: string | null;
   project_id: string | null;

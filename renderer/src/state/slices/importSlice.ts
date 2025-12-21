@@ -67,7 +67,12 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
       get().setLastError(API_MISSING_MESSAGE);
       return null;
     }
-    const response = await window.api.importApply(get().jsonText, source);
+    const scheduleId = get().currentScheduleId;
+    if (!scheduleId) {
+      get().setLastError('スケジュールが選択されていません。');
+      return null;
+    }
+    const response = await window.api.importApply(get().jsonText, source, scheduleId);
     if (response.ok) {
       set({
         diff: response.result.diff,
@@ -86,7 +91,11 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
       get().setLastError(API_MISSING_MESSAGE);
       return;
     }
-    const response = await window.api.diffGet(importId);
+    const scheduleId = get().currentScheduleId;
+    if (!scheduleId) {
+      return;
+    }
+    const response = await window.api.diffGet(scheduleId, importId);
     if (response.ok) {
       set({ diff: response.diff, currentImportId: response.importId });
       get().setLastError(null);
@@ -99,7 +108,11 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
       get().setLastError(API_MISSING_MESSAGE);
       return;
     }
-    const response = await window.api.importsList();
+    const scheduleId = get().currentScheduleId;
+    if (!scheduleId) {
+      return;
+    }
+    const response = await window.api.importsList(scheduleId);
     if (response.ok) {
       set({ imports: response.imports });
       get().setLastError(null);

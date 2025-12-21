@@ -78,6 +78,45 @@ body {
   gap: 6px;
 }
 
+.schedule-switcher {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(247, 243, 235, 0.08);
+}
+
+.schedule-switcher__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(247, 243, 235, 0.7);
+}
+
+.schedule-switcher__select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(247, 243, 235, 0.18);
+  background: rgba(26, 47, 44, 0.85);
+  color: #fffaf2;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.schedule-switcher__manage {
+  border: none;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #fffaf2;
+  background: rgba(247, 243, 235, 0.14);
+  cursor: pointer;
+}
+
+.schedule-switcher__manage:hover {
+  background: rgba(247, 243, 235, 0.2);
+}
+
 .side-nav__link {
   text-decoration: none;
   color: inherit;

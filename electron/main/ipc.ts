@@ -112,16 +112,21 @@ const previewSchema = z.object({
   jsonText: z.string()
 });
 
+const scheduleIdSchema = z.number().int().positive();
+
 const applySchema = z.object({
   jsonText: z.string(),
-  source: z.enum(['paste', 'file', 'excel'])
+  source: z.enum(['paste', 'file', 'excel']),
+  scheduleId: scheduleIdSchema
 });
 
 const diffSchema = z.object({
+  scheduleId: scheduleIdSchema,
   importId: z.number().int().positive().optional()
 });
 
 const ganttSchema = z.object({
+  scheduleId: scheduleIdSchema,
   importId: z.number().int().positive().optional()
 });
 
@@ -134,16 +139,35 @@ const viewStateSchema = z.object({
 });
 
 const viewSaveSchema = z.object({
+  scheduleId: scheduleIdSchema,
   name: z.string().min(1),
   state: viewStateSchema
 });
 
 const exportSchema = z.object({
+  scheduleId: scheduleIdSchema,
   importId: z.number().int().positive().optional()
 });
 
+const scheduleCreateSchema = z.object({
+  name: z.string().min(1)
+});
+
+const scheduleUpdateSchema = z.object({
+  id: scheduleIdSchema,
+  name: z.string().min(1)
+});
+
+const scheduleDeleteSchema = z.object({
+  id: scheduleIdSchema
+});
+
+const scheduleListSchema = z.object({
+  scheduleId: scheduleIdSchema
+});
+
 const taskUpdateSchema = z.object({
-  importId: z.number().int().positive().optional(),
+  importId: z.number().int().positive(),
   taskKeyFull: z.string().min(1),
   start: z.string().nullable(),
   end: z.string().nullable(),
@@ -218,6 +242,55 @@ export const registerIpcHandlers = (db: DbClient) => {
 
     const normalized = normalizeImport(parsed.data);
     return { ok: true, preview: { summary: normalized.summary, warnings: normalized.warnings } };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.schedulesList, async () => {
+    const schedules = db.listSchedules();
+    return { ok: true, schedules };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.schedulesCreate, async (_event, payload) => {
+    const parsedPayload = scheduleCreateSchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const scheduleId = db.createSchedule(parsedPayload.data.name);
+    const schedule = db.listSchedules().find((item) => item.id === scheduleId);
+    if (!schedule) {
+      return { ok: false, error: 'スケジュールの作成に失敗しました。' };
+    }
+    return { ok: true, schedule };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.schedulesUpdate, async (_event, payload) => {
+    const parsedPayload = scheduleUpdateSchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const updated = db.updateSchedule(parsedPayload.data.id, parsedPayload.data.name);
+    if (!updated) {
+      return { ok: false, error: 'スケジュールが見つかりません。' };
+    }
+    const schedule = db.listSchedules().find((item) => item.id === parsedPayload.data.id);
+    if (!schedule) {
+      return { ok: false, error: 'スケジュールが見つかりません。' };
+    }
+    return { ok: true, schedule };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.schedulesDelete, async (_event, payload) => {
+    const parsedPayload = scheduleDeleteSchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const deleted = db.deleteSchedule(parsedPayload.data.id);
+    if (!deleted) {
+      return { ok: false, error: '最後のスケジュールは削除できません。' };
+    }
+    return { ok: true, deleted: true };
   });
 
   ipcMain.handle(IPC_CHANNELS.importExcel, async () => {
@@ -328,11 +401,11 @@ export const registerIpcHandlers = (db: DbClient) => {
     }
 
     const normalized = normalizeImport(parsed.data);
-    const latestImportId = db.getLatestImportId();
+    const latestImportId = db.getLatestImportId(parsedPayload.data.scheduleId);
     const prevTasks = latestImportId ? db.getTasksByImportId(latestImportId) : [];
     const diff = diffTasks(prevTasks, normalized.tasks);
 
-    const importId = db.insertImport({
+    const importId = db.insertImport(parsedPayload.data.scheduleId, {
       createdAt: new Date().toISOString(),
       source: parsedPayload.data.source,
       rawJson: parsedPayload.data.jsonText,
@@ -360,13 +433,21 @@ export const registerIpcHandlers = (db: DbClient) => {
     }
 
     const targetImportId =
-      parsedPayload.data.importId ?? db.getLatestImportId();
+      parsedPayload.data.importId ?? db.getLatestImportId(parsedPayload.data.scheduleId);
 
     if (!targetImportId) {
       return { ok: true, importId: null, diff: diffTasks([], []) };
     }
 
-    const previousImportId = db.getPreviousImportId(targetImportId);
+    const currentImport = db.getImportById(parsedPayload.data.scheduleId, targetImportId);
+    if (!currentImport) {
+      return { ok: false, error: '指定されたインポートが見つかりません。' };
+    }
+
+    const previousImportId = db.getPreviousImportId(
+      parsedPayload.data.scheduleId,
+      targetImportId
+    );
     const currentTasks = db.getTasksByImportId(targetImportId);
     const previousTasks = previousImportId ? db.getTasksByImportId(previousImportId) : [];
 
@@ -380,22 +461,36 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: 'Invalid payload.' };
     }
 
-    const importId = parsedPayload.data.importId ?? db.getLatestImportId();
+    const importId =
+      parsedPayload.data.importId ?? db.getLatestImportId(parsedPayload.data.scheduleId);
     if (!importId) {
       return { ok: true, result: { importId: null, tasks: [] } };
+    }
+
+    const currentImport = db.getImportById(parsedPayload.data.scheduleId, importId);
+    if (!currentImport) {
+      return { ok: false, error: '指定されたインポートが見つかりません。' };
     }
 
     const tasks = db.getTasksByImportId(importId);
     return { ok: true, result: { importId, tasks } };
   });
 
-  ipcMain.handle(IPC_CHANNELS.importsList, async () => {
-    const imports = db.listImports();
+  ipcMain.handle(IPC_CHANNELS.importsList, async (_event, payload) => {
+    const parsedPayload = scheduleListSchema.safeParse(payload ?? {});
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+    const imports = db.listImports(parsedPayload.data.scheduleId);
     return { ok: true, imports };
   });
 
-  ipcMain.handle(IPC_CHANNELS.viewsList, async () => {
-    const views = db.getSavedViews();
+  ipcMain.handle(IPC_CHANNELS.viewsList, async (_event, payload) => {
+    const parsedPayload = scheduleListSchema.safeParse(payload ?? {});
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+    const views = db.getSavedViews(parsedPayload.data.scheduleId);
     return { ok: true, views };
   });
 
@@ -405,7 +500,11 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: 'Invalid payload.' };
     }
 
-    const viewId = db.saveView(parsedPayload.data.name, parsedPayload.data.state);
+    const viewId = db.saveView(
+      parsedPayload.data.scheduleId,
+      parsedPayload.data.name,
+      parsedPayload.data.state
+    );
     return { ok: true, viewId };
   });
 
@@ -415,9 +514,15 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: 'Invalid payload.' };
     }
 
-    const importId = parsedPayload.data.importId ?? db.getLatestImportId();
+    const importId =
+      parsedPayload.data.importId ?? db.getLatestImportId(parsedPayload.data.scheduleId);
     if (!importId) {
       return { ok: false, error: 'No import available.' };
+    }
+
+    const currentImport = db.getImportById(parsedPayload.data.scheduleId, importId);
+    if (!currentImport) {
+      return { ok: false, error: '指定されたインポートが見つかりません。' };
     }
 
     const tasks = db.getTasksByImportId(importId);
@@ -443,9 +548,15 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: 'Invalid payload.' };
     }
 
-    const importId = parsedPayload.data.importId ?? db.getLatestImportId();
+    const importId =
+      parsedPayload.data.importId ?? db.getLatestImportId(parsedPayload.data.scheduleId);
     if (!importId) {
       return { ok: false, error: 'No import available.' };
+    }
+
+    const currentImport = db.getImportById(parsedPayload.data.scheduleId, importId);
+    if (!currentImport) {
+      return { ok: false, error: '指定されたインポートが見つかりません。' };
     }
 
     const tasks = db.getTasksByImportId(importId);
@@ -632,10 +743,7 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: 'Invalid payload.' };
     }
 
-    const importId = parsedPayload.data.importId ?? db.getLatestImportId();
-    if (!importId) {
-      return { ok: false, error: 'No import available.' };
-    }
+    const importId = parsedPayload.data.importId;
 
     const { taskKeyFull } = parsedPayload.data;
     const startRaw = parsedPayload.data.start;

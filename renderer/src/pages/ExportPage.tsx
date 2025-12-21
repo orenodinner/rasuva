@@ -4,9 +4,14 @@ import { useAppStore } from '../state/store';
 const ExportPage = () => {
   const [message, setMessage] = useState<string | null>(null);
   const gantt = useAppStore((state) => state.gantt);
+  const currentScheduleId = useAppStore((state) => state.currentScheduleId);
 
   const handleExportCsv = async () => {
-    const response = await window.api.exportCsv(gantt?.importId ?? undefined);
+    if (!currentScheduleId) {
+      setMessage('スケジュールが選択されていません。');
+      return;
+    }
+    const response = await window.api.exportCsv(currentScheduleId, gantt?.importId ?? undefined);
     if (response.ok) {
       setMessage(`保存先: ${response.path}`);
     } else {
@@ -15,7 +20,11 @@ const ExportPage = () => {
   };
 
   const handleExportXlsx = async () => {
-    const response = await window.api.exportXlsx(gantt?.importId ?? undefined);
+    if (!currentScheduleId) {
+      setMessage('スケジュールが選択されていません。');
+      return;
+    }
+    const response = await window.api.exportXlsx(currentScheduleId, gantt?.importId ?? undefined);
     if (response.ok) {
       setMessage(`保存先: ${response.path}`);
     } else {
