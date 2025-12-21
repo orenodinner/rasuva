@@ -166,6 +166,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const rangeStart = useAppStore((state) => state.rangeStart);
   const rangeEnd = useAppStore((state) => state.rangeEnd);
   const collapsedGroups = useAppStore((state) => state.collapsedGroups);
+  const setCollapsedGroups = useAppStore((state) => state.setCollapsedGroups);
   const toggleGroup = useAppStore((state) => state.toggleGroup);
   const setFocusDate = useAppStore((state) => state.setFocusDate);
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
@@ -176,7 +177,9 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<FixedSizeList<GanttRowData> | null>(null);
   const isSyncingScroll = useRef(false);
-  const sourceTasks: NormalizedTask[] = tasks ?? gantt?.tasks ?? [];
+  const sourceTasks = useMemo<NormalizedTask[]>(() => {
+    return tasks ?? gantt?.tasks ?? [];
+  }, [tasks, gantt]);
   const query = search.trim().toLowerCase();
   const isRangeBounded = Boolean(rangeStart || rangeEnd);
   const rangeFilterStart = rangeStart ? toUtcDate(rangeStart) : null;
@@ -326,6 +329,32 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     setTaskOrder(taskOrder);
   }, [taskOrder, setTaskOrder]);
 
+  useEffect(() => {
+    if (!selectedTask) {
+      return;
+    }
+    const isVisible = visibleRows.some(
+      (row) => row.type === 'task' && row.task?.taskKeyFull === selectedTask.taskKeyFull
+    );
+    if (isVisible) {
+      return;
+    }
+    const rowForTask = rows.find(
+      (row) => row.type === 'task' && row.task?.taskKeyFull === selectedTask.taskKeyFull
+    );
+    if (!rowForTask) {
+      return;
+    }
+    const memberId = `member:${rowForTask.memberName}`;
+    const projectId = `project:${rowForTask.memberName}:${rowForTask.projectId}`;
+    const nextCollapsed = collapsedGroups.filter(
+      (groupId) => groupId !== memberId && groupId !== projectId
+    );
+    if (nextCollapsed.length !== collapsedGroups.length) {
+      setCollapsedGroups(nextCollapsed);
+    }
+  }, [selectedTask, visibleRows, rows, collapsedGroups, setCollapsedGroups]);
+
   const syncScrollLeft = useCallback((source: 'body' | 'header', scrollLeft: number) => {
     if (isSyncingScroll.current) {
       return;
@@ -459,7 +488,9 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   }, [listData, selectedTask, taskIndexByKey]);
 
   const handleBodyScroll = useCallback(
-    ({ scrollLeft }: ListOnScrollProps) => {
+    (scrollProps: ListOnScrollProps) => {
+      void scrollProps;
+      const scrollLeft = scrollRef.current?.scrollLeft ?? 0;
       syncScrollLeft('body', scrollLeft);
     },
     [syncScrollLeft]

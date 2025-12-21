@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { convertFlatTasksToRawImport, parseDateStrict, normalizeImport } from '../src/normalize';
+import type { RawImport } from '../src/types';
 
 const sampleImport = {
   members: [
@@ -78,7 +79,7 @@ describe('normalizeImport', () => {
   });
 
   it('handles triple duplicate task keys correctly', () => {
-    const raw = {
+    const raw: RawImport = {
       members: [
         {
           name: 'Bob',
@@ -95,14 +96,15 @@ describe('normalizeImport', () => {
         }
       ]
     };
-    const { tasks } = normalizeImport(raw as any);
+    const { tasks } = normalizeImport(raw);
     expect(tasks[0].taskKeyFull).toBe('P1::Fix');
     expect(tasks[1].taskKeyFull).toBe('P1::Fix#2');
     expect(tasks[2].taskKeyFull).toBe('P1::Fix#3');
   });
 
   it('handles empty members list', () => {
-    const { tasks, summary } = normalizeImport({ members: [] } as any);
+    const raw: RawImport = { members: [] };
+    const { tasks, summary } = normalizeImport(raw);
     expect(tasks.length).toBe(0);
     expect(summary.totalMembers).toBe(0);
     expect(summary.totalProjects).toBe(0);
@@ -110,7 +112,7 @@ describe('normalizeImport', () => {
   });
 
   it('handles project with empty tasks array', () => {
-    const raw = {
+    const raw: RawImport = {
       members: [
         {
           name: 'Kana',
@@ -118,14 +120,14 @@ describe('normalizeImport', () => {
         }
       ]
     };
-    const { tasks, summary } = normalizeImport(raw as any);
+    const { tasks, summary } = normalizeImport(raw);
     expect(tasks.length).toBe(0);
     expect(summary.totalProjects).toBe(1);
     expect(summary.totalTasks).toBe(0);
   });
 
   it('normalizes assignees from assign list', () => {
-    const raw = {
+    const raw: RawImport = {
       members: [
         {
           name: 'Alice',
@@ -146,7 +148,7 @@ describe('normalizeImport', () => {
         }
       ]
     };
-    const { tasks } = normalizeImport(raw as any);
+    const { tasks } = normalizeImport(raw);
     expect(tasks[0].assignees).toEqual(['Bob', 'Charlie']);
   });
 
