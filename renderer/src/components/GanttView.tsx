@@ -9,7 +9,7 @@ import GanttRow, { type GanttRowData, type GanttRowItem } from './GanttRow';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MS_PER_WEEK = MS_PER_DAY * 7;
-const ROW_HEIGHT = 32;
+const ROW_HEIGHT = 28;
 
 const toUtcDate = (value: string) => {
   const [year, month, day] = value.split('-').map(Number);

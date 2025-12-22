@@ -1,4 +1,5 @@
 import type { StateCreator } from 'zustand';
+import { extractJsonFromText } from '@domain';
 import type { DiffResult, ImportApplyResult, ImportListItem, ImportPreviewResult } from '@domain';
 import type { AppState } from '../store';
 
@@ -22,6 +23,19 @@ export interface ImportSlice {
 const API_MISSING_MESSAGE =
   'Preload API が利用できません。preload の読み込みを確認してください。';
 
+const prepareJsonText = (jsonText: string) => {
+  try {
+    JSON.parse(jsonText);
+    return jsonText;
+  } catch {
+    const extracted = extractJsonFromText(jsonText);
+    if (!extracted) {
+      return jsonText;
+    }
+    return JSON.stringify(extracted, null, 2);
+  }
+};
+
 export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (set, get) => ({
   jsonText: '',
   importSource: 'paste',
@@ -35,7 +49,12 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
       get().setLastError(API_MISSING_MESSAGE);
       return false;
     }
-    const response = await window.api.importPreview(get().jsonText);
+    const currentText = get().jsonText;
+    const preparedText = prepareJsonText(currentText);
+    if (preparedText !== currentText) {
+      set({ jsonText: preparedText });
+    }
+    const response = await window.api.importPreview(preparedText);
     if (response.ok) {
       set({ preview: response.preview });
       get().setLastError(null);
@@ -72,7 +91,12 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
       get().setLastError('スケジュールが選択されていません。');
       return null;
     }
-    const response = await window.api.importApply(get().jsonText, source, scheduleId);
+    const currentText = get().jsonText;
+    const preparedText = prepareJsonText(currentText);
+    if (preparedText !== currentText) {
+      set({ jsonText: preparedText });
+    }
+    const response = await window.api.importApply(preparedText, source, scheduleId);
     if (response.ok) {
       set({
         diff: response.result.diff,
