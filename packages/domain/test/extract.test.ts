@@ -73,8 +73,10 @@ describe('extractJsonFromText', () => {
       return;
     }
 
+    // Null fields should be preserved during repair/extraction.
     const task = result.members[0].projects[0].tasks[0];
     expect(task.start).toBe('2025-01-');
+    expect(task.end).toBeNull();
     expect(task.raw_date).toBe('2025-01-');
   });
 

@@ -21,28 +21,34 @@ export interface ImportSlice {
 }
 
 const API_MISSING_MESSAGE = 'Preload API が利用できません。preload の読み込みを確認してください。';
+const INVALID_JSON_MESSAGE = 'Invalid JSON input.';
 
-const prepareJsonText = (jsonText: string) => {
+type PreparedJsonResult = { ok: true; text: string } | { ok: false; error: string };
+
+const prepareJsonText = (jsonText: string): PreparedJsonResult => {
   try {
     JSON.parse(jsonText);
-    return jsonText;
+    return { ok: true, text: jsonText };
   } catch {
     const extracted = extractJsonFromText(jsonText);
     if (!extracted) {
-      return jsonText;
+      return { ok: false, error: INVALID_JSON_MESSAGE };
     }
-    return JSON.stringify(extracted, null, 2);
+    return { ok: true, text: JSON.stringify(extracted, null, 2) };
   }
 };
 
 export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (set, get) => {
-  const getAndPrepareJsonText = () => {
-    const currentText = get().jsonText;
-    const preparedText = prepareJsonText(currentText);
-    if (preparedText !== currentText) {
-      set({ jsonText: preparedText });
+  const getAndPrepareJsonText = (inputText?: string): PreparedJsonResult => {
+    const currentText = inputText ?? get().jsonText;
+    const result = prepareJsonText(currentText);
+    if (!result.ok) {
+      return result;
     }
-    return preparedText;
+    if (inputText === undefined && result.text !== currentText) {
+      set({ jsonText: result.text });
+    }
+    return result;
   };
 
   return {
@@ -59,7 +65,11 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
         return false;
       }
       const preparedText = getAndPrepareJsonText();
-      const response = await window.api.importPreview(preparedText);
+      if (!preparedText.ok) {
+        get().setLastError(preparedText.error);
+        return false;
+      }
+      const response = await window.api.importPreview(preparedText.text);
       if (response.ok) {
         set({ preview: response.preview });
         get().setLastError(null);
@@ -75,8 +85,13 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
       }
       const response = await window.api.importExcel();
       if (response.ok) {
+        const preparedText = getAndPrepareJsonText(response.jsonText);
+        if (!preparedText.ok) {
+          get().setLastError(preparedText.error);
+          return false;
+        }
         set({
-          jsonText: response.jsonText,
+          jsonText: preparedText.text,
           preview: response.preview,
           importSource: 'excel'
         });
@@ -97,7 +112,11 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
         return null;
       }
       const preparedText = getAndPrepareJsonText();
-      const response = await window.api.importApply(preparedText, source, scheduleId);
+      if (!preparedText.ok) {
+        get().setLastError(preparedText.error);
+        return null;
+      }
+      const response = await window.api.importApply(preparedText.text, source, scheduleId);
       if (response.ok) {
         set({
           diff: response.result.diff,
