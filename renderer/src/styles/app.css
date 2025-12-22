@@ -640,8 +640,14 @@ body {
 
 .gantt-page {
   gap: 16px;
+  /* 追加: Flexレイアウトにして縦方向に並べる */
+  display: flex;
+  flex-direction: column;
+  /* 追加: 親要素(.main-pane)の高さ一杯に広げる */
+  height: 100%;
+  /* 追加: ページ自体のスクロールバーを抑制 */
+  overflow: hidden;
 }
-
 .gantt {
   border-radius: 16px;
   border: 1px solid var(--border);
@@ -652,7 +658,7 @@ body {
   flex-direction: column;
   height: 100%;
   min-height: 60vh;
-  --row-height: 32px;
+  --row-height: 28px;
   --grid-line-color: rgba(230, 220, 203, 0.6);
   --grid-line-color-soft: rgba(230, 220, 203, 0.5);
   --tick-font-size: 11px;
@@ -694,8 +700,12 @@ body {
   scroll-behavior: smooth;
 }
 
+/* 既存の .gantt-page .gantt を以下のように修正してください */
 .gantt-page .gantt {
-  height: calc(100vh - 220px);
+  /* 変更: 固定計算を削除し、Flexboxで残り領域を埋める */
+  height: auto; 
+  flex: 1;
+  min-height: 0; /* これがないとFlexアイテムが縮まない場合がある */
 }
 
 .gantt-page .gantt-scroll {
@@ -706,13 +716,14 @@ body {
 .gantt-grid {
   position: relative;
   display: block;
+  
 }
 
 .gantt-row {
   display: grid;
   grid-template-columns: 260px 1fr;
-  min-height: var(--row-height, 32px);
-  height: var(--row-height, 32px);
+  min-height: var(--row-height, 28px);
+  height: var(--row-height, 28px);
   align-items: center;
   border-bottom: 1px solid rgba(230, 220, 203, 0.6);
 }
@@ -771,7 +782,7 @@ body {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: var(--row-height, 32px);
+  min-height: var(--row-height, 28px);
   border-left: 1px solid var(--grid-line-color);
   background-image: repeating-linear-gradient(
     90deg,
@@ -817,8 +828,8 @@ body {
 
 .gantt-bar {
   position: absolute;
-  top: 6px;
-  height: 20px;
+  top: 5px;
+  height: 18px;
   background: linear-gradient(90deg, #2f7c6f, #3a9a89);
   border-radius: 999px;
   color: #fffaf2;

@@ -27,4 +27,5 @@ export const parseImportJson = (jsonText: string) => {
 };
 
 export { convertFlatTasksToRawImport, normalizeImport, parseDateStrict, diffTasks, generateNormalizedTasks };
+export { extractJsonFromText } from './extract';
 export * from './types';
