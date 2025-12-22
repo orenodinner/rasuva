@@ -722,8 +722,8 @@ body {
 .gantt-row {
   display: grid;
   grid-template-columns: 260px 1fr;
-  min-height: var(--row-height, 32px);
-  height: var(--row-height, 32px);
+  min-height: var(--row-height, 28px);
+  height: var(--row-height, 28px);
   align-items: center;
   border-bottom: 1px solid rgba(230, 220, 203, 0.6);
 }
@@ -782,7 +782,7 @@ body {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: var(--row-height, 32px);
+  min-height: var(--row-height, 28px);
   border-left: 1px solid var(--grid-line-color);
   background-image: repeating-linear-gradient(
     90deg,

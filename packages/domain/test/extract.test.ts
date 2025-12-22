@@ -23,6 +23,19 @@ const makeImport = (memberName: string, projectId: string, taskName: string) => 
 });
 
 describe('extractJsonFromText', () => {
+  it('returns null for empty input', () => {
+    expect(extractJsonFromText('')).toBeNull();
+  });
+
+  it('returns null for plain text input', () => {
+    expect(extractJsonFromText('just some plain text')).toBeNull();
+  });
+
+  it('returns null when JSON lacks members field', () => {
+    const input = ['```json', '{ "foo": "bar" }', '```'].join('\n');
+    expect(extractJsonFromText(input)).toBeNull();
+  });
+
   it('extracts JSON from noisy chat logs', () => {
     const rawImport = makeImport('Tanaka', 'P1', 'Task A');
     const input = [
