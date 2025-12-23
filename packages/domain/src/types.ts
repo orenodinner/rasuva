@@ -39,6 +39,19 @@ export interface NormalizedTask {
   status: TaskStatus;
 }
 
+export interface TaskUpdateInput {
+  importId?: number;
+  currentTaskKeyFull: string;
+  memberName: string;
+  projectId: string;
+  projectGroup: string | null;
+  taskName: string;
+  start: string | null;
+  end: string | null;
+  note: string | null;
+  assignees: string[];
+}
+
 export interface ImportWarning {
   code:
     | 'project_id_missing'

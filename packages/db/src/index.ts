@@ -5,6 +5,7 @@ import type {
   ImportSummary,
   ImportWarning,
   NormalizedTask,
+  TaskUpdateInput,
   ScheduleItem,
   SavedViewItem,
   SavedViewState
@@ -161,6 +162,10 @@ export interface ImportInsertInput {
   diffSummary: DiffSummary;
 }
 
+type TaskUpdatePayload = Omit<TaskUpdateInput, 'importId' | 'currentTaskKeyFull'> & {
+  status: NormalizedTask['status'];
+};
+
 export interface DbClient {
   init: () => void;
   close: () => void;
@@ -172,7 +177,7 @@ export interface DbClient {
   getPreviousImportId: (scheduleId: number, importId: number) => number | null;
   getTasksByImportId: (importId: number) => NormalizedTask[];
   getTaskByKey: (importId: number, taskKeyFull: string) => NormalizedTask | null;
-  updateTask: (importId: number, taskKeyFull: string, updates: Partial<NormalizedTask>) => void;
+  updateTask: (importId: number, taskKeyFull: string, updates: TaskUpdatePayload) => string | null;
   getImportById: (scheduleId: number, importId: number) => ImportListItem | null;
   getSavedViews: (scheduleId: number) => SavedViewItem[];
   saveView: (scheduleId: number, name: string, state: SavedViewState) => number;
@@ -432,21 +437,93 @@ export const createDb = (dbPath: string): DbClient => {
     return row ? rowToTask(row) : null;
   };
 
-  const updateTask = (importId: number, taskKeyFull: string, updates: Partial<NormalizedTask>) => {
-    const stmt = db.prepare(`\n      UPDATE tasks\n      SET start = @start,\n          end = @end,\n          note = @note,\n          status = @status,\n          assignees_json = COALESCE(@assignees_json, assignees_json)\n      WHERE import_id = @importId AND task_key_full = @taskKeyFull\n    `);
+  const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    const assigneesJson =
-      updates.assignees === undefined ? null : JSON.stringify(updates.assignees);
+  const getNextTaskKeyFull = (importId: number, baseKey: string, currentKeyFull: string) => {
+    const rows = db
+      .prepare(
+        `SELECT task_key_full FROM tasks WHERE import_id = @importId AND task_key = @taskKey AND task_key_full != @currentKeyFull`
+      )
+      .all({ importId, taskKey: baseKey, currentKeyFull }) as { task_key_full: string }[];
+
+    if (rows.length === 0) {
+      return baseKey;
+    }
+
+    const used = new Set<number>();
+    const keyRegex = new RegExp(`^${escapeRegExp(baseKey)}#(\\d+)$`);
+    rows.forEach((row) => {
+      if (row.task_key_full === baseKey) {
+        used.add(1);
+        return;
+      }
+      const match = keyRegex.exec(row.task_key_full);
+      if (match) {
+        used.add(Number(match[1]));
+      }
+    });
+
+    if (!used.has(1)) {
+      return baseKey;
+    }
+
+    let suffix = 2;
+    while (used.has(suffix)) {
+      suffix += 1;
+    }
+    return `${baseKey}#${suffix}`;
+  };
+
+  const updateTask = (
+    importId: number,
+    currentTaskKeyFull: string,
+    updates: TaskUpdatePayload
+  ) => {
+    const current = getTaskByKey(importId, currentTaskKeyFull);
+    if (!current) {
+      return null;
+    }
+
+    const baseKey = `${updates.projectId}::${updates.taskName}`;
+    const taskKey = baseKey;
+    const taskKeyFull =
+      current.taskKey === baseKey
+        ? current.taskKeyFull
+        : getNextTaskKeyFull(importId, baseKey, currentTaskKeyFull);
+
+    const stmt = db.prepare(`
+      UPDATE tasks
+      SET member_name = @member_name,
+          project_id = @project_id,
+          project_group = @project_group,
+          task_name = @task_name,
+          task_key = @task_key,
+          task_key_full = @task_key_full,
+          start = @start,
+          end = @end,
+          note = @note,
+          status = @status,
+          assignees_json = @assignees_json
+      WHERE import_id = @importId AND task_key_full = @currentTaskKeyFull
+    `);
 
     stmt.run({
       importId,
-      taskKeyFull,
+      currentTaskKeyFull,
+      member_name: updates.memberName,
+      project_id: updates.projectId,
+      project_group: updates.projectGroup ?? null,
+      task_name: updates.taskName,
+      task_key: taskKey,
+      task_key_full: taskKeyFull,
       start: updates.start ?? null,
       end: updates.end ?? null,
       note: updates.note ?? null,
       status: updates.status,
-      assignees_json: assigneesJson
+      assignees_json: JSON.stringify(updates.assignees)
     });
+
+    return taskKeyFull;
   };
 
   const getImportById = (scheduleId: number, importId: number): ImportListItem | null => {

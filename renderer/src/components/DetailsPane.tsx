@@ -11,6 +11,10 @@ const DetailsPane = () => {
   const clearError = useAppStore((state) => state.clearError);
 
   const [isEditing, setIsEditing] = useState(false);
+  const [taskName, setTaskName] = useState('');
+  const [memberName, setMemberName] = useState('');
+  const [projectId, setProjectId] = useState('');
+  const [projectGroup, setProjectGroup] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [note, setNote] = useState('');
@@ -19,6 +23,10 @@ const DetailsPane = () => {
   useEffect(() => {
     if (!task) {
       setIsEditing(false);
+      setTaskName('');
+      setMemberName('');
+      setProjectId('');
+      setProjectGroup('');
       setStart('');
       setEnd('');
       setNote('');
@@ -26,6 +34,10 @@ const DetailsPane = () => {
       return;
     }
     setIsEditing(false);
+    setTaskName(task.taskName);
+    setMemberName(task.memberName);
+    setProjectId(task.projectId);
+    setProjectGroup(task.projectGroup ?? '');
     setStart(task.start ?? '');
     setEnd(task.end ?? '');
     setNote(task.note ?? '');
@@ -51,16 +63,27 @@ const DetailsPane = () => {
       return;
     }
     clearError();
+    const trimmedTaskName = taskName.trim();
+    const trimmedMemberName = memberName.trim();
+    const trimmedProjectId = projectId.trim();
+    if (!trimmedTaskName || !trimmedMemberName || !trimmedProjectId) {
+      return;
+    }
+    const trimmedProjectGroup = projectGroup.trim();
     const assignees = Array.from(
       new Set(
         assigneesText
           .split(',')
           .map((value) => value.trim())
-          .filter((value) => value.length > 0 && value !== task.memberName)
+          .filter((value) => value.length > 0 && value !== trimmedMemberName)
       )
     );
     const ok = await updateTask({
-      taskKeyFull: task.taskKeyFull,
+      currentTaskKeyFull: task.taskKeyFull,
+      memberName: trimmedMemberName,
+      projectId: trimmedProjectId,
+      projectGroup: trimmedProjectGroup.length > 0 ? trimmedProjectGroup : null,
+      taskName: trimmedTaskName,
       start: start.trim() ? start.trim() : null,
       end: end.trim() ? end.trim() : null,
       note: note.trim() ? note.trim() : null,
@@ -71,6 +94,9 @@ const DetailsPane = () => {
     }
   };
 
+  const isSaveDisabled =
+    !taskName.trim() || !memberName.trim() || !projectId.trim() || !task;
+
   return (
     <aside className="details-pane">
       <div className="details-pane__header">詳細</div>
@@ -79,20 +105,52 @@ const DetailsPane = () => {
       ) : (
         <div className="details-pane__content">
           <div className="detail-block">
-            <div className="detail-label">タスク</div>
-            <div className="detail-value">{task.taskName}</div>
+            <div className="detail-label">タスク名 *</div>
+            {isEditing ? (
+              <input
+                className="detail-input"
+                value={taskName}
+                onChange={(event) => setTaskName(event.target.value)}
+              />
+            ) : (
+              <div className="detail-value">{task.taskName}</div>
+            )}
           </div>
           <div className="detail-block">
-            <div className="detail-label">担当者</div>
-            <div className="detail-value">{task.memberName}</div>
+            <div className="detail-label">担当者 *</div>
+            {isEditing ? (
+              <input
+                className="detail-input"
+                value={memberName}
+                onChange={(event) => setMemberName(event.target.value)}
+              />
+            ) : (
+              <div className="detail-value">{task.memberName}</div>
+            )}
           </div>
           <div className="detail-block">
-            <div className="detail-label">プロジェクト</div>
-            <div className="detail-value">{task.projectId}</div>
+            <div className="detail-label">プロジェクトID *</div>
+            {isEditing ? (
+              <input
+                className="detail-input"
+                value={projectId}
+                onChange={(event) => setProjectId(event.target.value)}
+              />
+            ) : (
+              <div className="detail-value">{task.projectId}</div>
+            )}
           </div>
           <div className="detail-block">
             <div className="detail-label">グループ</div>
-            <div className="detail-value">{task.projectGroup ?? '?'}</div>
+            {isEditing ? (
+              <input
+                className="detail-input"
+                value={projectGroup}
+                onChange={(event) => setProjectGroup(event.target.value)}
+              />
+            ) : (
+              <div className="detail-value">{task.projectGroup ?? '?'}</div>
+            )}
           </div>
           <div className="detail-block">
             <div className="detail-label">状態</div>
@@ -160,7 +218,7 @@ const DetailsPane = () => {
               <div className="detail-hint">開始/終了を空にすると未確定として保存します。</div>
               {lastError ? <div className="alert">{lastError}</div> : null}
               <div className="detail-actions">
-                <button className="cmd-button" onClick={handleSave}>
+                <button className="cmd-button" onClick={handleSave} disabled={isSaveDisabled}>
                   保存
                 </button>
                 <button

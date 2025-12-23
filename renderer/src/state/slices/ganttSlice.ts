@@ -1,15 +1,6 @@
 import type { StateCreator } from 'zustand';
-import type { GanttQueryResult, NormalizedTask } from '@domain';
+import type { GanttQueryResult, NormalizedTask, TaskUpdateInput } from '@domain';
 import type { AppState } from '../store';
-
-interface TaskUpdateInput {
-  importId?: number;
-  taskKeyFull: string;
-  start: string | null;
-  end: string | null;
-  note: string | null;
-  assignees: string[];
-}
 
 export interface GanttSlice {
   gantt: GanttQueryResult | null;
@@ -66,37 +57,18 @@ export const createGanttSlice: StateCreator<AppState, [], [], GanttSlice> = (set
       return false;
     }
 
-    const response = await window.api.taskUpdate(
-      importId,
-      input.taskKeyFull,
-      input.start,
-      input.end,
-      input.note,
-      input.assignees
-    );
+    const response = await window.api.taskUpdate({ ...input, importId });
 
     if (!response.ok) {
       get().setLastError(response.error);
       return false;
     }
 
-    const updated = response.task;
-    const replaceTask = (items: NormalizedTask[]) =>
-      items.map((task) => (task.taskKeyFull === updated.taskKeyFull ? updated : task));
-
-    set((state) => ({
-      gantt: state.gantt ? { ...state.gantt, tasks: replaceTask(state.gantt.tasks) } : state.gantt,
-      diff: state.diff
-        ? {
-            ...state.diff,
-            added: replaceTask(state.diff.added),
-            updated: replaceTask(state.diff.updated),
-            archived: replaceTask(state.diff.archived)
-          }
-        : state.diff,
-      selectedTask: updated
-    }));
-
+    await get().loadGantt(importId);
+    const refreshed =
+      get().gantt?.tasks.find((task) => task.taskKeyFull === response.task.taskKeyFull) ??
+      response.task;
+    set({ selectedTask: refreshed });
     get().setLastError(null);
     return true;
   }

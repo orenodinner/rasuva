@@ -5,6 +5,7 @@ import type {
   ImportPreviewResult,
   ScheduleItem,
   NormalizedTask,
+  TaskUpdateInput,
   SavedViewItem,
   SavedViewState,
   GanttQueryResult
@@ -55,12 +56,7 @@ declare global {
       exportCsv: (scheduleId: number, importId?: number) => Promise<ApiSuccess<{ path: string }> | ApiFailure>;
       exportXlsx: (scheduleId: number, importId?: number) => Promise<ApiSuccess<{ path: string }> | ApiFailure>;
       taskUpdate: (
-        importId: number,
-        taskKeyFull: string,
-        start: string | null,
-        end: string | null,
-        note: string | null,
-        assignees: string[]
+        input: TaskUpdateInput
       ) => Promise<ApiSuccess<{ task: NormalizedTask }> | ApiFailure>;
     };
   }

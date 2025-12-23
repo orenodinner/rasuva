@@ -168,10 +168,14 @@ const scheduleListSchema = z.object({
 
 const taskUpdateSchema = z.object({
   importId: z.number().int().positive(),
-  taskKeyFull: z.string().min(1),
+  currentTaskKeyFull: z.string().min(1),
+  memberName: z.string().min(1),
+  projectId: z.string().min(1),
+  projectGroup: z.string().nullable(),
+  taskName: z.string().min(1),
   start: z.string().nullable(),
   end: z.string().nullable(),
-  note: z.string().nullable().optional(),
+  note: z.string().nullable(),
   assignees: z.array(z.string())
 });
 
@@ -744,11 +748,24 @@ export const registerIpcHandlers = (db: DbClient) => {
 
     const importId = parsedPayload.data.importId;
 
-    const { taskKeyFull } = parsedPayload.data;
+    const currentTaskKeyFull = parsedPayload.data.currentTaskKeyFull;
+    const memberName = parsedPayload.data.memberName.trim();
+    const projectId = parsedPayload.data.projectId.trim();
+    const taskName = parsedPayload.data.taskName.trim();
+    const projectGroupRaw = parsedPayload.data.projectGroup;
+    const projectGroup =
+      projectGroupRaw && projectGroupRaw.trim().length > 0 ? projectGroupRaw.trim() : null;
     const startRaw = parsedPayload.data.start;
     const endRaw = parsedPayload.data.end;
-    const note = parsedPayload.data.note ?? null;
-    const assignees = normalizeAssignees(parsedPayload.data.assignees);
+    const noteRaw = parsedPayload.data.note ?? null;
+    const note = noteRaw && noteRaw.trim().length > 0 ? noteRaw.trim() : null;
+    const assignees = normalizeAssignees(parsedPayload.data.assignees).filter(
+      (name) => name !== memberName
+    );
+
+    if (!memberName || !projectId || !taskName) {
+      return { ok: false, error: 'Required fields are missing.' };
+    }
 
     const start = startRaw === null ? null : parseDateStrict(startRaw);
     const end = endRaw === null ? null : parseDateStrict(endRaw);
@@ -769,7 +786,11 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: '終了日が開始日より前です。' };
     }
 
-    db.updateTask(importId, taskKeyFull, {
+    const updatedKey = db.updateTask(importId, currentTaskKeyFull, {
+      memberName,
+      projectId,
+      projectGroup,
+      taskName,
       start: status === 'scheduled' ? start : null,
       end: status === 'scheduled' ? end : null,
       note,
@@ -777,7 +798,11 @@ export const registerIpcHandlers = (db: DbClient) => {
       assignees
     });
 
-    const updated = db.getTaskByKey(importId, taskKeyFull);
+    if (!updatedKey) {
+      return { ok: false, error: '更新対象のタスクが見つかりません。' };
+    }
+
+    const updated = db.getTaskByKey(importId, updatedKey);
     if (!updated) {
       return { ok: false, error: '更新対象のタスクが見つかりません。' };
     }

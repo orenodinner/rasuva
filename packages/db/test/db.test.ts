@@ -58,6 +58,10 @@ describe('db', () => {
     expect(tasks[0].taskName).toBe('Build');
 
     db.updateTask(importId, tasks[0].taskKeyFull, {
+      memberName: 'Alice',
+      projectId: 'P-1',
+      projectGroup: null,
+      taskName: 'Build',
       start: '2024-01-02',
       end: '2024-01-03',
       note: 'Updated',
