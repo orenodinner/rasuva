@@ -15,6 +15,71 @@ import { IPC_CHANNELS } from '../shared/ipcChannels';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+type HistoryState = { pointer: number; ids: number[] };
+
+class HistoryManager {
+  private historyByImport = new Map<number, HistoryState>();
+
+  ensure(importId: number) {
+    if (!this.historyByImport.has(importId)) {
+      this.historyByImport.set(importId, { pointer: -1, ids: [] });
+    }
+    return this.historyByImport.get(importId)!;
+  }
+
+  record(importId: number, historyId: number) {
+    const state = this.ensure(importId);
+    let dropped: number[] = [];
+    if (state.pointer < state.ids.length - 1) {
+      dropped = state.ids.slice(state.pointer + 1);
+      state.ids = state.ids.slice(0, state.pointer + 1);
+    }
+    state.ids.push(historyId);
+    state.pointer = state.ids.length - 1;
+    return dropped;
+  }
+
+  getStatus(importId: number) {
+    const state = this.ensure(importId);
+    return {
+      canUndo: state.pointer >= 0,
+      canRedo: state.pointer < state.ids.length - 1
+    };
+  }
+
+  peekUndo(importId: number) {
+    const state = this.ensure(importId);
+    if (state.pointer < 0) {
+      return null;
+    }
+    return state.ids[state.pointer];
+  }
+
+  peekRedo(importId: number) {
+    const state = this.ensure(importId);
+    if (state.pointer >= state.ids.length - 1) {
+      return null;
+    }
+    return state.ids[state.pointer + 1];
+  }
+
+  commitUndo(importId: number) {
+    const state = this.ensure(importId);
+    if (state.pointer >= 0) {
+      state.pointer -= 1;
+    }
+  }
+
+  commitRedo(importId: number) {
+    const state = this.ensure(importId);
+    if (state.pointer < state.ids.length - 1) {
+      state.pointer += 1;
+    }
+  }
+}
+
+const historyManager = new HistoryManager();
+
 const parseIsoDate = (value: string) => {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) {
@@ -168,11 +233,19 @@ const scheduleListSchema = z.object({
 
 const taskUpdateSchema = z.object({
   importId: z.number().int().positive(),
-  taskKeyFull: z.string().min(1),
+  currentTaskKeyFull: z.string().min(1),
+  memberName: z.string().min(1),
+  projectId: z.string().min(1),
+  projectGroup: z.string().nullable(),
+  taskName: z.string().min(1),
   start: z.string().nullable(),
   end: z.string().nullable(),
-  note: z.string().nullable().optional(),
+  note: z.string().nullable(),
   assignees: z.array(z.string())
+});
+
+const historySchema = z.object({
+  importId: z.number().int().positive()
 });
 
 const normalizeAssignees = (values: string[]) => {
@@ -744,11 +817,24 @@ export const registerIpcHandlers = (db: DbClient) => {
 
     const importId = parsedPayload.data.importId;
 
-    const { taskKeyFull } = parsedPayload.data;
+    const currentTaskKeyFull = parsedPayload.data.currentTaskKeyFull;
+    const memberName = parsedPayload.data.memberName.trim();
+    const projectId = parsedPayload.data.projectId.trim();
+    const taskName = parsedPayload.data.taskName.trim();
+    const projectGroupRaw = parsedPayload.data.projectGroup;
+    const projectGroup =
+      projectGroupRaw && projectGroupRaw.trim().length > 0 ? projectGroupRaw.trim() : null;
     const startRaw = parsedPayload.data.start;
     const endRaw = parsedPayload.data.end;
-    const note = parsedPayload.data.note ?? null;
-    const assignees = normalizeAssignees(parsedPayload.data.assignees);
+    const noteRaw = parsedPayload.data.note ?? null;
+    const note = noteRaw && noteRaw.trim().length > 0 ? noteRaw.trim() : null;
+    const assignees = normalizeAssignees(parsedPayload.data.assignees).filter(
+      (name) => name !== memberName
+    );
+
+    if (!memberName || !projectId || !taskName) {
+      return { ok: false, error: 'Required fields are missing.' };
+    }
 
     const start = startRaw === null ? null : parseDateStrict(startRaw);
     const end = endRaw === null ? null : parseDateStrict(endRaw);
@@ -769,7 +855,11 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: '終了日が開始日より前です。' };
     }
 
-    db.updateTask(importId, taskKeyFull, {
+    const historyResult = db.updateTaskWithHistory(importId, currentTaskKeyFull, {
+      memberName,
+      projectId,
+      projectGroup,
+      taskName,
       start: status === 'scheduled' ? start : null,
       end: status === 'scheduled' ? end : null,
       note,
@@ -777,11 +867,81 @@ export const registerIpcHandlers = (db: DbClient) => {
       assignees
     });
 
-    const updated = db.getTaskByKey(importId, taskKeyFull);
-    if (!updated) {
+    if (!historyResult) {
       return { ok: false, error: '更新対象のタスクが見つかりません。' };
     }
 
-    return { ok: true, task: updated };
+    const droppedHistory = historyManager.record(importId, historyResult.historyId);
+    if (droppedHistory.length > 0) {
+      db.deleteCommandHistoryByIds(droppedHistory);
+    }
+
+    return { ok: true, task: historyResult.updatedTask };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.historyStatus, async (_event, payload) => {
+    const parsedPayload = historySchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const status = historyManager.getStatus(parsedPayload.data.importId);
+    return { ok: true, ...status };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.historyUndo, async (_event, payload) => {
+    const parsedPayload = historySchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const importId = parsedPayload.data.importId;
+    const historyId = historyManager.peekUndo(importId);
+    if (!historyId) {
+      return { ok: false, error: 'No undo history.' };
+    }
+
+    const entry = db.getCommandHistoryById(historyId);
+    if (!entry || entry.importId !== importId) {
+      return { ok: false, error: 'History entry not found.' };
+    }
+    if (!entry.prevState) {
+      return { ok: false, error: 'Undo snapshot missing.' };
+    }
+    const applied = db.applyTaskSnapshot(entry.prevState);
+    if (!applied) {
+      return { ok: false, error: 'Undo failed.' };
+    }
+
+    historyManager.commitUndo(importId);
+    return { ok: true, task: entry.prevState };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.historyRedo, async (_event, payload) => {
+    const parsedPayload = historySchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const importId = parsedPayload.data.importId;
+    const historyId = historyManager.peekRedo(importId);
+    if (!historyId) {
+      return { ok: false, error: 'No redo history.' };
+    }
+
+    const entry = db.getCommandHistoryById(historyId);
+    if (!entry || entry.importId !== importId) {
+      return { ok: false, error: 'History entry not found.' };
+    }
+    if (!entry.nextState) {
+      return { ok: false, error: 'Redo snapshot missing.' };
+    }
+    const applied = db.applyTaskSnapshot(entry.nextState);
+    if (!applied) {
+      return { ok: false, error: 'Redo failed.' };
+    }
+
+    historyManager.commitRedo(importId);
+    return { ok: true, task: entry.nextState };
   });
 };

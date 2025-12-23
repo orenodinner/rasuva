@@ -5,7 +5,7 @@ import { useAppStore } from '../state/store';
 const CommandBar = () => {
   const navigate = useNavigate();
   const searchRef = useRef<HTMLInputElement>(null);
-  const { search, setSearch, zoom, setZoom, setFocusDate } = useAppStore();
+  const { search, setSearch, zoom, setZoom, setFocusDate, undo, redo, canUndo, canRedo } = useAppStore();
   const statusFilter = useAppStore((state) => state.statusFilter);
   const setStatusFilter = useAppStore((state) => state.setStatusFilter);
   const gantt = useAppStore((state) => state.gantt);
@@ -38,6 +38,22 @@ const CommandBar = () => {
         </button>
         <button className="cmd-button" onClick={() => navigate('/diff')}>
           差分
+        </button>
+        <button
+          className="cmd-button cmd-button--ghost"
+          type="button"
+          onClick={undo}
+          disabled={!canUndo}
+        >
+          Undo
+        </button>
+        <button
+          className="cmd-button cmd-button--ghost"
+          type="button"
+          onClick={redo}
+          disabled={!canRedo}
+        >
+          Redo
         </button>
         <button
           className="cmd-button cmd-button--ghost"

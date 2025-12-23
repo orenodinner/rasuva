@@ -5,6 +5,7 @@ import type {
   ImportSummary,
   ImportWarning,
   NormalizedTask,
+  TaskUpdateInput,
   ScheduleItem,
   SavedViewItem,
   SavedViewState
@@ -89,9 +90,25 @@ UPDATE saved_views SET schedule_id = 1 WHERE schedule_id IS NULL;
 CREATE INDEX IF NOT EXISTS idx_imports_schedule_id ON imports(schedule_id);
 CREATE INDEX IF NOT EXISTS idx_views_schedule_id ON saved_views(schedule_id);
 `
+,
+  `
+CREATE TABLE IF NOT EXISTS command_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  import_id INTEGER NOT NULL,
+  command_type TEXT NOT NULL,
+  target_task_id INTEGER,
+  prev_state_json TEXT,
+  next_state_json TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (import_id) REFERENCES imports(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_history_import ON command_history(import_id);
+`
 ];
 
 interface TaskRow {
+  id: number;
   task_key: string;
   task_key_full: string;
   member_name: string;
@@ -117,6 +134,16 @@ interface ImportRow {
   invalid_count: number;
   unscheduled_count: number;
   warnings_count: number;
+}
+
+interface CommandHistoryRow {
+  id: number;
+  import_id: number;
+  command_type: string;
+  target_task_id: number | null;
+  prev_state_json: string | null;
+  next_state_json: string | null;
+  created_at: string;
 }
 
 interface ViewRow {
@@ -161,6 +188,10 @@ export interface ImportInsertInput {
   diffSummary: DiffSummary;
 }
 
+type TaskUpdatePayload = Omit<TaskUpdateInput, 'importId' | 'currentTaskKeyFull'> & {
+  status: NormalizedTask['status'];
+};
+
 export interface DbClient {
   init: () => void;
   close: () => void;
@@ -172,7 +203,7 @@ export interface DbClient {
   getPreviousImportId: (scheduleId: number, importId: number) => number | null;
   getTasksByImportId: (importId: number) => NormalizedTask[];
   getTaskByKey: (importId: number, taskKeyFull: string) => NormalizedTask | null;
-  updateTask: (importId: number, taskKeyFull: string, updates: Partial<NormalizedTask>) => void;
+  updateTask: (importId: number, taskKeyFull: string, updates: TaskUpdatePayload) => string | null;
   getImportById: (scheduleId: number, importId: number) => ImportListItem | null;
   getSavedViews: (scheduleId: number) => SavedViewItem[];
   saveView: (scheduleId: number, name: string, state: SavedViewState) => number;
@@ -180,6 +211,29 @@ export interface DbClient {
   createSchedule: (name: string, description?: string | null) => ScheduleItem | null;
   updateSchedule: (scheduleId: number, name: string, description?: string | null) => boolean;
   deleteSchedule: (scheduleId: number) => boolean;
+  updateTaskWithHistory: (
+    importId: number,
+    currentTaskKeyFull: string,
+    updates: TaskUpdatePayload
+  ) => { historyId: number; updatedTask: NormalizedTask } | null;
+  insertCommandHistory: (input: {
+    importId: number;
+    commandType: string;
+    targetTaskId: number | null;
+    prevState: NormalizedTask | null;
+    nextState: NormalizedTask | null;
+  }) => number;
+  getCommandHistoryById: (historyId: number) => {
+    id: number;
+    importId: number;
+    commandType: string;
+    targetTaskId: number | null;
+    prevState: NormalizedTask | null;
+    nextState: NormalizedTask | null;
+    createdAt: string;
+  } | null;
+  deleteCommandHistoryByIds: (historyIds: number[]) => void;
+  applyTaskSnapshot: (snapshot: NormalizedTask) => boolean;
 }
 
 const parseAssignees = (value: unknown): string[] => {
@@ -195,6 +249,7 @@ const parseAssignees = (value: unknown): string[] => {
 };
 
 const rowToTask = (row: TaskRow): NormalizedTask => ({
+  id: row.id,
   taskKey: row.task_key,
   taskKeyFull: row.task_key_full,
   memberName: row.member_name,
@@ -220,6 +275,79 @@ const rowToImportItem = (row: ImportRow): ImportListItem => ({
   invalidCount: row.invalid_count,
   unscheduledCount: row.unscheduled_count,
   warningsCount: row.warnings_count
+});
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+const isNormalizedTaskSnapshot = (value: unknown): value is NormalizedTask => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  const id = record.id;
+  const status = record.status;
+  const projectGroup = record.projectGroup;
+  const start = record.start;
+  const end = record.end;
+  const note = record.note;
+
+  if (id !== undefined && typeof id !== 'number') {
+    return false;
+  }
+  if (
+    typeof record.taskKey !== 'string' ||
+    typeof record.taskKeyFull !== 'string' ||
+    typeof record.memberName !== 'string' ||
+    typeof record.projectId !== 'string' ||
+    typeof record.taskName !== 'string' ||
+    typeof record.rawDate !== 'string' ||
+    !isStringArray(record.assignees)
+  ) {
+    return false;
+  }
+  if (projectGroup !== null && projectGroup !== undefined && typeof projectGroup !== 'string') {
+    return false;
+  }
+  if (start !== null && start !== undefined && typeof start !== 'string') {
+    return false;
+  }
+  if (end !== null && end !== undefined && typeof end !== 'string') {
+    return false;
+  }
+  if (note !== null && note !== undefined && typeof note !== 'string') {
+    return false;
+  }
+  if (
+    status !== 'scheduled' &&
+    status !== 'unscheduled' &&
+    status !== 'invalid_date'
+  ) {
+    return false;
+  }
+  return true;
+};
+
+const parseTaskSnapshot = (value: string | null): NormalizedTask | null => {
+  if (!value) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return isNormalizedTaskSnapshot(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const rowToCommandHistory = (row: CommandHistoryRow) => ({
+  id: row.id,
+  importId: row.import_id,
+  commandType: row.command_type,
+  targetTaskId: row.target_task_id,
+  prevState: parseTaskSnapshot(row.prev_state_json),
+  nextState: parseTaskSnapshot(row.next_state_json),
+  createdAt: row.created_at
 });
 
 const rowToViewItem = (row: ViewRow): SavedViewItem => ({
@@ -432,22 +560,219 @@ export const createDb = (dbPath: string): DbClient => {
     return row ? rowToTask(row) : null;
   };
 
-  const updateTask = (importId: number, taskKeyFull: string, updates: Partial<NormalizedTask>) => {
-    const stmt = db.prepare(`\n      UPDATE tasks\n      SET start = @start,\n          end = @end,\n          note = @note,\n          status = @status,\n          assignees_json = COALESCE(@assignees_json, assignees_json)\n      WHERE import_id = @importId AND task_key_full = @taskKeyFull\n    `);
+  const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    const assigneesJson =
-      updates.assignees === undefined ? null : JSON.stringify(updates.assignees);
+  const getNextTaskKeyFull = (importId: number, baseKey: string, currentKeyFull: string) => {
+    const rows = db
+      .prepare(
+        `SELECT task_key_full FROM tasks WHERE import_id = @importId AND task_key = @taskKey AND task_key_full != @currentKeyFull`
+      )
+      .all({ importId, taskKey: baseKey, currentKeyFull }) as { task_key_full: string }[];
+
+    if (rows.length === 0) {
+      return baseKey;
+    }
+
+    const used = new Set<number>();
+    const keyRegex = new RegExp(`^${escapeRegExp(baseKey)}#(\\d+)$`);
+    rows.forEach((row) => {
+      if (row.task_key_full === baseKey) {
+        used.add(1);
+        return;
+      }
+      const match = keyRegex.exec(row.task_key_full);
+      if (match) {
+        used.add(Number(match[1]));
+      }
+    });
+
+    if (!used.has(1)) {
+      return baseKey;
+    }
+
+    let suffix = 2;
+    while (used.has(suffix)) {
+      suffix += 1;
+    }
+    return `${baseKey}#${suffix}`;
+  };
+
+  const updateTask = (
+    importId: number,
+    currentTaskKeyFull: string,
+    updates: TaskUpdatePayload
+  ) => {
+    const current = getTaskByKey(importId, currentTaskKeyFull);
+    if (!current) {
+      return null;
+    }
+
+    const baseKey = `${updates.projectId}::${updates.taskName}`;
+    const taskKey = baseKey;
+    const taskKeyFull =
+      current.taskKey === baseKey
+        ? current.taskKeyFull
+        : getNextTaskKeyFull(importId, baseKey, currentTaskKeyFull);
+
+    const stmt = db.prepare(`
+      UPDATE tasks
+      SET member_name = @member_name,
+          project_id = @project_id,
+          project_group = @project_group,
+          task_name = @task_name,
+          task_key = @task_key,
+          task_key_full = @task_key_full,
+          start = @start,
+          end = @end,
+          note = @note,
+          status = @status,
+          assignees_json = @assignees_json
+      WHERE import_id = @importId AND task_key_full = @currentTaskKeyFull
+    `);
 
     stmt.run({
       importId,
-      taskKeyFull,
+      currentTaskKeyFull,
+      member_name: updates.memberName,
+      project_id: updates.projectId,
+      project_group: updates.projectGroup ?? null,
+      task_name: updates.taskName,
+      task_key: taskKey,
+      task_key_full: taskKeyFull,
       start: updates.start ?? null,
       end: updates.end ?? null,
       note: updates.note ?? null,
       status: updates.status,
-      assignees_json: assigneesJson
+      assignees_json: JSON.stringify(updates.assignees)
     });
+
+    return taskKeyFull;
   };
+
+  const insertCommandHistory = (input: {
+    importId: number;
+    commandType: string;
+    targetTaskId: number | null;
+    prevState: NormalizedTask | null;
+    nextState: NormalizedTask | null;
+  }) => {
+    const stmt = db.prepare(`
+      INSERT INTO command_history (
+        import_id,
+        command_type,
+        target_task_id,
+        prev_state_json,
+        next_state_json,
+        created_at
+      )
+      VALUES (
+        @import_id,
+        @command_type,
+        @target_task_id,
+        @prev_state_json,
+        @next_state_json,
+        @created_at
+      )
+    `);
+    const info = stmt.run({
+      import_id: input.importId,
+      command_type: input.commandType,
+      target_task_id: input.targetTaskId,
+      prev_state_json: input.prevState ? JSON.stringify(input.prevState) : null,
+      next_state_json: input.nextState ? JSON.stringify(input.nextState) : null,
+      created_at: new Date().toISOString()
+    });
+    return Number(info.lastInsertRowid);
+  };
+
+  const getCommandHistoryById = (historyId: number) => {
+    const row = db
+      .prepare(`SELECT * FROM command_history WHERE id = @id`)
+      .get({ id: historyId }) as CommandHistoryRow | undefined;
+    return row ? rowToCommandHistory(row) : null;
+  };
+
+  const deleteCommandHistoryByIds = (historyIds: number[]) => {
+    if (historyIds.length === 0) {
+      return;
+    }
+    const placeholders = historyIds.map(() => '?').join(', ');
+    db.prepare(`DELETE FROM command_history WHERE id IN (${placeholders})`).run(...historyIds);
+  };
+
+  const applyTaskSnapshot = (snapshot: NormalizedTask) => {
+    if (snapshot.id === undefined) {
+      return false;
+    }
+    const stmt = db.prepare(`
+      UPDATE tasks
+      SET task_key = @task_key,
+          task_key_full = @task_key_full,
+          member_name = @member_name,
+          project_id = @project_id,
+          project_group = @project_group,
+          task_name = @task_name,
+          start = @start,
+          end = @end,
+          raw_date = @raw_date,
+          note = @note,
+          status = @status,
+          assignees_json = @assignees_json
+      WHERE id = @id
+    `);
+
+    try {
+      const result = stmt.run({
+        id: snapshot.id,
+        task_key: snapshot.taskKey,
+        task_key_full: snapshot.taskKeyFull,
+        member_name: snapshot.memberName,
+        project_id: snapshot.projectId,
+        project_group: snapshot.projectGroup ?? null,
+        task_name: snapshot.taskName,
+        start: snapshot.start ?? null,
+        end: snapshot.end ?? null,
+        raw_date: snapshot.rawDate,
+        note: snapshot.note ?? null,
+        status: snapshot.status,
+        assignees_json: JSON.stringify(snapshot.assignees)
+      });
+      return result.changes > 0;
+    } catch (error) {
+      console.warn('Failed to apply task snapshot.', error);
+      return false;
+    }
+  };
+
+  const updateTaskWithHistory = db.transaction(
+    (importId: number, currentTaskKeyFull: string, updates: TaskUpdatePayload) => {
+      const prevTask = getTaskByKey(importId, currentTaskKeyFull);
+      if (!prevTask) {
+        return null;
+      }
+      if (prevTask.id === undefined) {
+        throw new Error('Task id missing for history.');
+      }
+      const updatedKey = updateTask(importId, currentTaskKeyFull, updates);
+      if (!updatedKey) {
+        return null;
+      }
+      const nextTask = getTaskByKey(importId, updatedKey);
+      if (!nextTask) {
+        throw new Error('Updated task not found.');
+      }
+
+      const historyId = insertCommandHistory({
+        importId,
+        commandType: 'UPDATE_TASK',
+        targetTaskId: prevTask.id,
+        prevState: prevTask,
+        nextState: nextTask
+      });
+
+      return { historyId, updatedTask: nextTask };
+    }
+  );
 
   const getImportById = (scheduleId: number, importId: number): ImportListItem | null => {
     const row = db
@@ -563,6 +888,9 @@ export const createDb = (dbPath: string): DbClient => {
         `DELETE FROM tasks WHERE import_id IN (SELECT id FROM imports WHERE schedule_id = @scheduleId)`
       ).run({ scheduleId });
       db.prepare(
+        `DELETE FROM command_history WHERE import_id IN (SELECT id FROM imports WHERE schedule_id = @scheduleId)`
+      ).run({ scheduleId });
+      db.prepare(
         `DELETE FROM warnings WHERE import_id IN (SELECT id FROM imports WHERE schedule_id = @scheduleId)`
       ).run({ scheduleId });
       db.prepare(`DELETE FROM imports WHERE schedule_id = @scheduleId`).run({ scheduleId });
@@ -589,6 +917,11 @@ export const createDb = (dbPath: string): DbClient => {
     getTasksByImportId,
     getTaskByKey,
     updateTask,
+    updateTaskWithHistory,
+    insertCommandHistory,
+    getCommandHistoryById,
+    deleteCommandHistoryByIds,
+    applyTaskSnapshot,
     getImportById,
     getSavedViews,
     saveView,

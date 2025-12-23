@@ -13,5 +13,8 @@ export const IPC_CHANNELS = {
   viewsSave: 'views.save',
   exportCsv: 'export.csv',
   exportXlsx: 'export.xlsx',
-  taskUpdate: 'task.update'
+  taskUpdate: 'task.update',
+  historyUndo: 'history.undo',
+  historyRedo: 'history.redo',
+  historyStatus: 'history.status'
 } as const;

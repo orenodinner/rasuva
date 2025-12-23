@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipcChannels';
-import type { SavedViewState } from '@domain';
+import type { SavedViewState, TaskUpdateInput } from '@domain';
 
 const api = {
   importPreview: (jsonText: string) =>
@@ -29,22 +29,14 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.exportCsv, { scheduleId, importId }),
   exportXlsx: (scheduleId: number, importId?: number) =>
     ipcRenderer.invoke(IPC_CHANNELS.exportXlsx, { scheduleId, importId }),
-  taskUpdate: (
-    importId: number,
-    taskKeyFull: string,
-    start: string | null,
-    end: string | null,
-    note: string | null,
-    assignees: string[]
-  ) =>
-    ipcRenderer.invoke(IPC_CHANNELS.taskUpdate, {
-      importId,
-      taskKeyFull,
-      start,
-      end,
-      note,
-      assignees
-    })
+  historyUndo: (importId: number) =>
+    ipcRenderer.invoke(IPC_CHANNELS.historyUndo, { importId }),
+  historyRedo: (importId: number) =>
+    ipcRenderer.invoke(IPC_CHANNELS.historyRedo, { importId }),
+  historyStatus: (importId: number) =>
+    ipcRenderer.invoke(IPC_CHANNELS.historyStatus, { importId }),
+  taskUpdate: (input: TaskUpdateInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.taskUpdate, input)
 };
 
 contextBridge.exposeInMainWorld('api', api);

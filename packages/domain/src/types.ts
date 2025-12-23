@@ -25,6 +25,7 @@ export interface RawTask {
 }
 
 export interface NormalizedTask {
+  id?: number;
   taskKey: string;
   taskKeyFull: string;
   memberName: string;
@@ -37,6 +38,19 @@ export interface NormalizedTask {
   rawDate: string;
   note: string | null;
   status: TaskStatus;
+}
+
+export interface TaskUpdateInput {
+  importId?: number;
+  currentTaskKeyFull: string;
+  memberName: string;
+  projectId: string;
+  projectGroup: string | null;
+  taskName: string;
+  start: string | null;
+  end: string | null;
+  note: string | null;
+  assignees: string[];
 }
 
 export interface ImportWarning {
