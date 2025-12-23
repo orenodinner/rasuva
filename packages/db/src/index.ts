@@ -277,12 +277,64 @@ const rowToImportItem = (row: ImportRow): ImportListItem => ({
   warningsCount: row.warnings_count
 });
 
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+const isNormalizedTaskSnapshot = (value: unknown): value is NormalizedTask => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  const id = record.id;
+  const status = record.status;
+  const projectGroup = record.projectGroup;
+  const start = record.start;
+  const end = record.end;
+  const note = record.note;
+
+  if (id !== undefined && typeof id !== 'number') {
+    return false;
+  }
+  if (
+    typeof record.taskKey !== 'string' ||
+    typeof record.taskKeyFull !== 'string' ||
+    typeof record.memberName !== 'string' ||
+    typeof record.projectId !== 'string' ||
+    typeof record.taskName !== 'string' ||
+    typeof record.rawDate !== 'string' ||
+    !isStringArray(record.assignees)
+  ) {
+    return false;
+  }
+  if (projectGroup !== null && projectGroup !== undefined && typeof projectGroup !== 'string') {
+    return false;
+  }
+  if (start !== null && start !== undefined && typeof start !== 'string') {
+    return false;
+  }
+  if (end !== null && end !== undefined && typeof end !== 'string') {
+    return false;
+  }
+  if (note !== null && note !== undefined && typeof note !== 'string') {
+    return false;
+  }
+  if (
+    status !== 'scheduled' &&
+    status !== 'unscheduled' &&
+    status !== 'invalid_date'
+  ) {
+    return false;
+  }
+  return true;
+};
+
 const parseTaskSnapshot = (value: string | null): NormalizedTask | null => {
   if (!value) {
     return null;
   }
   try {
-    return JSON.parse(value) as NormalizedTask;
+    const parsed = JSON.parse(value) as unknown;
+    return isNormalizedTaskSnapshot(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -669,22 +721,27 @@ export const createDb = (dbPath: string): DbClient => {
       WHERE id = @id
     `);
 
-    stmt.run({
-      id: snapshot.id,
-      task_key: snapshot.taskKey,
-      task_key_full: snapshot.taskKeyFull,
-      member_name: snapshot.memberName,
-      project_id: snapshot.projectId,
-      project_group: snapshot.projectGroup ?? null,
-      task_name: snapshot.taskName,
-      start: snapshot.start ?? null,
-      end: snapshot.end ?? null,
-      raw_date: snapshot.rawDate,
-      note: snapshot.note ?? null,
-      status: snapshot.status,
-      assignees_json: JSON.stringify(snapshot.assignees)
-    });
-    return true;
+    try {
+      const result = stmt.run({
+        id: snapshot.id,
+        task_key: snapshot.taskKey,
+        task_key_full: snapshot.taskKeyFull,
+        member_name: snapshot.memberName,
+        project_id: snapshot.projectId,
+        project_group: snapshot.projectGroup ?? null,
+        task_name: snapshot.taskName,
+        start: snapshot.start ?? null,
+        end: snapshot.end ?? null,
+        raw_date: snapshot.rawDate,
+        note: snapshot.note ?? null,
+        status: snapshot.status,
+        assignees_json: JSON.stringify(snapshot.assignees)
+      });
+      return result.changes > 0;
+    } catch (error) {
+      console.warn('Failed to apply task snapshot.', error);
+      return false;
+    }
   };
 
   const updateTaskWithHistory = db.transaction(

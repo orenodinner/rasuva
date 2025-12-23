@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { getStatusLabel } from './status';
 
+const REQUIRED_FIELDS_ERROR = '必須項目（タスク名・担当者・プロジェクトID）を入力してください。';
+
 const DetailsPane = () => {
   const task = useAppStore((state) => state.selectedTask);
   const taskOrder = useAppStore((state) => state.taskOrder);
@@ -9,6 +11,7 @@ const DetailsPane = () => {
   const updateTask = useAppStore((state) => state.updateTask);
   const lastError = useAppStore((state) => state.lastError);
   const clearError = useAppStore((state) => state.clearError);
+  const setLastError = useAppStore((state) => state.setLastError);
 
   const [isEditing, setIsEditing] = useState(false);
   const [taskName, setTaskName] = useState('');
@@ -44,6 +47,12 @@ const DetailsPane = () => {
     setAssigneesText(task.assignees.join(', '));
   }, [task]);
 
+  const clearRequiredFieldsError = () => {
+    if (lastError === REQUIRED_FIELDS_ERROR) {
+      setLastError(null);
+    }
+  };
+
   const { prevTask, nextTask } = useMemo(() => {
     if (!task) {
       return { prevTask: null, nextTask: null };
@@ -67,6 +76,7 @@ const DetailsPane = () => {
     const trimmedMemberName = memberName.trim();
     const trimmedProjectId = projectId.trim();
     if (!trimmedTaskName || !trimmedMemberName || !trimmedProjectId) {
+      setLastError(REQUIRED_FIELDS_ERROR);
       return;
     }
     const trimmedProjectGroup = projectGroup.trim();
@@ -90,6 +100,7 @@ const DetailsPane = () => {
       assignees
     });
     if (ok) {
+      clearRequiredFieldsError();
       setIsEditing(false);
     }
   };
@@ -107,11 +118,14 @@ const DetailsPane = () => {
           <div className="detail-block">
             <div className="detail-label">タスク名 *</div>
             {isEditing ? (
-              <input
-                className="detail-input"
-                value={taskName}
-                onChange={(event) => setTaskName(event.target.value)}
-              />
+                <input
+                  className="detail-input"
+                  value={taskName}
+                  onChange={(event) => {
+                    clearRequiredFieldsError();
+                    setTaskName(event.target.value);
+                  }}
+                />
             ) : (
               <div className="detail-value">{task.taskName}</div>
             )}
@@ -119,11 +133,14 @@ const DetailsPane = () => {
           <div className="detail-block">
             <div className="detail-label">担当者 *</div>
             {isEditing ? (
-              <input
-                className="detail-input"
-                value={memberName}
-                onChange={(event) => setMemberName(event.target.value)}
-              />
+                <input
+                  className="detail-input"
+                  value={memberName}
+                  onChange={(event) => {
+                    clearRequiredFieldsError();
+                    setMemberName(event.target.value);
+                  }}
+                />
             ) : (
               <div className="detail-value">{task.memberName}</div>
             )}
@@ -131,11 +148,14 @@ const DetailsPane = () => {
           <div className="detail-block">
             <div className="detail-label">プロジェクトID *</div>
             {isEditing ? (
-              <input
-                className="detail-input"
-                value={projectId}
-                onChange={(event) => setProjectId(event.target.value)}
-              />
+                <input
+                  className="detail-input"
+                  value={projectId}
+                  onChange={(event) => {
+                    clearRequiredFieldsError();
+                    setProjectId(event.target.value);
+                  }}
+                />
             ) : (
               <div className="detail-value">{task.projectId}</div>
             )}

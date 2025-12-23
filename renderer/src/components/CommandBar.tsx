@@ -39,10 +39,20 @@ const CommandBar = () => {
         <button className="cmd-button" onClick={() => navigate('/diff')}>
           差分
         </button>
-        <button className="cmd-button cmd-button--ghost" onClick={undo} disabled={!canUndo}>
+        <button
+          className="cmd-button cmd-button--ghost"
+          type="button"
+          onClick={undo}
+          disabled={!canUndo}
+        >
           Undo
         </button>
-        <button className="cmd-button cmd-button--ghost" onClick={redo} disabled={!canRedo}>
+        <button
+          className="cmd-button cmd-button--ghost"
+          type="button"
+          onClick={redo}
+          disabled={!canRedo}
+        >
           Redo
         </button>
         <button
