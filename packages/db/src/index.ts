@@ -90,9 +90,25 @@ UPDATE saved_views SET schedule_id = 1 WHERE schedule_id IS NULL;
 CREATE INDEX IF NOT EXISTS idx_imports_schedule_id ON imports(schedule_id);
 CREATE INDEX IF NOT EXISTS idx_views_schedule_id ON saved_views(schedule_id);
 `
+,
+  `
+CREATE TABLE IF NOT EXISTS command_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  import_id INTEGER NOT NULL,
+  command_type TEXT NOT NULL,
+  target_task_id INTEGER,
+  prev_state_json TEXT,
+  next_state_json TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (import_id) REFERENCES imports(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_history_import ON command_history(import_id);
+`
 ];
 
 interface TaskRow {
+  id: number;
   task_key: string;
   task_key_full: string;
   member_name: string;
@@ -118,6 +134,16 @@ interface ImportRow {
   invalid_count: number;
   unscheduled_count: number;
   warnings_count: number;
+}
+
+interface CommandHistoryRow {
+  id: number;
+  import_id: number;
+  command_type: string;
+  target_task_id: number | null;
+  prev_state_json: string | null;
+  next_state_json: string | null;
+  created_at: string;
 }
 
 interface ViewRow {
@@ -185,6 +211,29 @@ export interface DbClient {
   createSchedule: (name: string, description?: string | null) => ScheduleItem | null;
   updateSchedule: (scheduleId: number, name: string, description?: string | null) => boolean;
   deleteSchedule: (scheduleId: number) => boolean;
+  updateTaskWithHistory: (
+    importId: number,
+    currentTaskKeyFull: string,
+    updates: TaskUpdatePayload
+  ) => { historyId: number; updatedTask: NormalizedTask } | null;
+  insertCommandHistory: (input: {
+    importId: number;
+    commandType: string;
+    targetTaskId: number | null;
+    prevState: NormalizedTask | null;
+    nextState: NormalizedTask | null;
+  }) => number;
+  getCommandHistoryById: (historyId: number) => {
+    id: number;
+    importId: number;
+    commandType: string;
+    targetTaskId: number | null;
+    prevState: NormalizedTask | null;
+    nextState: NormalizedTask | null;
+    createdAt: string;
+  } | null;
+  deleteCommandHistoryByIds: (historyIds: number[]) => void;
+  applyTaskSnapshot: (snapshot: NormalizedTask) => boolean;
 }
 
 const parseAssignees = (value: unknown): string[] => {
@@ -200,6 +249,7 @@ const parseAssignees = (value: unknown): string[] => {
 };
 
 const rowToTask = (row: TaskRow): NormalizedTask => ({
+  id: row.id,
   taskKey: row.task_key,
   taskKeyFull: row.task_key_full,
   memberName: row.member_name,
@@ -225,6 +275,27 @@ const rowToImportItem = (row: ImportRow): ImportListItem => ({
   invalidCount: row.invalid_count,
   unscheduledCount: row.unscheduled_count,
   warningsCount: row.warnings_count
+});
+
+const parseTaskSnapshot = (value: string | null): NormalizedTask | null => {
+  if (!value) {
+    return null;
+  }
+  try {
+    return JSON.parse(value) as NormalizedTask;
+  } catch {
+    return null;
+  }
+};
+
+const rowToCommandHistory = (row: CommandHistoryRow) => ({
+  id: row.id,
+  importId: row.import_id,
+  commandType: row.command_type,
+  targetTaskId: row.target_task_id,
+  prevState: parseTaskSnapshot(row.prev_state_json),
+  nextState: parseTaskSnapshot(row.next_state_json),
+  createdAt: row.created_at
 });
 
 const rowToViewItem = (row: ViewRow): SavedViewItem => ({
@@ -526,6 +597,126 @@ export const createDb = (dbPath: string): DbClient => {
     return taskKeyFull;
   };
 
+  const insertCommandHistory = (input: {
+    importId: number;
+    commandType: string;
+    targetTaskId: number | null;
+    prevState: NormalizedTask | null;
+    nextState: NormalizedTask | null;
+  }) => {
+    const stmt = db.prepare(`
+      INSERT INTO command_history (
+        import_id,
+        command_type,
+        target_task_id,
+        prev_state_json,
+        next_state_json,
+        created_at
+      )
+      VALUES (
+        @import_id,
+        @command_type,
+        @target_task_id,
+        @prev_state_json,
+        @next_state_json,
+        @created_at
+      )
+    `);
+    const info = stmt.run({
+      import_id: input.importId,
+      command_type: input.commandType,
+      target_task_id: input.targetTaskId,
+      prev_state_json: input.prevState ? JSON.stringify(input.prevState) : null,
+      next_state_json: input.nextState ? JSON.stringify(input.nextState) : null,
+      created_at: new Date().toISOString()
+    });
+    return Number(info.lastInsertRowid);
+  };
+
+  const getCommandHistoryById = (historyId: number) => {
+    const row = db
+      .prepare(`SELECT * FROM command_history WHERE id = @id`)
+      .get({ id: historyId }) as CommandHistoryRow | undefined;
+    return row ? rowToCommandHistory(row) : null;
+  };
+
+  const deleteCommandHistoryByIds = (historyIds: number[]) => {
+    if (historyIds.length === 0) {
+      return;
+    }
+    const placeholders = historyIds.map(() => '?').join(', ');
+    db.prepare(`DELETE FROM command_history WHERE id IN (${placeholders})`).run(...historyIds);
+  };
+
+  const applyTaskSnapshot = (snapshot: NormalizedTask) => {
+    if (snapshot.id === undefined) {
+      return false;
+    }
+    const stmt = db.prepare(`
+      UPDATE tasks
+      SET task_key = @task_key,
+          task_key_full = @task_key_full,
+          member_name = @member_name,
+          project_id = @project_id,
+          project_group = @project_group,
+          task_name = @task_name,
+          start = @start,
+          end = @end,
+          raw_date = @raw_date,
+          note = @note,
+          status = @status,
+          assignees_json = @assignees_json
+      WHERE id = @id
+    `);
+
+    stmt.run({
+      id: snapshot.id,
+      task_key: snapshot.taskKey,
+      task_key_full: snapshot.taskKeyFull,
+      member_name: snapshot.memberName,
+      project_id: snapshot.projectId,
+      project_group: snapshot.projectGroup ?? null,
+      task_name: snapshot.taskName,
+      start: snapshot.start ?? null,
+      end: snapshot.end ?? null,
+      raw_date: snapshot.rawDate,
+      note: snapshot.note ?? null,
+      status: snapshot.status,
+      assignees_json: JSON.stringify(snapshot.assignees)
+    });
+    return true;
+  };
+
+  const updateTaskWithHistory = db.transaction(
+    (importId: number, currentTaskKeyFull: string, updates: TaskUpdatePayload) => {
+      const prevTask = getTaskByKey(importId, currentTaskKeyFull);
+      if (!prevTask) {
+        return null;
+      }
+      if (prevTask.id === undefined) {
+        throw new Error('Task id missing for history.');
+      }
+      const updatedKey = updateTask(importId, currentTaskKeyFull, updates);
+      if (!updatedKey) {
+        return null;
+      }
+      const nextTask = getTaskByKey(importId, updatedKey);
+      if (!nextTask) {
+        throw new Error('Updated task not found.');
+      }
+
+      const historyId = insertCommandHistory({
+        importId,
+        commandType: 'UPDATE_TASK',
+        targetTaskId: prevTask.id,
+        prevState: prevTask,
+        nextState: nextTask
+      });
+
+      return { historyId, updatedTask: nextTask };
+    }
+  );
+
   const getImportById = (scheduleId: number, importId: number): ImportListItem | null => {
     const row = db
       .prepare(
@@ -640,6 +831,9 @@ export const createDb = (dbPath: string): DbClient => {
         `DELETE FROM tasks WHERE import_id IN (SELECT id FROM imports WHERE schedule_id = @scheduleId)`
       ).run({ scheduleId });
       db.prepare(
+        `DELETE FROM command_history WHERE import_id IN (SELECT id FROM imports WHERE schedule_id = @scheduleId)`
+      ).run({ scheduleId });
+      db.prepare(
         `DELETE FROM warnings WHERE import_id IN (SELECT id FROM imports WHERE schedule_id = @scheduleId)`
       ).run({ scheduleId });
       db.prepare(`DELETE FROM imports WHERE schedule_id = @scheduleId`).run({ scheduleId });
@@ -666,6 +860,11 @@ export const createDb = (dbPath: string): DbClient => {
     getTasksByImportId,
     getTaskByKey,
     updateTask,
+    updateTaskWithHistory,
+    insertCommandHistory,
+    getCommandHistoryById,
+    deleteCommandHistoryByIds,
+    applyTaskSnapshot,
     getImportById,
     getSavedViews,
     saveView,

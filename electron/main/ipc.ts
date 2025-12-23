@@ -15,6 +15,71 @@ import { IPC_CHANNELS } from '../shared/ipcChannels';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+type HistoryState = { pointer: number; ids: number[] };
+
+class HistoryManager {
+  private historyByImport = new Map<number, HistoryState>();
+
+  ensure(importId: number) {
+    if (!this.historyByImport.has(importId)) {
+      this.historyByImport.set(importId, { pointer: -1, ids: [] });
+    }
+    return this.historyByImport.get(importId)!;
+  }
+
+  record(importId: number, historyId: number) {
+    const state = this.ensure(importId);
+    let dropped: number[] = [];
+    if (state.pointer < state.ids.length - 1) {
+      dropped = state.ids.slice(state.pointer + 1);
+      state.ids = state.ids.slice(0, state.pointer + 1);
+    }
+    state.ids.push(historyId);
+    state.pointer = state.ids.length - 1;
+    return dropped;
+  }
+
+  getStatus(importId: number) {
+    const state = this.ensure(importId);
+    return {
+      canUndo: state.pointer >= 0,
+      canRedo: state.pointer < state.ids.length - 1
+    };
+  }
+
+  peekUndo(importId: number) {
+    const state = this.ensure(importId);
+    if (state.pointer < 0) {
+      return null;
+    }
+    return state.ids[state.pointer];
+  }
+
+  peekRedo(importId: number) {
+    const state = this.ensure(importId);
+    if (state.pointer >= state.ids.length - 1) {
+      return null;
+    }
+    return state.ids[state.pointer + 1];
+  }
+
+  commitUndo(importId: number) {
+    const state = this.ensure(importId);
+    if (state.pointer >= 0) {
+      state.pointer -= 1;
+    }
+  }
+
+  commitRedo(importId: number) {
+    const state = this.ensure(importId);
+    if (state.pointer < state.ids.length - 1) {
+      state.pointer += 1;
+    }
+  }
+}
+
+const historyManager = new HistoryManager();
+
 const parseIsoDate = (value: string) => {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) {
@@ -177,6 +242,10 @@ const taskUpdateSchema = z.object({
   end: z.string().nullable(),
   note: z.string().nullable(),
   assignees: z.array(z.string())
+});
+
+const historySchema = z.object({
+  importId: z.number().int().positive()
 });
 
 const normalizeAssignees = (values: string[]) => {
@@ -786,7 +855,7 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: '終了日が開始日より前です。' };
     }
 
-    const updatedKey = db.updateTask(importId, currentTaskKeyFull, {
+    const historyResult = db.updateTaskWithHistory(importId, currentTaskKeyFull, {
       memberName,
       projectId,
       projectGroup,
@@ -798,15 +867,81 @@ export const registerIpcHandlers = (db: DbClient) => {
       assignees
     });
 
-    if (!updatedKey) {
+    if (!historyResult) {
       return { ok: false, error: '更新対象のタスクが見つかりません。' };
     }
 
-    const updated = db.getTaskByKey(importId, updatedKey);
-    if (!updated) {
-      return { ok: false, error: '更新対象のタスクが見つかりません。' };
+    const droppedHistory = historyManager.record(importId, historyResult.historyId);
+    if (droppedHistory.length > 0) {
+      db.deleteCommandHistoryByIds(droppedHistory);
     }
 
-    return { ok: true, task: updated };
+    return { ok: true, task: historyResult.updatedTask };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.historyStatus, async (_event, payload) => {
+    const parsedPayload = historySchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const status = historyManager.getStatus(parsedPayload.data.importId);
+    return { ok: true, ...status };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.historyUndo, async (_event, payload) => {
+    const parsedPayload = historySchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const importId = parsedPayload.data.importId;
+    const historyId = historyManager.peekUndo(importId);
+    if (!historyId) {
+      return { ok: false, error: 'No undo history.' };
+    }
+
+    const entry = db.getCommandHistoryById(historyId);
+    if (!entry || entry.importId !== importId) {
+      return { ok: false, error: 'History entry not found.' };
+    }
+    if (!entry.prevState) {
+      return { ok: false, error: 'Undo snapshot missing.' };
+    }
+    const applied = db.applyTaskSnapshot(entry.prevState);
+    if (!applied) {
+      return { ok: false, error: 'Undo failed.' };
+    }
+
+    historyManager.commitUndo(importId);
+    return { ok: true, task: entry.prevState };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.historyRedo, async (_event, payload) => {
+    const parsedPayload = historySchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const importId = parsedPayload.data.importId;
+    const historyId = historyManager.peekRedo(importId);
+    if (!historyId) {
+      return { ok: false, error: 'No redo history.' };
+    }
+
+    const entry = db.getCommandHistoryById(historyId);
+    if (!entry || entry.importId !== importId) {
+      return { ok: false, error: 'History entry not found.' };
+    }
+    if (!entry.nextState) {
+      return { ok: false, error: 'Redo snapshot missing.' };
+    }
+    const applied = db.applyTaskSnapshot(entry.nextState);
+    if (!applied) {
+      return { ok: false, error: 'Redo failed.' };
+    }
+
+    historyManager.commitRedo(importId);
+    return { ok: true, task: entry.nextState };
   });
 };

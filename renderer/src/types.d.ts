@@ -55,6 +55,11 @@ declare global {
       ) => Promise<ApiSuccess<{ viewId: number }> | ApiFailure>;
       exportCsv: (scheduleId: number, importId?: number) => Promise<ApiSuccess<{ path: string }> | ApiFailure>;
       exportXlsx: (scheduleId: number, importId?: number) => Promise<ApiSuccess<{ path: string }> | ApiFailure>;
+      historyUndo: (importId: number) => Promise<ApiSuccess<{ task: NormalizedTask }> | ApiFailure>;
+      historyRedo: (importId: number) => Promise<ApiSuccess<{ task: NormalizedTask }> | ApiFailure>;
+      historyStatus: (
+        importId: number
+      ) => Promise<ApiSuccess<{ canUndo: boolean; canRedo: boolean }> | ApiFailure>;
       taskUpdate: (
         input: TaskUpdateInput
       ) => Promise<ApiSuccess<{ task: NormalizedTask }> | ApiFailure>;

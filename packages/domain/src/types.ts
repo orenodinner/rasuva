@@ -25,6 +25,7 @@ export interface RawTask {
 }
 
 export interface NormalizedTask {
+  id?: number;
   taskKey: string;
   taskKeyFull: string;
   memberName: string;

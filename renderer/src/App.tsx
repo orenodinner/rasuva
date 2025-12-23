@@ -25,6 +25,8 @@ const App = () => {
   const lastError = useAppStore((state) => state.lastError);
   const setZoom = useAppStore((state) => state.setZoom);
   const setFocusDate = useAppStore((state) => state.setFocusDate);
+  const undo = useAppStore((state) => state.undo);
+  const redo = useAppStore((state) => state.redo);
 
   useEffect(() => {
     initSchedules();
@@ -44,6 +46,22 @@ const App = () => {
 
     const handleKeydown = (event: KeyboardEvent) => {
       if (isTypingElement(event.target)) {
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) {
+          void redo();
+        } else {
+          void undo();
+        }
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        void redo();
         return;
       }
 
@@ -77,7 +95,7 @@ const App = () => {
 
     window.addEventListener('keydown', handleKeydown);
     return () => window.removeEventListener('keydown', handleKeydown);
-  }, [navigate, setZoom, setFocusDate]);
+  }, [navigate, setZoom, setFocusDate, undo, redo]);
 
   return (
     <div className="app-shell">
