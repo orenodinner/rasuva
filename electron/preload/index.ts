@@ -29,6 +29,8 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.exportCsv, { scheduleId, importId }),
   exportXlsx: (scheduleId: number, importId?: number) =>
     ipcRenderer.invoke(IPC_CHANNELS.exportXlsx, { scheduleId, importId }),
+  exportJson: (scheduleId: number, importId?: number) =>
+    ipcRenderer.invoke(IPC_CHANNELS.exportJson, { scheduleId, importId }),
   historyUndo: (importId: number) =>
     ipcRenderer.invoke(IPC_CHANNELS.historyUndo, { importId }),
   historyRedo: (importId: number) =>
