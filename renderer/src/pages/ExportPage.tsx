@@ -32,11 +32,24 @@ const ExportPage = () => {
     }
   };
 
+  const handleExportJson = async () => {
+    if (!currentScheduleId) {
+      setMessage('スケジュールが選択されていません。');
+      return;
+    }
+    const response = await window.api.exportJson(currentScheduleId, gantt?.importId ?? undefined);
+    if (response.ok) {
+      setMessage(`保存先: ${response.path}`);
+    } else {
+      setMessage(response.error);
+    }
+  };
+
   return (
     <div className="page">
       <div className="page-header">
         <h1>エクスポート</h1>
-        <p>最新インポートを CSV / Excel で出力します。</p>
+        <p>最新インポートを CSV / Excel / JSON で出力します。</p>
       </div>
       <div className="export-actions">
         <button className="cmd-button" onClick={handleExportCsv}>
@@ -44,6 +57,9 @@ const ExportPage = () => {
         </button>
         <button className="cmd-button cmd-button--ghost" onClick={handleExportXlsx}>
           Excel をエクスポート
+        </button>
+        <button className="cmd-button cmd-button--ghost" onClick={handleExportJson}>
+          JSON をエクスポート
         </button>
       </div>
       {message ? <div className="alert">{message}</div> : null}

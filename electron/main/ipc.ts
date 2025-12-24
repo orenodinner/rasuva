@@ -2,6 +2,7 @@ import { dialog, ipcMain } from 'electron';
 import { z } from 'zod';
 import {
   convertFlatTasksToRawImport,
+  convertNormalizedTasksToRawImport,
   diffTasks,
   normalizeImport,
   parseDateStrict,
@@ -806,6 +807,41 @@ export const registerIpcHandlers = (db: DbClient) => {
     }
 
     await workbook.xlsx.writeFile(dialogResult.filePath);
+    return { ok: true, path: dialogResult.filePath };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.exportJson, async (_event, payload) => {
+    const parsedPayload = exportSchema.safeParse(payload ?? {});
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const importId =
+      parsedPayload.data.importId ?? db.getLatestImportId(parsedPayload.data.scheduleId);
+    if (!importId) {
+      return { ok: false, error: 'No import available.' };
+    }
+
+    const currentImport = db.getImportById(parsedPayload.data.scheduleId, importId);
+    if (!currentImport) {
+      return { ok: false, error: '指定されたインポートが見つかりません。' };
+    }
+
+    const tasks = db.getTasksByImportId(importId);
+    const rawImport = convertNormalizedTasksToRawImport(tasks);
+    const jsonText = JSON.stringify(rawImport, null, 2);
+
+    const dialogResult = await dialog.showSaveDialog({
+      title: 'Export JSON',
+      defaultPath: `rasuva_export_${importId}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    });
+
+    if (dialogResult.canceled || !dialogResult.filePath) {
+      return { ok: false, error: 'Export canceled.' };
+    }
+
+    writeFileSync(dialogResult.filePath, jsonText, 'utf-8');
     return { ok: true, path: dialogResult.filePath };
   });
 
