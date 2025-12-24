@@ -21,7 +21,7 @@ const buildRawDate = (start: string | null, end: string | null, rawDate: string 
   if (end) {
     return end;
   }
-  return '';
+  return 'TBD';
 };
 
 export const convertNormalizedTasksToRawImport = (tasks: NormalizedTask[]): RawImport => {
@@ -41,8 +41,8 @@ export const convertNormalizedTasksToRawImport = (tasks: NormalizedTask[]): RawI
       members.push(member);
     }
 
-    const projectId = toTrimmed(task.projectId);
-    const projectKey = projectId ?? '__missing__';
+    const projectId = toTrimmed(task.projectId) ?? '__missing__';
+    const projectKey = projectId;
     let project = memberEntry.projects.get(projectKey);
     if (!project) {
       project = {

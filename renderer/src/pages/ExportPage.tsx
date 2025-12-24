@@ -52,13 +52,13 @@ const ExportPage = () => {
         <p>最新インポートを CSV / Excel / JSON で出力します。</p>
       </div>
       <div className="export-actions">
-        <button className="cmd-button" onClick={handleExportCsv}>
+        <button className="cmd-button" type="button" onClick={handleExportCsv}>
           CSV をエクスポート
         </button>
-        <button className="cmd-button cmd-button--ghost" onClick={handleExportXlsx}>
+        <button className="cmd-button cmd-button--ghost" type="button" onClick={handleExportXlsx}>
           Excel をエクスポート
         </button>
-        <button className="cmd-button cmd-button--ghost" onClick={handleExportJson}>
+        <button className="cmd-button cmd-button--ghost" type="button" onClick={handleExportJson}>
           JSON をエクスポート
         </button>
       </div>
