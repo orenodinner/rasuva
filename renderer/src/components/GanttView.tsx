@@ -201,6 +201,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const setFocusDate = useAppStore((state) => state.setFocusDate);
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
   const setTaskOrder = useAppStore((state) => state.setTaskOrder);
+  const updateTask = useAppStore((state) => state.updateTask);
   const selectedTask = useAppStore((state) => state.selectedTask);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -498,6 +499,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       collapsedGroups,
       toggleGroup,
       setSelectedTask,
+      updateTask,
       getBarClassName,
       buildTooltip,
       buildSearchHaystack,
@@ -516,6 +518,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     collapsedGroups,
     toggleGroup,
     setSelectedTask,
+    updateTask,
     getBarClassName
   ]);
 
@@ -534,16 +537,6 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     return Inner;
   }, [totalWidth]);
 
-  useEffect(() => {
-    if (!listData || !selectedTask) {
-      return;
-    }
-    const rowIndex = taskIndexByKey.get(selectedTask.taskKeyFull);
-    if (rowIndex === undefined) {
-      return;
-    }
-    listRef.current?.scrollToItem(rowIndex, 'center');
-  }, [listData, selectedTask, taskIndexByKey]);
 
   useEffect(() => {
     const scrollElement = scrollRef.current;

@@ -57,11 +57,16 @@ const GanttPage = () => {
             onChange={(event) => setRange(rangeStart, event.target.value || null)}
           />
         </label>
-        <button className="cmd-button cmd-button--ghost" onClick={() => setRange(null, null)}>
+        <button
+          className="cmd-button cmd-button--ghost"
+          type="button"
+          onClick={() => setRange(null, null)}
+        >
           期間リセット
         </button>
         <button
           className="cmd-button cmd-button--ghost"
+          type="button"
           onClick={() => setCollapsedGroups([])}
           disabled={collapsedGroups.length === 0}
         >

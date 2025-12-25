@@ -839,10 +839,42 @@ body {
   font-size: 11px;
   box-shadow: 0 6px 10px rgba(47, 124, 111, 0.25);
   overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
 }
 
 .gantt-bar span {
   white-space: nowrap;
+}
+
+.gantt-bar--dragging {
+  cursor: grabbing;
+}
+
+.gantt-bar-content {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  pointer-events: auto;
+}
+
+.gantt-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: ew-resize;
+  z-index: 2;
+  touch-action: none;
+}
+
+.gantt-resize-handle--left {
+  left: 0;
+}
+
+.gantt-resize-handle--right {
+  right: 0;
 }
 
 .gantt-marker {
