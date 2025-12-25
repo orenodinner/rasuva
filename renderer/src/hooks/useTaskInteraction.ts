@@ -41,7 +41,7 @@ export const useTaskInteraction = ({
   barLeft: number;
   barWidth: number;
   durationDays: number;
-  onUpdate: (task: NormalizedTask, newStart: string, newEnd: string) => void;
+  onUpdate: (task: NormalizedTask, newStart: string, newEnd: string) => Promise<boolean>;
   onSelect?: (task: NormalizedTask) => void;
 }) => {
   const barRef = useRef<HTMLDivElement | null>(null);
@@ -166,7 +166,7 @@ export const useTaskInteraction = ({
       if (nextStartIso === task.start && nextEndIso === task.end) {
         return;
       }
-      onUpdate(task, nextStartIso, nextEndIso);
+      void onUpdate(task, nextStartIso, nextEndIso).catch(() => false);
     },
     [dayWidth, onUpdate, resetVisual, task]
   );

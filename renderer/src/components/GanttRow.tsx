@@ -25,6 +25,7 @@ export interface GanttRowData {
   collapsedGroups: string[];
   toggleGroup: (groupId: string) => void;
   setSelectedTask: (task: NormalizedTask) => void;
+  setLastError: (message: string | null) => void;
   updateTask: (input: TaskUpdateInput) => Promise<boolean>;
   getBarClassName?: (task: NormalizedTask) => string;
   buildTooltip: (task: NormalizedTask) => string;
@@ -42,6 +43,7 @@ interface GanttTaskBarProps {
   className: string;
   tooltip: string;
   setSelectedTask: (task: NormalizedTask) => void;
+  setLastError: (message: string | null) => void;
   updateTask: (input: TaskUpdateInput) => Promise<boolean>;
 }
 
@@ -54,6 +56,7 @@ const GanttTaskBar = ({
   className,
   tooltip,
   setSelectedTask,
+  setLastError,
   updateTask
 }: GanttTaskBarProps) => {
   const { barRef, isDragging, handleMoveStart, handleResizeStart } = useTaskInteraction({
@@ -62,18 +65,37 @@ const GanttTaskBar = ({
     barLeft: left,
     barWidth: width,
     durationDays,
-    onUpdate: (target, newStart, newEnd) => {
-      void updateTask({
-        currentTaskKeyFull: target.taskKeyFull,
-        memberName: target.memberName,
-        projectId: target.projectId,
-        projectGroup: target.projectGroup,
-        taskName: target.taskName,
-        start: newStart,
-        end: newEnd,
-        note: target.note,
-        assignees: target.assignees ?? []
-      });
+    onUpdate: async (target, newStart, newEnd) => {
+      const previousStart = target.start;
+      const previousEnd = target.end;
+      try {
+        const ok = await updateTask({
+          currentTaskKeyFull: target.taskKeyFull,
+          memberName: target.memberName,
+          projectId: target.projectId,
+          projectGroup: target.projectGroup,
+          taskName: target.taskName,
+          start: newStart,
+          end: newEnd,
+          note: target.note,
+          assignees: target.assignees ?? []
+        });
+        if (!ok) {
+          setLastError('日程の更新に失敗しました。');
+          if (previousStart && previousEnd) {
+            setSelectedTask({ ...target, start: previousStart, end: previousEnd });
+          }
+        }
+        return ok;
+      } catch (error) {
+        setLastError(
+          error instanceof Error ? error.message : '日程の更新に失敗しました。'
+        );
+        if (previousStart && previousEnd) {
+          setSelectedTask({ ...target, start: previousStart, end: previousEnd });
+        }
+        return false;
+      }
     },
     onSelect: setSelectedTask
   });
@@ -177,6 +199,7 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
                 className={className}
                 tooltip={tooltip}
                 setSelectedTask={data.setSelectedTask}
+                setLastError={data.setLastError}
                 updateTask={data.updateTask}
               />
             );
