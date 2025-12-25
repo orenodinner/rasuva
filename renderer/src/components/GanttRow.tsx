@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { ListChildComponentProps } from 'react-window';
-import type { NormalizedTask } from '@domain';
+import type { NormalizedTask, TaskUpdateInput } from '@domain';
+import { useTaskInteraction } from '../hooks/useTaskInteraction';
 
 export interface GanttRowItem {
   id: string;
@@ -24,12 +25,106 @@ export interface GanttRowData {
   collapsedGroups: string[];
   toggleGroup: (groupId: string) => void;
   setSelectedTask: (task: NormalizedTask) => void;
+  setLastError: (message: string | null) => void;
+  updateTask: (input: TaskUpdateInput) => Promise<boolean>;
   getBarClassName?: (task: NormalizedTask) => string;
   buildTooltip: (task: NormalizedTask) => string;
   buildSearchHaystack: (task: NormalizedTask) => string;
   toUtcDate: (value: string) => Date;
   diffDays: (start: Date, end: Date) => number;
 }
+
+interface GanttTaskBarProps {
+  task: NormalizedTask;
+  left: number;
+  width: number;
+  dayWidth: number;
+  durationDays: number;
+  className: string;
+  tooltip: string;
+  setSelectedTask: (task: NormalizedTask) => void;
+  setLastError: (message: string | null) => void;
+  updateTask: (input: TaskUpdateInput) => Promise<boolean>;
+}
+
+const GanttTaskBar = ({
+  task,
+  left,
+  width,
+  dayWidth,
+  durationDays,
+  className,
+  tooltip,
+  setSelectedTask,
+  setLastError,
+  updateTask
+}: GanttTaskBarProps) => {
+  const { barRef, isDragging, handleMoveStart, handleResizeStart } = useTaskInteraction({
+    task,
+    dayWidth,
+    barLeft: left,
+    barWidth: width,
+    durationDays,
+    onUpdate: async (target, newStart, newEnd) => {
+      const previousStart = target.start;
+      const previousEnd = target.end;
+      try {
+        const ok = await updateTask({
+          currentTaskKeyFull: target.taskKeyFull,
+          memberName: target.memberName,
+          projectId: target.projectId,
+          projectGroup: target.projectGroup,
+          taskName: target.taskName,
+          start: newStart,
+          end: newEnd,
+          note: target.note,
+          assignees: target.assignees ?? []
+        });
+        if (!ok) {
+          setLastError('日程の更新に失敗しました。');
+          if (previousStart && previousEnd) {
+            setSelectedTask({ ...target, start: previousStart, end: previousEnd });
+          }
+        }
+        return ok;
+      } catch (error) {
+        setLastError(
+          error instanceof Error ? error.message : '日程の更新に失敗しました。'
+        );
+        if (previousStart && previousEnd) {
+          setSelectedTask({ ...target, start: previousStart, end: previousEnd });
+        }
+        return false;
+      }
+    },
+    onSelect: setSelectedTask
+  });
+
+  const draggingClass = isDragging ? 'gantt-bar--dragging' : '';
+  const barClassName = ['gantt-bar', className, draggingClass].filter(Boolean).join(' ');
+
+  return (
+    <div
+      ref={barRef}
+      className={barClassName}
+      style={{ left, width: Math.max(dayWidth, width) }}
+      data-tooltip={tooltip}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div
+        className="gantt-resize-handle gantt-resize-handle--left"
+        onMouseDown={handleResizeStart('left')}
+      />
+      <div className="gantt-bar-content" onMouseDown={handleMoveStart}>
+        <span>{task.taskName}</span>
+      </div>
+      <div
+        className="gantt-resize-handle gantt-resize-handle--right"
+        onMouseDown={handleResizeStart('right')}
+      />
+    </div>
+  );
+};
 
 const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>) => {
   const row = data.rows[index];
@@ -93,29 +188,20 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
             const className = [baseClassName, highlightClass].filter(Boolean).join(' ');
             const tooltip = data.buildTooltip(row.task);
 
-            if (originalDurationDays === 1) {
-              return (
-                <div
-                  className={`gantt-marker ${className}`}
-                  style={{ left: Math.max(0, left + data.dayWidth / 2) }}
-                  data-tooltip={tooltip}
-                >
-                  ★
-                </div>
-              );
-            }
-
+            const barWidth = Math.max(data.dayWidth, durationDays * data.dayWidth);
             return (
-              <div
-                className={`gantt-bar ${className}`}
-                style={{
-                  left,
-                  width: Math.max(data.dayWidth, durationDays * data.dayWidth)
-                }}
-                data-tooltip={tooltip}
-              >
-                <span>{row.task.taskName}</span>
-              </div>
+              <GanttTaskBar
+                task={row.task}
+                left={left}
+                width={barWidth}
+                dayWidth={data.dayWidth}
+                durationDays={originalDurationDays}
+                className={className}
+                tooltip={tooltip}
+                setSelectedTask={data.setSelectedTask}
+                setLastError={data.setLastError}
+                updateTask={data.updateTask}
+              />
             );
           })()
         ) : null}

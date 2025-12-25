@@ -4,27 +4,13 @@ import AutoSizer from 'react-virtualized-auto-sizer';
 import { FixedSizeList, type ListOnScrollProps } from 'react-window';
 import type { NormalizedTask } from '@domain';
 import { useAppStore } from '../state/store';
+import { formatIsoDate, toUtcDate } from '../utils/ganttMath';
 import GanttHeader from './GanttHeader';
 import GanttRow, { type GanttRowData, type GanttRowItem } from './GanttRow';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MS_PER_WEEK = MS_PER_DAY * 7;
 const ROW_HEIGHT = 28;
-
-const toUtcDate = (value: string) => {
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
-};
-
-const formatIsoDate = (date: Date) => {
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-  const year = date.getUTCFullYear();
-  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getUTCDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 const formatYearMonth = (date: Date) => {
   if (Number.isNaN(date.getTime())) {
@@ -201,6 +187,8 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const setFocusDate = useAppStore((state) => state.setFocusDate);
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
   const setTaskOrder = useAppStore((state) => state.setTaskOrder);
+  const setLastError = useAppStore((state) => state.setLastError);
+  const updateTask = useAppStore((state) => state.updateTask);
   const selectedTask = useAppStore((state) => state.selectedTask);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -498,6 +486,8 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       collapsedGroups,
       toggleGroup,
       setSelectedTask,
+      setLastError,
+      updateTask,
       getBarClassName,
       buildTooltip,
       buildSearchHaystack,
@@ -516,6 +506,8 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     collapsedGroups,
     toggleGroup,
     setSelectedTask,
+    setLastError,
+    updateTask,
     getBarClassName
   ]);
 
@@ -534,16 +526,6 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     return Inner;
   }, [totalWidth]);
 
-  useEffect(() => {
-    if (!listData || !selectedTask) {
-      return;
-    }
-    const rowIndex = taskIndexByKey.get(selectedTask.taskKeyFull);
-    if (rowIndex === undefined) {
-      return;
-    }
-    listRef.current?.scrollToItem(rowIndex, 'center');
-  }, [listData, selectedTask, taskIndexByKey]);
 
   useEffect(() => {
     const scrollElement = scrollRef.current;
