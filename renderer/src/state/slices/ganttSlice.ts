@@ -5,12 +5,14 @@ import type { AppState } from '../store';
 export interface GanttSlice {
   gantt: GanttQueryResult | null;
   selectedTask: NormalizedTask | null;
+  selectedTaskIds: string[];
   focusDate: string | null;
   currentImportId: number | null;
   taskOrder: NormalizedTask[];
   canUndo: boolean;
   canRedo: boolean;
   setSelectedTask: (task: NormalizedTask | null) => void;
+  toggleTaskSelection: (task: NormalizedTask) => void;
   setFocusDate: (value: string | null) => void;
   setTaskOrder: (tasks: NormalizedTask[]) => void;
   loadGantt: (importId?: number) => Promise<void>;
@@ -53,12 +55,33 @@ export const createGanttSlice: StateCreator<AppState, [], [], GanttSlice> = (set
   return {
     gantt: null,
     selectedTask: null,
+    selectedTaskIds: [],
     focusDate: null,
     currentImportId: null,
     taskOrder: [],
     canUndo: false,
     canRedo: false,
-    setSelectedTask: (task) => set({ selectedTask: task }),
+    setSelectedTask: (task) =>
+      set({
+        selectedTask: task,
+        selectedTaskIds: task ? [task.taskKeyFull] : []
+      }),
+    toggleTaskSelection: (task) =>
+      set((state) => {
+        const exists = state.selectedTaskIds.includes(task.taskKeyFull);
+        const nextIds = exists
+          ? state.selectedTaskIds.filter((id) => id !== task.taskKeyFull)
+          : [...state.selectedTaskIds, task.taskKeyFull];
+        const selectedTask =
+          exists && state.selectedTask?.taskKeyFull === task.taskKeyFull
+            ? nextIds
+                .map((id) => state.gantt?.tasks.find((entry) => entry.taskKeyFull === id))
+                .find(Boolean) ?? null
+            : exists
+              ? state.selectedTask
+              : task;
+        return { selectedTask, selectedTaskIds: nextIds };
+      }),
     setFocusDate: (value) => set({ focusDate: value }),
     setTaskOrder: (tasks) => set({ taskOrder: tasks }),
     loadGantt: async (importId) => {

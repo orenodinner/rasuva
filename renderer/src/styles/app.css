@@ -794,6 +794,15 @@ body {
   background-size: var(--column-width, 28px) 100%;
 }
 
+.gantt-weekend-highlight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(224, 224, 224, 0.35);
+  pointer-events: none;
+  z-index: 0;
+}
+
 .gantt-timeline--header-top {
   background-image: none;
 }
@@ -842,6 +851,7 @@ body {
   cursor: grab;
   user-select: none;
   touch-action: none;
+  z-index: 1;
 }
 
 .gantt-bar span {
@@ -857,6 +867,17 @@ body {
   align-items: center;
   flex: 1;
   pointer-events: auto;
+}
+
+.gantt-inline-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  padding: 0;
+  outline: none;
 }
 
 .gantt-resize-handle {
@@ -889,6 +910,11 @@ body {
 .gantt-bar--highlighted {
   outline: 2px solid #f4b76f;
   box-shadow: 0 0 0 2px rgba(244, 183, 111, 0.4);
+}
+
+.gantt-bar--selected {
+  outline: 2px solid rgba(201, 120, 49, 0.85);
+  box-shadow: 0 0 0 2px rgba(201, 120, 49, 0.35);
 }
 
 .gantt-marker.gantt-bar--highlighted {
@@ -940,6 +966,46 @@ body {
 .gantt-bar--archived {
   background: linear-gradient(90deg, #7b7b7b, #9a9a9a);
   box-shadow: 0 6px 10px rgba(123, 123, 123, 0.25);
+}
+
+.gantt-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 4px;
+}
+
+.gantt-context-menu__title {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 6px 8px 2px;
+}
+
+.gantt-context-menu__item {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+  width: 100%;
+}
+
+.gantt-context-menu__item:hover {
+  background: var(--panel-strong);
+}
+
+.gantt-context-menu__item:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
 
 @media (max-width: 1200px) {

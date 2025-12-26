@@ -11,6 +11,8 @@ export interface ViewSlice {
   saveView: (name: string, state: SavedViewState) => Promise<void>;
   setCollapsedGroups: (groups: string[]) => void;
   toggleGroup: (groupId: string) => void;
+  collapseAll: (groupIds: string[]) => void;
+  expandAll: () => void;
   setRange: (start: string | null, end: string | null) => void;
   applyViewState: (state: SavedViewState) => void;
 }
@@ -70,6 +72,11 @@ export const createViewSlice: StateCreator<AppState, [], [], ViewSlice> = (set, 
       };
     });
   },
+  collapseAll: (groupIds) =>
+    set({
+      collapsedGroups: Array.from(new Set(groupIds))
+    }),
+  expandAll: () => set({ collapsedGroups: [] }),
   setRange: (start, end) => {
     set({
       rangeStart: start,

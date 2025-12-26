@@ -36,6 +36,10 @@ export const addUtcDays = (date: Date, days: number) => {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
 };
 
+export const isHoliday = (date: Date) => {
+  const day = date.getUTCDay();
+  return day === 0 || day === 6;
+};
 
 export const diffUtcDays = (start: Date, end: Date) => {
   return Math.floor((end.getTime() - start.getTime()) / MS_PER_DAY);
@@ -55,4 +59,39 @@ export const snapDeltaDays = (deltaX: number, dayWidth: number) => {
     return 0;
   }
   return Math.round(deltaX / dayWidth);
+};
+
+export const getWeekendRects = (timelineStart: Date, timelineEnd: Date, dayWidth: number) => {
+  if (dayWidth <= 0 || timelineEnd.getTime() < timelineStart.getTime()) {
+    return [];
+  }
+
+  const rects: { left: number; width: number }[] = [];
+  let current = new Date(timelineStart.getTime());
+  let blockStart: Date | null = null;
+
+  while (current.getTime() <= timelineEnd.getTime()) {
+    const holiday = isHoliday(current);
+    if (holiday && !blockStart) {
+      blockStart = new Date(current.getTime());
+    } else if (!holiday && blockStart) {
+      const days = diffUtcDays(blockStart, current);
+      rects.push({
+        left: diffUtcDays(timelineStart, blockStart) * dayWidth,
+        width: days * dayWidth
+      });
+      blockStart = null;
+    }
+    current = addUtcDays(current, 1);
+  }
+
+  if (blockStart) {
+    const days = diffUtcDays(blockStart, addUtcDays(timelineEnd, 1));
+    rects.push({
+      left: diffUtcDays(timelineStart, blockStart) * dayWidth,
+      width: days * dayWidth
+    });
+  }
+
+  return rects;
 };

@@ -1,4 +1,5 @@
-﻿import { useEffect } from 'react';
+﻿import { useEffect, useMemo, useRef } from 'react';
+import ContextMenu from '../components/ContextMenu';
 import GanttView from '../components/GanttView';
 import { useAppStore } from '../state/store';
 
@@ -11,6 +12,29 @@ const GanttPage = () => {
   const setRange = useAppStore((state) => state.setRange);
   const collapsedGroups = useAppStore((state) => state.collapsedGroups);
   const setCollapsedGroups = useAppStore((state) => state.setCollapsedGroups);
+  const collapseAll = useAppStore((state) => state.collapseAll);
+  const expandAll = useAppStore((state) => state.expandAll);
+
+  const allGroupIds = useMemo(() => {
+    if (!gantt?.tasks) {
+      return [];
+    }
+    const groupIds = new Set<string>();
+    gantt.tasks.forEach((task) => {
+      const members = new Set([task.memberName, ...(task.assignees ?? [])]);
+      members.forEach((memberName) => {
+        if (!memberName || memberName.trim().length === 0) {
+          return;
+        }
+        groupIds.add(`member:${memberName}`);
+        groupIds.add(`project:${memberName}:${task.projectId}`);
+      });
+    });
+    return Array.from(groupIds);
+  }, [gantt]);
+
+  const storageKey = currentScheduleId ? `rasuva:view:${currentScheduleId}` : null;
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     if (!currentScheduleId) {
@@ -20,6 +44,37 @@ const GanttPage = () => {
       loadGantt();
     }
   }, [gantt, loadGantt, currentScheduleId]);
+
+  useEffect(() => {
+    if (!storageKey) {
+      return;
+    }
+    hasLoadedRef.current = false;
+    let nextGroups: string[] | null = null;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { collapsedGroups?: unknown };
+        if (Array.isArray(parsed.collapsedGroups)) {
+          nextGroups = parsed.collapsedGroups.filter(
+            (value): value is string => typeof value === 'string'
+          );
+        }
+      }
+    } catch {
+      nextGroups = null;
+    }
+    setCollapsedGroups(nextGroups ?? []);
+    hasLoadedRef.current = true;
+  }, [storageKey, setCollapsedGroups]);
+
+  useEffect(() => {
+    if (!storageKey || !hasLoadedRef.current) {
+      return;
+    }
+    const payload = JSON.stringify({ collapsedGroups });
+    localStorage.setItem(storageKey, payload);
+  }, [storageKey, collapsedGroups]);
 
   if (!currentScheduleId) {
     return (
@@ -67,13 +122,22 @@ const GanttPage = () => {
         <button
           className="cmd-button cmd-button--ghost"
           type="button"
-          onClick={() => setCollapsedGroups([])}
+          onClick={() => collapseAll(allGroupIds)}
+          disabled={allGroupIds.length === 0}
+        >
+          すべて折りたたむ
+        </button>
+        <button
+          className="cmd-button cmd-button--ghost"
+          type="button"
+          onClick={expandAll}
           disabled={collapsedGroups.length === 0}
         >
-          折りたたみ解除
+          すべて展開
         </button>
       </div>
       <GanttView />
+      <ContextMenu />
     </div>
   );
 };
