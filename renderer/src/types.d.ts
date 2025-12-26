@@ -56,6 +56,10 @@ declare global {
       exportCsv: (scheduleId: number, importId?: number) => Promise<ApiSuccess<{ path: string }> | ApiFailure>;
       exportXlsx: (scheduleId: number, importId?: number) => Promise<ApiSuccess<{ path: string }> | ApiFailure>;
       exportJson: (scheduleId: number, importId?: number) => Promise<ApiSuccess<{ path: string }> | ApiFailure>;
+      showTaskContextMenu: (task: NormalizedTask) => Promise<void>;
+      onMenuAction: (
+        callback: (event: unknown, payload: { action: string; task: NormalizedTask }) => void
+      ) => () => void;
       historyUndo: (importId: number) => Promise<ApiSuccess<{ task: NormalizedTask }> | ApiFailure>;
       historyRedo: (importId: number) => Promise<ApiSuccess<{ task: NormalizedTask }> | ApiFailure>;
       historyStatus: (

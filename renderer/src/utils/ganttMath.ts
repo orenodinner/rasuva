@@ -36,6 +36,7 @@ export const addUtcDays = (date: Date, days: number) => {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
 };
 
+
 export const diffUtcDays = (start: Date, end: Date) => {
   return Math.floor((end.getTime() - start.getTime()) / MS_PER_DAY);
 };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { getStatusLabel } from './status';
 
@@ -12,6 +12,8 @@ const DetailsPane = () => {
   const lastError = useAppStore((state) => state.lastError);
   const clearError = useAppStore((state) => state.clearError);
   const setLastError = useAppStore((state) => state.setLastError);
+  const shouldFocusEdit = useAppStore((state) => state.shouldFocusEdit);
+  const consumeEditFocus = useAppStore((state) => state.consumeEditFocus);
 
   const [isEditing, setIsEditing] = useState(false);
   const [taskName, setTaskName] = useState('');
@@ -22,6 +24,7 @@ const DetailsPane = () => {
   const [end, setEnd] = useState('');
   const [note, setNote] = useState('');
   const [assigneesText, setAssigneesText] = useState('');
+  const taskNameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!task) {
@@ -46,6 +49,23 @@ const DetailsPane = () => {
     setNote(task.note ?? '');
     setAssigneesText(task.assignees.join(', '));
   }, [task]);
+
+  useEffect(() => {
+    if (!shouldFocusEdit || !task) {
+      return;
+    }
+    if (!isEditing) {
+      setIsEditing(true);
+    }
+    const timer = window.setTimeout(() => {
+      if (taskNameInputRef.current) {
+        taskNameInputRef.current.focus();
+        taskNameInputRef.current.select();
+      }
+      consumeEditFocus();
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [shouldFocusEdit, task, isEditing, consumeEditFocus]);
 
   const clearRequiredFieldsError = () => {
     if (lastError === REQUIRED_FIELDS_ERROR) {
@@ -120,6 +140,7 @@ const DetailsPane = () => {
             {isEditing ? (
                 <input
                   className="detail-input"
+                  ref={taskNameInputRef}
                   value={taskName}
                   onChange={(event) => {
                     clearRequiredFieldsError();

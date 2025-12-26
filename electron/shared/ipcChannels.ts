@@ -17,5 +17,7 @@ export const IPC_CHANNELS = {
   taskUpdate: 'task.update',
   historyUndo: 'history.undo',
   historyRedo: 'history.redo',
-  historyStatus: 'history.status'
+  historyStatus: 'history.status',
+  contextMenuTask: 'context-menu.task',
+  menuAction: 'menu.action'
 } as const;

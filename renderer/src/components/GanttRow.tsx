@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { NormalizedTask, TaskUpdateInput } from '@domain';
 import { useTaskInteraction } from '../hooks/useTaskInteraction';
@@ -26,6 +26,7 @@ export interface GanttRowData {
   toggleGroup: (groupId: string) => void;
   setSelectedTask: (task: NormalizedTask) => void;
   setLastError: (message: string | null) => void;
+  triggerEditFocus: () => void;
   updateTask: (input: TaskUpdateInput) => Promise<boolean>;
   getBarClassName?: (task: NormalizedTask) => string;
   buildTooltip: (task: NormalizedTask) => string;
@@ -44,6 +45,7 @@ interface GanttTaskBarProps {
   tooltip: string;
   setSelectedTask: (task: NormalizedTask) => void;
   setLastError: (message: string | null) => void;
+  triggerEditFocus: () => void;
   updateTask: (input: TaskUpdateInput) => Promise<boolean>;
 }
 
@@ -57,6 +59,7 @@ const GanttTaskBar = ({
   tooltip,
   setSelectedTask,
   setLastError,
+  triggerEditFocus,
   updateTask
 }: GanttTaskBarProps) => {
   const { barRef, isDragging, handleMoveStart, handleResizeStart } = useTaskInteraction({
@@ -103,6 +106,19 @@ const GanttTaskBar = ({
   const draggingClass = isDragging ? 'gantt-bar--dragging' : '';
   const barClassName = ['gantt-bar', className, draggingClass].filter(Boolean).join(' ');
 
+  const handleDoubleClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    setSelectedTask(task);
+    triggerEditFocus();
+  };
+
+  const handleContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedTask(task);
+    window.api?.showTaskContextMenu?.(task);
+  };
+
   return (
     <div
       ref={barRef}
@@ -110,6 +126,8 @@ const GanttTaskBar = ({
       style={{ left, width: Math.max(dayWidth, width) }}
       data-tooltip={tooltip}
       onClick={(event) => event.stopPropagation()}
+      onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
     >
       <div
         className="gantt-resize-handle gantt-resize-handle--left"
@@ -200,6 +218,7 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
                 tooltip={tooltip}
                 setSelectedTask={data.setSelectedTask}
                 setLastError={data.setLastError}
+                triggerEditFocus={data.triggerEditFocus}
                 updateTask={data.updateTask}
               />
             );

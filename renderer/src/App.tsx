@@ -27,10 +27,41 @@ const App = () => {
   const setFocusDate = useAppStore((state) => state.setFocusDate);
   const undo = useAppStore((state) => state.undo);
   const redo = useAppStore((state) => state.redo);
+  const setSelectedTask = useAppStore((state) => state.setSelectedTask);
+  const triggerEditFocus = useAppStore((state) => state.triggerEditFocus);
+  const updateTask = useAppStore((state) => state.updateTask);
 
   useEffect(() => {
     initSchedules();
   }, [initSchedules]);
+
+  useEffect(() => {
+    if (!window.api?.onMenuAction) {
+      return;
+    }
+    const removeListener = window.api.onMenuAction((_event, payload) => {
+      if (!payload) {
+        return;
+      }
+      if (payload.action === 'edit') {
+        setSelectedTask(payload.task);
+        triggerEditFocus();
+      } else if (payload.action === 'unschedule') {
+        void updateTask({
+          currentTaskKeyFull: payload.task.taskKeyFull,
+          memberName: payload.task.memberName,
+          projectId: payload.task.projectId,
+          projectGroup: payload.task.projectGroup ?? null,
+          taskName: payload.task.taskName,
+          start: null,
+          end: null,
+          note: payload.task.note ?? null,
+          assignees: payload.task.assignees ?? []
+        });
+      }
+    });
+    return removeListener;
+  }, [setSelectedTask, triggerEditFocus, updateTask]);
 
   useEffect(() => {
     const isTypingElement = (target: EventTarget | null) => {

@@ -188,6 +188,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
   const setTaskOrder = useAppStore((state) => state.setTaskOrder);
   const setLastError = useAppStore((state) => state.setLastError);
+  const triggerEditFocus = useAppStore((state) => state.triggerEditFocus);
   const updateTask = useAppStore((state) => state.updateTask);
   const selectedTask = useAppStore((state) => state.selectedTask);
 
@@ -487,6 +488,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       toggleGroup,
       setSelectedTask,
       setLastError,
+      triggerEditFocus,
       updateTask,
       getBarClassName,
       buildTooltip,
@@ -507,6 +509,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     toggleGroup,
     setSelectedTask,
     setLastError,
+    triggerEditFocus,
     updateTask,
     getBarClassName
   ]);

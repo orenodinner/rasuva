@@ -9,11 +9,14 @@ export interface UISlice {
   zoom: ZoomLevel;
   statusFilter: StatusFilter;
   lastError: string | null;
+  shouldFocusEdit: boolean;
   setSearch: (search: string) => void;
   setZoom: (zoom: ZoomLevel) => void;
   setStatusFilter: (value: StatusFilter) => void;
   setLastError: (message: string | null) => void;
   clearError: () => void;
+  triggerEditFocus: () => void;
+  consumeEditFocus: () => void;
 }
 
 export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => ({
@@ -21,9 +24,12 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
   zoom: 'month',
   statusFilter: 'all',
   lastError: null,
+  shouldFocusEdit: false,
   setSearch: (search) => set({ search }),
   setZoom: (zoom) => set({ zoom }),
   setStatusFilter: (value) => set({ statusFilter: value }),
   setLastError: (message) => set({ lastError: message }),
-  clearError: () => set({ lastError: null })
+  clearError: () => set({ lastError: null }),
+  triggerEditFocus: () => set({ shouldFocusEdit: true }),
+  consumeEditFocus: () => set({ shouldFocusEdit: false })
 });
