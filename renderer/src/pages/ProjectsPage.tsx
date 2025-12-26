@@ -156,15 +156,11 @@ const ProjectsPage = () => {
                       <div className="list-subtitle">{project.group ?? '未分類'}</div>
                     </div>
                     <div className="list-metrics">
-                      <span aria-label={`タスク数 ${project.totalTasks} 件`}>
-                        {project.totalTasks} 件
-                      </span>
+                      <span>{project.totalTasks} 件</span>
                       <span>
                         予定 {project.scheduled} / 未確定 {project.unscheduled} / 不正 {project.invalid}
                       </span>
-                      <span aria-label={`関与メンバー ${project.involvedMembers.size} 名`}>
-                        {project.involvedMembers.size} 名
-                      </span>
+                      <span>{project.involvedMembers.size} 名</span>
                       <span>
                         {project.startDate ?? '未設定'} 〜 {project.endDate ?? '未設定'}
                       </span>
