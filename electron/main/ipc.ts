@@ -1,4 +1,4 @@
-import { dialog, ipcMain } from 'electron';
+import { BrowserWindow, Menu, MenuItem, dialog, ipcMain } from 'electron';
 import { z } from 'zod';
 import {
   convertFlatTasksToRawImport,
@@ -247,6 +247,22 @@ const taskUpdateSchema = z.object({
 
 const historySchema = z.object({
   importId: z.number().int().positive()
+});
+
+const contextMenuTaskSchema = z.object({
+  taskKey: z.string().min(1),
+  taskKeyFull: z.string().min(1),
+  memberName: z.string().min(1),
+  projectId: z.string().min(1),
+  projectGroup: z.string().nullable().optional(),
+  taskName: z.string().min(1),
+  start: z.string().nullable(),
+  end: z.string().nullable(),
+  rawDate: z.string(),
+  note: z.string().nullable().optional(),
+  assignees: z.array(z.string()).optional(),
+  status: z.enum(['scheduled', 'unscheduled', 'invalid_date']),
+  id: z.number().int().optional()
 });
 
 const normalizeAssignees = (values: string[]) => {
@@ -979,5 +995,33 @@ export const registerIpcHandlers = (db: DbClient) => {
 
     historyManager.commitRedo(importId);
     return { ok: true, task: entry.nextState };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.contextMenuTask, async (event, payload) => {
+    const parsedPayload = contextMenuTaskSchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const task = parsedPayload.data;
+    const menu = new Menu();
+    menu.append(
+      new MenuItem({
+        label: '詳細を編集 (Edit)',
+        click: () => event.sender.send(IPC_CHANNELS.menuAction, { action: 'edit', task })
+      })
+    );
+    menu.append(new MenuItem({ type: 'separator' }));
+    menu.append(
+      new MenuItem({
+        label: '未確定に戻す (Unschedule)',
+        enabled: task.status !== 'unscheduled',
+        click: () => event.sender.send(IPC_CHANNELS.menuAction, { action: 'unschedule', task })
+      })
+    );
+
+    const window = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+    menu.popup({ window });
+    return { ok: true };
   });
 };

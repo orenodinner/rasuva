@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipcChannels';
-import type { SavedViewState, TaskUpdateInput } from '@domain';
+import type { NormalizedTask, SavedViewState, TaskUpdateInput } from '@domain';
 
 const api = {
   importPreview: (jsonText: string) =>
@@ -31,6 +31,14 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.exportXlsx, { scheduleId, importId }),
   exportJson: (scheduleId: number, importId?: number) =>
     ipcRenderer.invoke(IPC_CHANNELS.exportJson, { scheduleId, importId }),
+  showTaskContextMenu: (task: NormalizedTask) =>
+    ipcRenderer.invoke(IPC_CHANNELS.contextMenuTask, task),
+  onMenuAction: (
+    callback: (event: Electron.IpcRendererEvent, payload: { action: string; task: NormalizedTask }) => void
+  ) => {
+    ipcRenderer.on(IPC_CHANNELS.menuAction, callback);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.menuAction, callback);
+  },
   historyUndo: (importId: number) =>
     ipcRenderer.invoke(IPC_CHANNELS.historyUndo, { importId }),
   historyRedo: (importId: number) =>

@@ -4,7 +4,7 @@ import AutoSizer from 'react-virtualized-auto-sizer';
 import { FixedSizeList, type ListOnScrollProps } from 'react-window';
 import type { NormalizedTask } from '@domain';
 import { useAppStore } from '../state/store';
-import { formatIsoDate, toUtcDate } from '../utils/ganttMath';
+import { formatIsoDate, getWeekendRects, toUtcDate } from '../utils/ganttMath';
 import GanttHeader from './GanttHeader';
 import GanttRow, { type GanttRowData, type GanttRowItem } from './GanttRow';
 
@@ -190,6 +190,12 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const setLastError = useAppStore((state) => state.setLastError);
   const updateTask = useAppStore((state) => state.updateTask);
   const selectedTask = useAppStore((state) => state.selectedTask);
+  const selectedTaskIds = useAppStore((state) => state.selectedTaskIds);
+  const toggleTaskSelection = useAppStore((state) => state.toggleTaskSelection);
+  const inlineEditTaskKey = useAppStore((state) => state.inlineEditTaskKey);
+  const startInlineEdit = useAppStore((state) => state.startInlineEdit);
+  const stopInlineEdit = useAppStore((state) => state.stopInlineEdit);
+  const showContextMenu = useAppStore((state) => state.showContextMenu);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<FixedSizeList<GanttRowData> | null>(null);
@@ -199,6 +205,13 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const sourceTasks = useMemo<NormalizedTask[]>(() => {
     return tasks ?? gantt?.tasks ?? [];
   }, [tasks, gantt]);
+  const taskLookup = useMemo(() => {
+    const lookup = new Map<string, NormalizedTask>();
+    sourceTasks.forEach((task) => {
+      lookup.set(task.taskKeyFull, task);
+    });
+    return lookup;
+  }, [sourceTasks]);
   const query = search.trim().toLowerCase();
   const isRangeBounded = Boolean(rangeStart || rangeEnd);
   const rangeFilterStart = rangeStart ? toUtcDate(rangeStart) : null;
@@ -322,16 +335,6 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     });
   }, [rows, collapsedGroups]);
 
-  const taskIndexByKey = useMemo(() => {
-    const indexByKey = new Map<string, number>();
-    visibleRows.forEach((row, index) => {
-      if (row.type === 'task' && row.task) {
-        indexByKey.set(row.task.taskKeyFull, index);
-      }
-    });
-    return indexByKey;
-  }, [visibleRows]);
-
   const taskOrder = useMemo(() => {
     const unique = new Map<string, NormalizedTask>();
     visibleRows.forEach((row) => {
@@ -416,6 +419,12 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const timelineWidth = columnCount * columnWidth;
   const labelWidth = 260;
   const totalWidth = labelWidth + timelineWidth;
+  const weekendRects = useMemo(() => {
+    if (!timelineStart || !timelineEnd) {
+      return [];
+    }
+    return getWeekendRects(timelineStart, timelineEnd, dayWidth);
+  }, [timelineStart, timelineEnd, dayWidth]);
 
   const ticks = useMemo(() => {
     if (!timelineStart) {
@@ -483,11 +492,19 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       query,
       timelineStart,
       timelineEnd,
+      weekendRects,
       collapsedGroups,
       toggleGroup,
       setSelectedTask,
+      selectedTaskIds,
+      toggleTaskSelection,
       setLastError,
       updateTask,
+      inlineEditTaskKey,
+      startInlineEdit,
+      stopInlineEdit,
+      showContextMenu,
+      taskLookup,
       getBarClassName,
       buildTooltip,
       buildSearchHaystack,
@@ -503,11 +520,19 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     query,
     timelineStart,
     timelineEnd,
+    weekendRects,
     collapsedGroups,
     toggleGroup,
     setSelectedTask,
+    selectedTaskIds,
+    toggleTaskSelection,
     setLastError,
     updateTask,
+    inlineEditTaskKey,
+    startInlineEdit,
+    stopInlineEdit,
+    showContextMenu,
+    taskLookup,
     getBarClassName
   ]);
 

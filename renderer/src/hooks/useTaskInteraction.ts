@@ -235,17 +235,7 @@ export const useTaskInteraction = ({
       window.addEventListener('blur', handleAbort);
       document.addEventListener('visibilitychange', handleVisibilityChange);
     },
-    [
-      task,
-      onSelect,
-      cleanupListeners,
-      barLeft,
-      barWidth,
-      durationDays,
-      dayWidth,
-      updateVisual,
-      finalize
-    ]
+    [task, onSelect, cleanupListeners, barLeft, barWidth, durationDays, updateVisual, finalize]
   );
 
   const handleMoveStart = useCallback(

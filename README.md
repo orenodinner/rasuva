@@ -11,11 +11,21 @@ Member -> Project -> Task timelines alongside diff summaries and audit-friendly 
 - Secure Electron defaults: `contextIsolation` on, `nodeIntegration` off, `sandbox` on.
 - JSON import with preview + validation warnings.
 - Diff summary (Added / Updated / Archived / Invalid / Unscheduled).
-- Gantt timeline view, plus Unscheduled and Invalid lists.
-- Import history, Saved Views, CSV/Excel export (Excel includes a Gantt sheet with green ■ and red ★).
+- Interactive Gantt timeline (drag to move, resize to change dates, multi-select move, weekend shading), plus Unscheduled and Invalid lists.
+- Inline edit (double click) and context menu (right click) on task bars.
+- Import history, Saved Views, CSV/Excel/JSON export (Excel includes a Gantt sheet with green ■ and red ★).
 - Sub-assignees supported via `assign`, showing the same task on multiple member rows.
 - Excel import (Tasks sheet) to update tasks via preview + diff.
 - Saved Views restore search/zoom/range/collapsed groups; CommandBar has status quick filters.
+
+## Usage
+
+- Gantt: click a bar to select, Ctrl/Cmd + click to multi-select.
+- Drag a bar to move dates; drag left/right edges to resize the duration.
+- Double click a bar to edit the task name inline; Enter saves, Esc cancels.
+- Right click a bar for quick actions (open details, mark as unscheduled).
+- Collapse/expand groups with the chevrons; use "Collapse all / Expand all" in the header.
+- Weekend columns are lightly shaded for quick visual scanning.
 
 ## Tech stack
 
@@ -118,6 +128,7 @@ Date rules:
 - `views.save`
 - `export.csv`
 - `export.xlsx`
+- `export.json`
 
 All IPC payloads are validated with zod in the main process.
 
@@ -161,10 +172,21 @@ OSS のみで構成された Electron + TypeScript + React デスクトップア
 - JSON インポートにプレビューとバリデーション警告を追加。
 - 差分サマリー（Added / Updated / Archived / Invalid / Unscheduled）。
 - ガントタイムラインと Unscheduled / Invalid の専用一覧。
-- インポート履歴、Saved Views、CSV / Excel エクスポート（Excel はガントシート付き。■=緑、★=赤）。
+- ガントタイムラインのドラッグ移動・リサイズ・複数選択移動・週末ハイライトに対応。
+- タスクバーのダブルクリック編集、右クリックメニューに対応。
+- インポート履歴、Saved Views、CSV / Excel / JSON エクスポート（Excel はガントシート付き。■=緑、★=赤）。
 - `assign` によるサブ担当に対応し、同一タスクを複数行に表示。
 - Excel インポート（Tasks シート）で更新に対応。
 - 保存ビューは検索/ズーム/表示期間/折りたたみを復元し、CommandBar にステータスフィルタを備えます。
+
+## 使い方
+
+- ガント: クリックで選択、Ctrl/Cmd + クリックで複数選択。
+- ドラッグで日程移動、左右端のドラッグで期間変更。
+- ダブルクリックでタスク名のインライン編集（Enter で保存、Esc でキャンセル）。
+- 右クリックで簡易メニュー（詳細表示、未確定化）。
+- 左の折りたたみボタンでグループ開閉、上部の「すべて折りたたむ / すべて展開」で一括操作。
+- 週末は薄いハイライトで表示されます。
 
 ## 技術スタック
 
@@ -267,6 +289,7 @@ npm run test
 - `views.save`
 - `export.csv`
 - `export.xlsx`
+- `export.json`
 
 IPC の入力はすべて main プロセス側で zod により検証されます。
 

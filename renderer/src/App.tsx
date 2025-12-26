@@ -27,10 +27,52 @@ const App = () => {
   const setFocusDate = useAppStore((state) => state.setFocusDate);
   const undo = useAppStore((state) => state.undo);
   const redo = useAppStore((state) => state.redo);
+  const setSelectedTask = useAppStore((state) => state.setSelectedTask);
+  const triggerEditFocus = useAppStore((state) => state.triggerEditFocus);
+  const updateTask = useAppStore((state) => state.updateTask);
+  const setLastError = useAppStore((state) => state.setLastError);
 
   useEffect(() => {
     initSchedules();
   }, [initSchedules]);
+
+  useEffect(() => {
+    if (!window.api?.onMenuAction) {
+      return;
+    }
+    const removeListener = window.api.onMenuAction(async (_event, payload) => {
+      if (!payload) {
+        return;
+      }
+      if (payload.action === 'edit') {
+        setSelectedTask(payload.task);
+        triggerEditFocus();
+      } else if (payload.action === 'unschedule') {
+        try {
+          const ok = await updateTask({
+            currentTaskKeyFull: payload.task.taskKeyFull,
+            memberName: payload.task.memberName,
+            projectId: payload.task.projectId,
+            projectGroup: payload.task.projectGroup ?? null,
+            taskName: payload.task.taskName,
+            start: null,
+            end: null,
+            note: payload.task.note ?? null,
+            assignees: payload.task.assignees ?? []
+          });
+          if (!ok) {
+            setLastError('未確定への更新に失敗しました。');
+          }
+        } catch (error) {
+          console.error('Failed to unschedule task from context menu.', error);
+          setLastError(
+            error instanceof Error ? error.message : '未確定への更新に失敗しました。'
+          );
+        }
+      }
+    });
+    return removeListener;
+  }, [setSelectedTask, triggerEditFocus, updateTask, setLastError]);
 
   useEffect(() => {
     const isTypingElement = (target: EventTarget | null) => {
