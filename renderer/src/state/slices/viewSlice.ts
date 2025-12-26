@@ -1,7 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { SavedViewItem, SavedViewState } from '@domain';
 import type { AppState } from '../store';
-import { formatIsoDate } from '../../utils/ganttMath';
 
 export interface ViewSlice {
   views: SavedViewItem[];

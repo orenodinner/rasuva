@@ -323,16 +323,6 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     });
   }, [rows, collapsedGroups]);
 
-  const taskIndexByKey = useMemo(() => {
-    const indexByKey = new Map<string, number>();
-    visibleRows.forEach((row, index) => {
-      if (row.type === 'task' && row.task) {
-        indexByKey.set(row.task.taskKeyFull, index);
-      }
-    });
-    return indexByKey;
-  }, [visibleRows]);
-
   const taskOrder = useMemo(() => {
     const unique = new Map<string, NormalizedTask>();
     visibleRows.forEach((row) => {

@@ -30,6 +30,7 @@ const App = () => {
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
   const triggerEditFocus = useAppStore((state) => state.triggerEditFocus);
   const updateTask = useAppStore((state) => state.updateTask);
+  const setLastError = useAppStore((state) => state.setLastError);
 
   useEffect(() => {
     initSchedules();
@@ -39,7 +40,7 @@ const App = () => {
     if (!window.api?.onMenuAction) {
       return;
     }
-    const removeListener = window.api.onMenuAction((_event, payload) => {
+    const removeListener = window.api.onMenuAction(async (_event, payload) => {
       if (!payload) {
         return;
       }
@@ -47,21 +48,31 @@ const App = () => {
         setSelectedTask(payload.task);
         triggerEditFocus();
       } else if (payload.action === 'unschedule') {
-        void updateTask({
-          currentTaskKeyFull: payload.task.taskKeyFull,
-          memberName: payload.task.memberName,
-          projectId: payload.task.projectId,
-          projectGroup: payload.task.projectGroup ?? null,
-          taskName: payload.task.taskName,
-          start: null,
-          end: null,
-          note: payload.task.note ?? null,
-          assignees: payload.task.assignees ?? []
-        });
+        try {
+          const ok = await updateTask({
+            currentTaskKeyFull: payload.task.taskKeyFull,
+            memberName: payload.task.memberName,
+            projectId: payload.task.projectId,
+            projectGroup: payload.task.projectGroup ?? null,
+            taskName: payload.task.taskName,
+            start: null,
+            end: null,
+            note: payload.task.note ?? null,
+            assignees: payload.task.assignees ?? []
+          });
+          if (!ok) {
+            setLastError('未確定への更新に失敗しました。');
+          }
+        } catch (error) {
+          console.error('Failed to unschedule task from context menu.', error);
+          setLastError(
+            error instanceof Error ? error.message : '未確定への更新に失敗しました。'
+          );
+        }
       }
     });
     return removeListener;
-  }, [setSelectedTask, triggerEditFocus, updateTask]);
+  }, [setSelectedTask, triggerEditFocus, updateTask, setLastError]);
 
   useEffect(() => {
     const isTypingElement = (target: EventTarget | null) => {

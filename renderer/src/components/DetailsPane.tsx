@@ -54,17 +54,28 @@ const DetailsPane = () => {
     if (!shouldFocusEdit || !task) {
       return;
     }
-    if (!isEditing) {
-      setIsEditing(true);
+    setIsEditing(true);
+  }, [shouldFocusEdit, task]);
+
+  useEffect(() => {
+    if (!shouldFocusEdit || !task || !isEditing) {
+      return;
     }
-    const timer = window.setTimeout(() => {
-      if (taskNameInputRef.current) {
-        taskNameInputRef.current.focus();
-        taskNameInputRef.current.select();
+    let rafId: number | null = null;
+    rafId = window.requestAnimationFrame(() => {
+      rafId = window.requestAnimationFrame(() => {
+        if (taskNameInputRef.current) {
+          taskNameInputRef.current.focus();
+          taskNameInputRef.current.select();
+        }
+        consumeEditFocus();
+      });
+    });
+    return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
       }
-      consumeEditFocus();
-    }, 50);
-    return () => window.clearTimeout(timer);
+    };
   }, [shouldFocusEdit, task, isEditing, consumeEditFocus]);
 
   const clearRequiredFieldsError = () => {
