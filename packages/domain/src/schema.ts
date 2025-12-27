@@ -23,3 +23,17 @@ export const RawMemberSchema = z.object({
 export const RawImportSchema = z.object({
   members: z.array(RawMemberSchema)
 });
+
+export const TaskCreateSchema = z.object({
+  scheduleId: z.number().int().positive(),
+  importId: z.number().int().positive().optional(),
+  allowExistingProjectId: z.boolean().optional(),
+  projectId: z.string().min(1),
+  projectGroup: z.string().nullable(),
+  taskName: z.string().min(1),
+  memberName: z.string().min(1),
+  assignees: z.array(z.string()),
+  start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  note: z.string().nullable()
+});

@@ -192,11 +192,14 @@ type TaskUpdatePayload = Omit<TaskUpdateInput, 'importId' | 'currentTaskKeyFull'
   status: NormalizedTask['status'];
 };
 
+export type TaskInsertInput = Omit<NormalizedTask, 'taskKey' | 'taskKeyFull' | 'id'>;
+
 export interface DbClient {
   init: () => void;
   close: () => void;
   insertImport: (scheduleId: number, input: ImportInsertInput) => number;
   insertTasks: (importId: number, tasks: NormalizedTask[]) => void;
+  insertTask: (importId: number, input: TaskInsertInput) => NormalizedTask;
   insertWarnings: (importId: number, warnings: ImportWarning[]) => void;
   listImports: (scheduleId: number) => ImportListItem[];
   getLatestImportId: (scheduleId: number) => number | null;
@@ -480,6 +483,70 @@ export const createDb = (dbPath: string): DbClient => {
     });
 
     insertMany(tasks);
+  };
+
+  const insertTask = (importId: number, input: TaskInsertInput) => {
+    const insertTx = db.transaction((payload: TaskInsertInput) => {
+      const taskKey = `${payload.projectId}::${payload.taskName}`;
+      const taskKeyFull = getNextTaskKeyFull(importId, taskKey, '');
+
+      const stmt = db.prepare(`
+        INSERT INTO tasks (
+          import_id,
+          task_key,
+          task_key_full,
+          member_name,
+          project_id,
+          project_group,
+          task_name,
+          assignees_json,
+          start,
+          end,
+          raw_date,
+          note,
+          status
+        ) VALUES (
+          @import_id,
+          @task_key,
+          @task_key_full,
+          @member_name,
+          @project_id,
+          @project_group,
+          @task_name,
+          @assignees_json,
+          @start,
+          @end,
+          @raw_date,
+          @note,
+          @status
+        )
+      `);
+
+      const info = stmt.run({
+        import_id: importId,
+        task_key: taskKey,
+        task_key_full: taskKeyFull,
+        member_name: payload.memberName,
+        project_id: payload.projectId,
+        project_group: payload.projectGroup,
+        task_name: payload.taskName,
+        assignees_json: JSON.stringify(payload.assignees ?? []),
+        start: payload.start,
+        end: payload.end,
+        raw_date: payload.rawDate,
+        note: payload.note,
+        status: payload.status
+      });
+
+      return {
+        ...payload,
+        id: Number(info.lastInsertRowid),
+        taskKey,
+        taskKeyFull
+      };
+    });
+
+    return insertTx(input);
   };
 
   const insertWarnings = (importId: number, warnings: ImportWarning[]) => {
@@ -910,6 +977,7 @@ export const createDb = (dbPath: string): DbClient => {
     init,
     insertImport,
     insertTasks,
+    insertTask,
     insertWarnings,
     listImports,
     getLatestImportId,

@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import SideNav from './components/SideNav';
 import CommandBar from './components/CommandBar';
 import DetailsPane from './components/DetailsPane';
+import TaskCreateModal from './components/TaskCreateModal';
 import HomePage from './pages/HomePage';
 import ImportPage from './pages/ImportPage';
 import PreviewPage from './pages/PreviewPage';
@@ -24,14 +25,20 @@ const App = () => {
   const navigate = useNavigate();
   const initSchedules = useAppStore((state) => state.initSchedules);
   const lastError = useAppStore((state) => state.lastError);
+  const taskCreateModal = useAppStore((state) => state.taskCreateModal);
   const setZoom = useAppStore((state) => state.setZoom);
   const setFocusDate = useAppStore((state) => state.setFocusDate);
   const undo = useAppStore((state) => state.undo);
   const redo = useAppStore((state) => state.redo);
+  const createTask = useAppStore((state) => state.createTask);
+  const currentScheduleId = useAppStore((state) => state.currentScheduleId);
+  const currentImportId = useAppStore((state) => state.currentImportId);
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
   const triggerEditFocus = useAppStore((state) => state.triggerEditFocus);
   const updateTask = useAppStore((state) => state.updateTask);
   const setLastError = useAppStore((state) => state.setLastError);
+  const closeTaskCreateModal = useAppStore((state) => state.closeTaskCreateModal);
+  const [taskCreateError, setTaskCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     initSchedules();
@@ -140,6 +147,40 @@ const App = () => {
     return () => window.removeEventListener('keydown', handleKeydown);
   }, [navigate, setZoom, setFocusDate, undo, redo]);
 
+  const handleCreateTask = async (input: {
+    projectId: string;
+    projectGroup: string | null;
+    taskName: string;
+    memberName: string;
+    allowExistingProjectId?: boolean;
+  }) => {
+    if (!currentScheduleId) {
+      setTaskCreateError('スケジュールが選択されていません。');
+      return false;
+    }
+    setTaskCreateError(null);
+    const ok = await createTask({
+      scheduleId: currentScheduleId,
+      importId: currentImportId ?? undefined,
+      allowExistingProjectId: input.allowExistingProjectId ?? true,
+      projectId: input.projectId,
+      projectGroup: input.projectGroup,
+      taskName: input.taskName,
+      memberName: input.memberName,
+      assignees: [],
+      start: null,
+      end: null,
+      note: null
+    });
+    if (ok) {
+      triggerEditFocus();
+      closeTaskCreateModal();
+    } else {
+      setTaskCreateError('タスクの追加に失敗しました。');
+    }
+    return ok;
+  };
+
   return (
     <div className="app-shell">
       <SideNav />
@@ -169,6 +210,20 @@ const App = () => {
           <DetailsPane />
         </div>
       </div>
+      <TaskCreateModal
+        mode="task"
+        isOpen={taskCreateModal.isOpen}
+        projectId={taskCreateModal.projectId ?? undefined}
+        projectGroup={taskCreateModal.projectGroup ?? null}
+        autoFocusOnOpen
+        errorMessage={taskCreateError}
+        onClearError={() => setTaskCreateError(null)}
+        onClose={() => {
+          setTaskCreateError(null);
+          closeTaskCreateModal();
+        }}
+        onCreate={handleCreateTask}
+      />
     </div>
   );
 };

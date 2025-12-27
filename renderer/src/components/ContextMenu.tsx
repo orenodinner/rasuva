@@ -8,6 +8,7 @@ const ContextMenu = () => {
   const triggerEditFocus = useAppStore((state) => state.triggerEditFocus);
   const updateTask = useAppStore((state) => state.updateTask);
   const setLastError = useAppStore((state) => state.setLastError);
+  const openTaskCreateModal = useAppStore((state) => state.openTaskCreateModal);
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
@@ -73,64 +74,98 @@ const ContextMenu = () => {
     };
   }, [contextMenu.visible, hideContextMenu]);
 
-  if (!contextMenu.visible || !contextMenu.task) {
+  if (!contextMenu.visible || !contextMenu.target) {
     return null;
   }
 
-  const task = contextMenu.task;
+  const target = contextMenu.target;
 
-  const handleEdit = () => {
-    setSelectedTask(task);
-    triggerEditFocus();
-    hideContextMenu();
-  };
+  const assertNever = (value: never) => value;
 
-  const handleUnschedule = async () => {
-    setSelectedTask(task);
-    hideContextMenu();
-    try {
-      const ok = await updateTask({
-        currentTaskKeyFull: task.taskKeyFull,
-        memberName: task.memberName,
-        projectId: task.projectId,
-        projectGroup: task.projectGroup ?? null,
-        taskName: task.taskName,
-        start: null,
-        end: null,
-        note: task.note ?? null,
-        assignees: task.assignees ?? []
-      });
-      if (!ok) {
-        setLastError('未確定への更新に失敗しました。');
-      }
-    } catch (error) {
-      console.error('Failed to unschedule task from context menu.', error);
-      setLastError(
-        error instanceof Error ? error.message : '未確定への更新に失敗しました。'
+  switch (target.type) {
+    case 'project': {
+      const handleAddTask = () => {
+        openTaskCreateModal({
+          projectId: target.projectId,
+          projectGroup: target.projectGroup ?? null
+        });
+        hideContextMenu();
+      };
+
+      return (
+        <div
+          ref={menuRef}
+          className="gantt-context-menu"
+          style={{ left: position.x, top: position.y }}
+        >
+          <div className="gantt-context-menu__title">プロジェクト: {target.projectId}</div>
+          <button type="button" className="gantt-context-menu__item" onClick={handleAddTask}>
+            タスクを追加
+          </button>
+        </div>
       );
     }
-  };
+    case 'task': {
+      const task = target.task;
 
-  return (
-    <div
-      ref={menuRef}
-      className="gantt-context-menu"
-      style={{ left: position.x, top: position.y }}
-    >
-      <div className="gantt-context-menu__title">{task.taskName}</div>
-      <button type="button" className="gantt-context-menu__item" onClick={handleEdit}>
-        詳細を開く
-      </button>
-      <button
-        type="button"
-        className="gantt-context-menu__item"
-        onClick={handleUnschedule}
-        disabled={task.status === 'unscheduled'}
-      >
-        未確定にする
-      </button>
-    </div>
-  );
+      const handleEdit = () => {
+        setSelectedTask(task);
+        triggerEditFocus();
+        hideContextMenu();
+      };
+
+      const handleUnschedule = async () => {
+        setSelectedTask(task);
+        hideContextMenu();
+        try {
+          const ok = await updateTask({
+            currentTaskKeyFull: task.taskKeyFull,
+            memberName: task.memberName,
+            projectId: task.projectId,
+            projectGroup: task.projectGroup ?? null,
+            taskName: task.taskName,
+            start: null,
+            end: null,
+            note: task.note ?? null,
+            assignees: task.assignees ?? []
+          });
+          if (!ok) {
+            setLastError('未確定への更新に失敗しました。');
+          }
+        } catch (error) {
+          console.error('Failed to unschedule task from context menu.', error);
+          setLastError(
+            error instanceof Error ? error.message : '未確定への更新に失敗しました。'
+          );
+        }
+      };
+
+      return (
+        <div
+          ref={menuRef}
+          className="gantt-context-menu"
+          style={{ left: position.x, top: position.y }}
+        >
+          <div className="gantt-context-menu__title">{task.taskName}</div>
+          <button type="button" className="gantt-context-menu__item" onClick={handleEdit}>
+            詳細を開く
+          </button>
+          <button
+            type="button"
+            className="gantt-context-menu__item"
+            onClick={handleUnschedule}
+            disabled={task.status === 'unscheduled'}
+          >
+            未確定にする
+          </button>
+        </div>
+      );
+    }
+    default: {
+      assertNever(target);
+      return null;
+    }
+  }
 };
 
 export default ContextMenu;

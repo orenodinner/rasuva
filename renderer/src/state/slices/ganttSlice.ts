@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { GanttQueryResult, NormalizedTask, TaskUpdateInput } from '@domain';
+import type { GanttQueryResult, NormalizedTask, TaskCreateInput, TaskUpdateInput } from '@domain';
 import type { AppState } from '../store';
 
 export interface GanttSlice {
@@ -16,6 +16,7 @@ export interface GanttSlice {
   setFocusDate: (value: string | null) => void;
   setTaskOrder: (tasks: NormalizedTask[]) => void;
   loadGantt: (importId?: number) => Promise<void>;
+  createTask: (input: TaskCreateInput) => Promise<boolean>;
   updateTask: (input: TaskUpdateInput) => Promise<boolean>;
   refreshHistoryStatus: (importId?: number) => Promise<void>;
   undo: () => Promise<void>;
@@ -126,6 +127,30 @@ export const createGanttSlice: StateCreator<AppState, [], [], GanttSlice> = (set
       }
 
       await get().loadGantt(importId);
+      const refreshed =
+        get().gantt?.tasks.find((task) => task.taskKeyFull === response.task.taskKeyFull) ??
+        response.task;
+      set({ selectedTask: refreshed });
+      get().setLastError(null);
+      return true;
+    },
+    createTask: async (input) => {
+      if (!window.api) {
+        get().setLastError(API_MISSING_MESSAGE);
+        return false;
+      }
+
+      const response = await window.api.taskCreate({
+        ...input,
+        importId: input.importId ?? get().currentImportId ?? undefined
+      });
+
+      if (!response.ok) {
+        get().setLastError(response.error);
+        return false;
+      }
+
+      await get().loadGantt(response.importId);
       const refreshed =
         get().gantt?.tasks.find((task) => task.taskKeyFull === response.task.taskKeyFull) ??
         response.task;

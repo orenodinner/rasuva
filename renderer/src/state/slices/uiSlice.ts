@@ -4,6 +4,9 @@ import type { AppState } from '../store';
 
 export type ZoomLevel = 'day' | 'week' | 'month' | 'quarter';
 export type StatusFilter = 'all' | 'scheduled' | 'unscheduled' | 'invalid_date';
+export type ContextMenuTarget =
+  | { type: 'task'; task: NormalizedTask }
+  | { type: 'project'; projectId: string; projectGroup: string | null };
 
 export interface UISlice {
   search: string;
@@ -12,11 +15,16 @@ export interface UISlice {
   lastError: string | null;
   shouldFocusEdit: boolean;
   inlineEditTaskKey: string | null;
+  taskCreateModal: {
+    isOpen: boolean;
+    projectId: string | null;
+    projectGroup: string | null;
+  };
   contextMenu: {
     visible: boolean;
     x: number;
     y: number;
-    task: NormalizedTask | null;
+    target: ContextMenuTarget | null;
   };
   setSearch: (search: string) => void;
   setZoom: (zoom: ZoomLevel) => void;
@@ -27,7 +35,9 @@ export interface UISlice {
   consumeEditFocus: () => void;
   startInlineEdit: (taskKeyFull: string) => void;
   stopInlineEdit: () => void;
-  showContextMenu: (payload: { x: number; y: number; task: NormalizedTask }) => void;
+  openTaskCreateModal: (payload: { projectId: string; projectGroup?: string | null }) => void;
+  closeTaskCreateModal: () => void;
+  showContextMenu: (payload: { x: number; y: number; target: ContextMenuTarget }) => void;
   hideContextMenu: () => void;
 }
 
@@ -38,11 +48,16 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
   lastError: null,
   shouldFocusEdit: false,
   inlineEditTaskKey: null,
+  taskCreateModal: {
+    isOpen: false,
+    projectId: null,
+    projectGroup: null
+  },
   contextMenu: {
     visible: false,
     x: 0,
     y: 0,
-    task: null
+    target: null
   },
   setSearch: (search) => set({ search }),
   setZoom: (zoom) => set({ zoom }),
@@ -53,13 +68,29 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
   consumeEditFocus: () => set({ shouldFocusEdit: false }),
   startInlineEdit: (taskKeyFull) => set({ inlineEditTaskKey: taskKeyFull }),
   stopInlineEdit: () => set({ inlineEditTaskKey: null }),
-  showContextMenu: ({ x, y, task }) =>
+  openTaskCreateModal: ({ projectId, projectGroup }) =>
+    set({
+      taskCreateModal: {
+        isOpen: true,
+        projectId,
+        projectGroup: projectGroup ?? null
+      }
+    }),
+  closeTaskCreateModal: () =>
+    set({
+      taskCreateModal: {
+        isOpen: false,
+        projectId: null,
+        projectGroup: null
+      }
+    }),
+  showContextMenu: ({ x, y, target }) =>
     set({
       contextMenu: {
         visible: true,
         x,
         y,
-        task
+        target
       }
     }),
   hideContextMenu: () =>
@@ -68,7 +99,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
         visible: false,
         x: 0,
         y: 0,
-        task: null
+        target: null
       }
     })
 });

@@ -5,6 +5,7 @@ import type {
   ImportPreviewResult,
   ScheduleItem,
   NormalizedTask,
+  TaskCreateInput,
   TaskUpdateInput,
   SavedViewItem,
   SavedViewState,
@@ -65,6 +66,9 @@ declare global {
       historyStatus: (
         importId: number
       ) => Promise<ApiSuccess<{ canUndo: boolean; canRedo: boolean }> | ApiFailure>;
+      taskCreate: (
+        input: TaskCreateInput
+      ) => Promise<ApiSuccess<{ task: NormalizedTask; importId: number }> | ApiFailure>;
       taskUpdate: (
         input: TaskUpdateInput
       ) => Promise<ApiSuccess<{ task: NormalizedTask }> | ApiFailure>;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import type { NormalizedTask } from '@domain';
+import TaskCreateModal from '../components/TaskCreateModal';
 import TaskList from '../components/TaskList';
 import { useAppStore } from '../state/store';
 import {
@@ -13,10 +14,16 @@ import {
 const ProjectsPage = () => {
   const gantt = useAppStore((state) => state.gantt);
   const loadGantt = useAppStore((state) => state.loadGantt);
+  const createTask = useAppStore((state) => state.createTask);
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
+  const openTaskCreateModal = useAppStore((state) => state.openTaskCreateModal);
+  const currentScheduleId = useAppStore((state) => state.currentScheduleId);
+  const currentImportId = useAppStore((state) => state.currentImportId);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [topHeight, setTopHeight] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +59,18 @@ const ProjectsPage = () => {
     }
     return gantt.tasks.filter((task) => task.projectId === selectedProjectId);
   }, [selectedProjectId, gantt]);
+
+  const selectedProject = useMemo(() => {
+    if (!selectedProjectId) {
+      return null;
+    }
+    return projects.find((project) => project.projectId === selectedProjectId) ?? null;
+  }, [projects, selectedProjectId]);
+
+  const existingProjectIds = useMemo(
+    () => projects.map((project) => project.projectId),
+    [projects]
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -116,6 +135,40 @@ const ProjectsPage = () => {
       ? { gridTemplateRows: `${topHeight}px ${SPLITTER_HEIGHT}px 1fr` }
       : undefined;
 
+  const handleCreateProject = async (input: {
+    projectId: string;
+    projectGroup: string | null;
+    taskName: string;
+    memberName: string;
+    allowExistingProjectId?: boolean;
+  }) => {
+    if (!currentScheduleId) {
+      setModalError('スケジュールが選択されていません。');
+      return false;
+    }
+    setModalError(null);
+    const ok = await createTask({
+      scheduleId: currentScheduleId,
+      importId: currentImportId ?? undefined,
+      allowExistingProjectId: input.allowExistingProjectId,
+      projectId: input.projectId,
+      projectGroup: input.projectGroup,
+      taskName: input.taskName,
+      memberName: input.memberName,
+      assignees: [],
+      start: null,
+      end: null,
+      note: null
+    });
+    if (ok) {
+      setSelectedProjectId(input.projectId);
+      setIsModalOpen(false);
+    } else {
+      setModalError('プロジェクトの作成に失敗しました。');
+    }
+    return ok;
+  };
+
   return (
     <div className="page">
       <div className="page-header">
@@ -134,6 +187,16 @@ const ProjectsPage = () => {
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
+        <button
+          type="button"
+          className="cmd-button"
+          onClick={() => {
+            setModalError(null);
+            setIsModalOpen(true);
+          }}
+        >
+          ＋ 新規プロジェクト
+        </button>
       </div>
 
       <div className="projects-split" ref={containerRef} style={splitStyle}>
@@ -177,8 +240,22 @@ const ProjectsPage = () => {
         <div className="projects-pane">
           {selectedProjectId ? (
             <div className="section">
-              <div className="section-header">
+              <div className="section-header section-header--actions">
                 <h2>{selectedProjectId} のタスク</h2>
+                <div className="section-header__actions">
+                  <button
+                    type="button"
+                    className="cmd-button cmd-button--ghost"
+                    onClick={() => {
+                      openTaskCreateModal({
+                        projectId: selectedProjectId,
+                        projectGroup: selectedProject?.group ?? null
+                      });
+                    }}
+                  >
+                    ＋ タスクを追加
+                  </button>
+                </div>
               </div>
               <TaskList
                 tasks={filteredTasks}
@@ -191,6 +268,19 @@ const ProjectsPage = () => {
           )}
         </div>
       </div>
+      <TaskCreateModal
+        mode="project"
+        isOpen={isModalOpen}
+        existingProjectIds={existingProjectIds}
+        autoFocusOnOpen
+        errorMessage={modalError}
+        onClearError={() => setModalError(null)}
+        onClose={() => {
+          setModalError(null);
+          setIsModalOpen(false);
+        }}
+        onCreate={handleCreateProject}
+      />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipcChannels';
-import type { NormalizedTask, SavedViewState, TaskUpdateInput } from '@domain';
+import type { NormalizedTask, SavedViewState, TaskCreateInput, TaskUpdateInput } from '@domain';
 
 const api = {
   importPreview: (jsonText: string) =>
@@ -45,6 +45,8 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.historyRedo, { importId }),
   historyStatus: (importId: number) =>
     ipcRenderer.invoke(IPC_CHANNELS.historyStatus, { importId }),
+  taskCreate: (input: TaskCreateInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.taskCreate, input),
   taskUpdate: (input: TaskUpdateInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.taskUpdate, input)
 };
