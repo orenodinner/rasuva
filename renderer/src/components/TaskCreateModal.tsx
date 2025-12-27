@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 
 type TaskCreateMode = 'project' | 'task';
 
@@ -16,6 +16,7 @@ type TaskCreateModalProps = {
   projectId?: string | null;
   projectGroup?: string | null;
   existingProjectIds?: string[];
+  autoFocusOnOpen?: boolean;
   errorMessage: string | null;
   onClearError: () => void;
   onClose: () => void;
@@ -31,12 +32,17 @@ const TaskCreateModal = ({
   projectId: fixedProjectId,
   projectGroup: fixedProjectGroup,
   existingProjectIds,
+  autoFocusOnOpen = false,
   errorMessage,
   onClearError,
   onClose,
   onCreate
 }: TaskCreateModalProps) => {
   const isProjectMode = mode === 'project';
+  const modalRef = useRef<HTMLDivElement>(null);
+  const projectIdInputRef = useRef<HTMLInputElement>(null);
+  const taskNameInputRef = useRef<HTMLInputElement>(null);
+  const memberNameInputRef = useRef<HTMLInputElement>(null);
   const [projectIdInput, setProjectIdInput] = useState('');
   const [projectGroupInput, setProjectGroupInput] = useState('');
   const [taskName, setTaskName] = useState(DEFAULT_TASK_NAME);
@@ -64,6 +70,7 @@ const TaskCreateModal = ({
       : null
     : fixedProjectGroup ?? null;
   const displayError = errorMessage ?? localError;
+  const duplicateMessageId = 'task-create-project-id-duplicate';
 
   useEffect(() => {
     if (!isOpen) {
@@ -76,6 +83,16 @@ const TaskCreateModal = ({
     setLocalError(null);
     onClearError();
   }, [isOpen, isProjectMode, onClearError]);
+
+  useEffect(() => {
+    if (!isOpen || !autoFocusOnOpen) {
+      return;
+    }
+    const target = isProjectMode ? projectIdInputRef.current : taskNameInputRef.current;
+    if (target) {
+      target.focus();
+    }
+  }, [isOpen, autoFocusOnOpen, isProjectMode]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -163,10 +180,42 @@ const TaskCreateModal = ({
     return null;
   }
 
+  const handleModalKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab') {
+      return;
+    }
+    const root = modalRef.current;
+    if (!root) {
+      return;
+    }
+    const focusable = Array.from(
+      root.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((element) => !element.hasAttribute('disabled') && !element.getAttribute('aria-hidden'));
+    if (focusable.length === 0) {
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey) {
+      if (active === first || !root.contains(active)) {
+        event.preventDefault();
+        last.focus();
+      }
+      return;
+    }
+    if (active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
     <div
       className="modal-backdrop"
-      role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !isSubmitting) {
           onClose();
@@ -174,10 +223,12 @@ const TaskCreateModal = ({
       }}
     >
       <div
+        ref={modalRef}
         className="modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="task-create-title"
+        onKeyDown={handleModalKeyDown}
       >
         <div className="modal-header">
           <h2 id="task-create-title" className="modal-title">
@@ -202,6 +253,7 @@ const TaskCreateModal = ({
               id="task-create-project-id"
               className="text-input"
               type="text"
+              ref={projectIdInputRef}
               value={isProjectMode ? projectIdInput : trimmedProjectId}
               onChange={
                 isProjectMode
@@ -213,13 +265,13 @@ const TaskCreateModal = ({
               }
               readOnly={!isProjectMode}
               disabled={!isProjectMode}
+              aria-describedby={isDuplicate ? duplicateMessageId : undefined}
               placeholder="例: PJ-001"
-              autoFocus={isProjectMode}
             />
             {isDuplicate ? (
-              <span className="modal-hint" role="status">
+              <output id={duplicateMessageId} className="modal-hint">
                 同じプロジェクトIDが既に存在します。
-              </span>
+              </output>
             ) : null}
           </div>
 
@@ -260,13 +312,13 @@ const TaskCreateModal = ({
               id="task-create-name"
               className="text-input"
               type="text"
+              ref={taskNameInputRef}
               value={taskName}
               onChange={(event) => {
                 setTaskName(event.target.value);
                 clearErrors();
               }}
               placeholder={isProjectMode ? DEFAULT_TASK_NAME : '例: 新規タスク'}
-              autoFocus={!isProjectMode}
             />
             {isProjectMode ? (
               <span className="modal-hint">
@@ -282,6 +334,7 @@ const TaskCreateModal = ({
                 id="task-create-member"
                 className="text-input"
                 type="text"
+                ref={memberNameInputRef}
                 value={memberName}
                 onChange={(event) => {
                   setMemberName(event.target.value);

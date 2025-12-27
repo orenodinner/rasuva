@@ -247,9 +247,6 @@ const ProjectsPage = () => {
                     type="button"
                     className="cmd-button cmd-button--ghost"
                     onClick={() => {
-                      if (!selectedProjectId) {
-                        return;
-                      }
                       openTaskCreateModal({
                         projectId: selectedProjectId,
                         projectGroup: selectedProject?.group ?? null
@@ -275,6 +272,7 @@ const ProjectsPage = () => {
         mode="project"
         isOpen={isModalOpen}
         existingProjectIds={existingProjectIds}
+        autoFocusOnOpen
         errorMessage={modalError}
         onClearError={() => setModalError(null)}
         onClose={() => {

@@ -486,64 +486,67 @@ export const createDb = (dbPath: string): DbClient => {
   };
 
   const insertTask = (importId: number, input: TaskInsertInput) => {
-    const baseKey = `${input.projectId}::${input.taskName}`;
-    const taskKey = baseKey;
-    const taskKeyFull = getNextTaskKeyFull(importId, baseKey, '');
+    const insertTx = db.transaction((payload: TaskInsertInput) => {
+      const taskKey = `${payload.projectId}::${payload.taskName}`;
+      const taskKeyFull = getNextTaskKeyFull(importId, taskKey, '');
 
-    const stmt = db.prepare(`
-      INSERT INTO tasks (
-        import_id,
-        task_key,
-        task_key_full,
-        member_name,
-        project_id,
-        project_group,
-        task_name,
-        assignees_json,
-        start,
-        end,
-        raw_date,
-        note,
-        status
-      ) VALUES (
-        @import_id,
-        @task_key,
-        @task_key_full,
-        @member_name,
-        @project_id,
-        @project_group,
-        @task_name,
-        @assignees_json,
-        @start,
-        @end,
-        @raw_date,
-        @note,
-        @status
-      )
-    `);
+      const stmt = db.prepare(`
+        INSERT INTO tasks (
+          import_id,
+          task_key,
+          task_key_full,
+          member_name,
+          project_id,
+          project_group,
+          task_name,
+          assignees_json,
+          start,
+          end,
+          raw_date,
+          note,
+          status
+        ) VALUES (
+          @import_id,
+          @task_key,
+          @task_key_full,
+          @member_name,
+          @project_id,
+          @project_group,
+          @task_name,
+          @assignees_json,
+          @start,
+          @end,
+          @raw_date,
+          @note,
+          @status
+        )
+      `);
 
-    const info = stmt.run({
-      import_id: importId,
-      task_key: taskKey,
-      task_key_full: taskKeyFull,
-      member_name: input.memberName,
-      project_id: input.projectId,
-      project_group: input.projectGroup,
-      task_name: input.taskName,
-      assignees_json: JSON.stringify(input.assignees ?? []),
-      start: input.start,
-      end: input.end,
-      raw_date: input.rawDate,
-      note: input.note,
-      status: input.status
+      const info = stmt.run({
+        import_id: importId,
+        task_key: taskKey,
+        task_key_full: taskKeyFull,
+        member_name: payload.memberName,
+        project_id: payload.projectId,
+        project_group: payload.projectGroup,
+        task_name: payload.taskName,
+        assignees_json: JSON.stringify(payload.assignees ?? []),
+        start: payload.start,
+        end: payload.end,
+        raw_date: payload.rawDate,
+        note: payload.note,
+        status: payload.status
+      });
+
+      return {
+        ...payload,
+        id: Number(info.lastInsertRowid),
+        taskKey,
+        taskKeyFull
+      };
     });
 
-    return {
-      ...input,
-      id: Number(info.lastInsertRowid),
-      taskKey,
-      taskKeyFull
-    };
+    return insertTx(input);
   };
 
   const insertWarnings = (importId: number, warnings: ImportWarning[]) => {

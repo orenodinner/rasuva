@@ -215,6 +215,7 @@ const App = () => {
         isOpen={taskCreateModal.isOpen}
         projectId={taskCreateModal.projectId ?? undefined}
         projectGroup={taskCreateModal.projectGroup ?? null}
+        autoFocusOnOpen
         errorMessage={taskCreateError}
         onClearError={() => setTaskCreateError(null)}
         onClose={() => {

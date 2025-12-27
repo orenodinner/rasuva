@@ -33,7 +33,7 @@ export const TaskCreateSchema = z.object({
   taskName: z.string().min(1),
   memberName: z.string().min(1),
   assignees: z.array(z.string()),
-  start: z.string().nullable(),
-  end: z.string().nullable(),
+  start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   note: z.string().nullable()
 });

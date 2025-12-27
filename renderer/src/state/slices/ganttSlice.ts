@@ -140,15 +140,8 @@ export const createGanttSlice: StateCreator<AppState, [], [], GanttSlice> = (set
         return false;
       }
 
-      const scheduleId = input.scheduleId ?? get().currentScheduleId;
-      if (!scheduleId) {
-        get().setLastError('スケジュールが選択されていません。');
-        return false;
-      }
-
       const response = await window.api.taskCreate({
         ...input,
-        scheduleId,
         importId: input.importId ?? get().currentImportId ?? undefined
       });
 
