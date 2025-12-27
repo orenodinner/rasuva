@@ -56,6 +56,7 @@ export interface TaskUpdateInput {
 export interface TaskCreateInput {
   scheduleId: number;
   importId?: number;
+  allowExistingProjectId?: boolean;
   projectId: string;
   projectGroup: string | null;
   taskName: string;

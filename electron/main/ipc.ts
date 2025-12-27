@@ -538,6 +538,7 @@ export const registerIpcHandlers = (db: DbClient) => {
     const {
       scheduleId,
       importId: importIdRaw,
+      allowExistingProjectId,
       projectId: projectIdRaw,
       projectGroup: projectGroupRaw,
       taskName: taskNameRaw,
@@ -599,9 +600,11 @@ export const registerIpcHandlers = (db: DbClient) => {
         return { ok: false, error: 'Import not found.' };
       }
 
-      const existingTasks = db.getTasksByImportId(existingImportId);
-      if (existingTasks.some((task) => task.projectId === projectId)) {
-        return { ok: false, error: 'Project ID already exists.' };
+      if (!allowExistingProjectId) {
+        const existingTasks = db.getTasksByImportId(existingImportId);
+        if (existingTasks.some((task) => task.projectId === projectId)) {
+          return { ok: false, error: 'Project ID already exists.' };
+        }
       }
 
       const task = db.insertTask(existingImportId, input);

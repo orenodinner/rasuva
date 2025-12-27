@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import type { NormalizedTask } from '@domain';
-import ProjectCreateModal from '../components/ProjectCreateModal';
+import TaskCreateModal from '../components/TaskCreateModal';
 import TaskList from '../components/TaskList';
 import { useAppStore } from '../state/store';
 import {
@@ -16,6 +16,7 @@ const ProjectsPage = () => {
   const loadGantt = useAppStore((state) => state.loadGantt);
   const createTask = useAppStore((state) => state.createTask);
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
+  const openTaskCreateModal = useAppStore((state) => state.openTaskCreateModal);
   const currentScheduleId = useAppStore((state) => state.currentScheduleId);
   const currentImportId = useAppStore((state) => state.currentImportId);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -58,6 +59,13 @@ const ProjectsPage = () => {
     }
     return gantt.tasks.filter((task) => task.projectId === selectedProjectId);
   }, [selectedProjectId, gantt]);
+
+  const selectedProject = useMemo(() => {
+    if (!selectedProjectId) {
+      return null;
+    }
+    return projects.find((project) => project.projectId === selectedProjectId) ?? null;
+  }, [projects, selectedProjectId]);
 
   const existingProjectIds = useMemo(
     () => projects.map((project) => project.projectId),
@@ -131,6 +139,8 @@ const ProjectsPage = () => {
     projectId: string;
     projectGroup: string | null;
     taskName: string;
+    memberName: string;
+    allowExistingProjectId?: boolean;
   }) => {
     if (!currentScheduleId) {
       setModalError('スケジュールが選択されていません。');
@@ -140,10 +150,11 @@ const ProjectsPage = () => {
     const ok = await createTask({
       scheduleId: currentScheduleId,
       importId: currentImportId ?? undefined,
+      allowExistingProjectId: input.allowExistingProjectId,
       projectId: input.projectId,
       projectGroup: input.projectGroup,
       taskName: input.taskName,
-      memberName: '未割り当て',
+      memberName: input.memberName,
       assignees: [],
       start: null,
       end: null,
@@ -229,8 +240,25 @@ const ProjectsPage = () => {
         <div className="projects-pane">
           {selectedProjectId ? (
             <div className="section">
-              <div className="section-header">
+              <div className="section-header section-header--actions">
                 <h2>{selectedProjectId} のタスク</h2>
+                <div className="section-header__actions">
+                  <button
+                    type="button"
+                    className="cmd-button cmd-button--ghost"
+                    onClick={() => {
+                      if (!selectedProjectId) {
+                        return;
+                      }
+                      openTaskCreateModal({
+                        projectId: selectedProjectId,
+                        projectGroup: selectedProject?.group ?? null
+                      });
+                    }}
+                  >
+                    ＋ タスクを追加
+                  </button>
+                </div>
               </div>
               <TaskList
                 tasks={filteredTasks}
@@ -243,7 +271,8 @@ const ProjectsPage = () => {
           )}
         </div>
       </div>
-      <ProjectCreateModal
+      <TaskCreateModal
+        mode="project"
         isOpen={isModalOpen}
         existingProjectIds={existingProjectIds}
         errorMessage={modalError}

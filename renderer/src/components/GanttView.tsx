@@ -212,6 +212,19 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     });
     return lookup;
   }, [sourceTasks]);
+  const projectGroups = useMemo(() => {
+    const lookup = new Map<string, string | null>();
+    sourceTasks.forEach((task) => {
+      if (!lookup.has(task.projectId)) {
+        lookup.set(task.projectId, task.projectGroup ?? null);
+        return;
+      }
+      if (!lookup.get(task.projectId) && task.projectGroup) {
+        lookup.set(task.projectId, task.projectGroup);
+      }
+    });
+    return lookup;
+  }, [sourceTasks]);
   const query = search.trim().toLowerCase();
   const isRangeBounded = Boolean(rangeStart || rangeEnd);
   const rangeFilterStart = rangeStart ? toUtcDate(rangeStart) : null;
@@ -493,6 +506,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       timelineStart,
       timelineEnd,
       weekendRects,
+      projectGroups,
       collapsedGroups,
       toggleGroup,
       setSelectedTask,
@@ -521,6 +535,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     timelineStart,
     timelineEnd,
     weekendRects,
+    projectGroups,
     collapsedGroups,
     toggleGroup,
     setSelectedTask,

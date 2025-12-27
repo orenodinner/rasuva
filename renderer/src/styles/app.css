@@ -389,6 +389,19 @@ body {
   margin: 0;
 }
 
+.section-header--actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-header__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

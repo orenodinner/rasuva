@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { NormalizedTask, TaskUpdateInput } from '@domain';
+import type { ContextMenuTarget } from '../state/slices/uiSlice';
 import { useTaskInteraction } from '../hooks/useTaskInteraction';
 import { addUtcDays, diffUtcDays, formatIsoDate, toUtcDate } from '../utils/ganttMath';
 
@@ -25,6 +26,7 @@ export interface GanttRowData {
   timelineStart: Date;
   timelineEnd: Date;
   weekendRects: { left: number; width: number }[];
+  projectGroups: Map<string, string | null>;
   collapsedGroups: string[];
   toggleGroup: (groupId: string) => void;
   setSelectedTask: (task: NormalizedTask) => void;
@@ -35,7 +37,7 @@ export interface GanttRowData {
   inlineEditTaskKey: string | null;
   startInlineEdit: (taskKeyFull: string) => void;
   stopInlineEdit: () => void;
-  showContextMenu: (payload: { x: number; y: number; task: NormalizedTask }) => void;
+  showContextMenu: (payload: { x: number; y: number; target: ContextMenuTarget }) => void;
   taskLookup: Map<string, NormalizedTask>;
   getBarClassName?: (task: NormalizedTask) => string;
   buildTooltip: (task: NormalizedTask) => string;
@@ -60,7 +62,7 @@ interface GanttTaskBarProps {
   inlineEditTaskKey: string | null;
   startInlineEdit: (taskKeyFull: string) => void;
   stopInlineEdit: () => void;
-  showContextMenu: (payload: { x: number; y: number; task: NormalizedTask }) => void;
+  showContextMenu: (payload: { x: number; y: number; target: ContextMenuTarget }) => void;
   taskLookup: Map<string, NormalizedTask>;
 }
 
@@ -240,7 +242,7 @@ const GanttTaskBar = ({
     event.preventDefault();
     event.stopPropagation();
     setSelectedTask(task);
-    showContextMenu({ x: event.clientX, y: event.clientY, task });
+    showContextMenu({ x: event.clientX, y: event.clientY, target: { type: 'task', task } });
   };
 
   const commitInlineEdit = async () => {
@@ -343,11 +345,30 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
   const isCollapsed = groupId ? data.collapsedGroups.includes(groupId) : false;
   const rowStyle: CSSProperties = { ...(style as CSSProperties), width: data.totalWidth };
 
+  const handleRowContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (row.type !== 'project' || !row.projectId) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const projectGroup = data.projectGroups.get(row.projectId) ?? null;
+    data.showContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      target: {
+        type: 'project',
+        projectId: row.projectId,
+        projectGroup
+      }
+    });
+  };
+
   return (
     <div
       className={`gantt-row gantt-row--${row.type}`}
       style={rowStyle}
       onClick={() => row.task && data.setSelectedTask(row.task)}
+      onContextMenu={handleRowContextMenu}
     >
       <div className={`gantt-label gantt-label--level-${row.level}`} style={{ width: data.labelWidth }}>
         {isGroup && groupId ? (

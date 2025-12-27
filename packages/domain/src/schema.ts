@@ -27,6 +27,7 @@ export const RawImportSchema = z.object({
 export const TaskCreateSchema = z.object({
   scheduleId: z.number().int().positive(),
   importId: z.number().int().positive().optional(),
+  allowExistingProjectId: z.boolean().optional(),
   projectId: z.string().min(1),
   projectGroup: z.string().nullable(),
   taskName: z.string().min(1),

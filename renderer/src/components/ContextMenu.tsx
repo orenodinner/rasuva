@@ -8,6 +8,7 @@ const ContextMenu = () => {
   const triggerEditFocus = useAppStore((state) => state.triggerEditFocus);
   const updateTask = useAppStore((state) => state.updateTask);
   const setLastError = useAppStore((state) => state.setLastError);
+  const openTaskCreateModal = useAppStore((state) => state.openTaskCreateModal);
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
@@ -73,11 +74,36 @@ const ContextMenu = () => {
     };
   }, [contextMenu.visible, hideContextMenu]);
 
-  if (!contextMenu.visible || !contextMenu.task) {
+  if (!contextMenu.visible || !contextMenu.target) {
     return null;
   }
 
-  const task = contextMenu.task;
+  const target = contextMenu.target;
+
+  if (target.type === 'project') {
+    const handleAddTask = () => {
+      openTaskCreateModal({
+        projectId: target.projectId,
+        projectGroup: target.projectGroup ?? null
+      });
+      hideContextMenu();
+    };
+
+    return (
+      <div
+        ref={menuRef}
+        className="gantt-context-menu"
+        style={{ left: position.x, top: position.y }}
+      >
+        <div className="gantt-context-menu__title">プロジェクト: {target.projectId}</div>
+        <button type="button" className="gantt-context-menu__item" onClick={handleAddTask}>
+          タスクを追加
+        </button>
+      </div>
+    );
+  }
+
+  const task = target.task;
 
   const handleEdit = () => {
     setSelectedTask(task);
