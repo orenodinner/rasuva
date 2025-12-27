@@ -490,10 +490,18 @@ body {
   background: var(--panel);
   border-radius: 12px;
   border: 1px solid var(--border);
+  width: 100%;
+  text-align: left;
+  font: inherit;
 }
 
 .list-row--action {
   gap: 16px;
+}
+
+.list-row--active {
+  border-color: rgba(47, 124, 111, 0.6);
+  box-shadow: 0 0 0 2px rgba(47, 124, 111, 0.2);
 }
 
 .list-title {
@@ -536,6 +544,30 @@ body {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.projects-split {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 8px minmax(0, 1fr);
+  gap: 0;
+  height: 60vh;
+  min-height: 360px;
+}
+
+.projects-pane {
+  min-height: 0;
+  overflow: auto;
+}
+
+.projects-splitter {
+  border-radius: 999px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  cursor: row-resize;
+}
+
+.projects-splitter:hover {
+  background: rgba(47, 124, 111, 0.12);
 }
 
 .range-control {

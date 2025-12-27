@@ -9,6 +9,7 @@ const navItems = [
   { to: '/gantt', label: 'ガント' },
   { to: '/members', label: '担当者' },
   { to: '/groups', label: 'グループ' },
+  { to: '/projects', label: 'プロジェクト' },
   { to: '/unscheduled', label: '未確定' },
   { to: '/invalid', label: '不正日付' },
   { to: '/imports', label: '履歴' },

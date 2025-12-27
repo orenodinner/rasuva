@@ -16,6 +16,7 @@ import ExportPage from './pages/ExportPage';
 import SettingsPage from './pages/SettingsPage';
 import MembersPage from './pages/MembersPage';
 import GroupsPage from './pages/GroupsPage';
+import ProjectsPage from './pages/ProjectsPage';
 import SchedulesPage from './pages/SchedulesPage';
 import { useAppStore } from './state/store';
 
@@ -155,6 +156,7 @@ const App = () => {
               <Route path="/gantt" element={<GanttPage />} />
               <Route path="/members" element={<MembersPage />} />
               <Route path="/groups" element={<GroupsPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/unscheduled" element={<UnscheduledPage />} />
               <Route path="/invalid" element={<InvalidPage />} />
               <Route path="/imports" element={<ImportsPage />} />
