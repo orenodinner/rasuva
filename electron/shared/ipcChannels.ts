@@ -14,6 +14,7 @@ export const IPC_CHANNELS = {
   exportCsv: 'export.csv',
   exportXlsx: 'export.xlsx',
   exportJson: 'export.json',
+  taskCreate: 'task.create',
   taskUpdate: 'task.update',
   historyUndo: 'history.undo',
   historyRedo: 'history.redo',

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import type { NormalizedTask } from '@domain';
+import ProjectCreateModal from '../components/ProjectCreateModal';
 import TaskList from '../components/TaskList';
 import { useAppStore } from '../state/store';
 import {
@@ -13,10 +14,15 @@ import {
 const ProjectsPage = () => {
   const gantt = useAppStore((state) => state.gantt);
   const loadGantt = useAppStore((state) => state.loadGantt);
+  const createTask = useAppStore((state) => state.createTask);
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
+  const currentScheduleId = useAppStore((state) => state.currentScheduleId);
+  const currentImportId = useAppStore((state) => state.currentImportId);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [topHeight, setTopHeight] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +58,11 @@ const ProjectsPage = () => {
     }
     return gantt.tasks.filter((task) => task.projectId === selectedProjectId);
   }, [selectedProjectId, gantt]);
+
+  const existingProjectIds = useMemo(
+    () => projects.map((project) => project.projectId),
+    [projects]
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -116,6 +127,37 @@ const ProjectsPage = () => {
       ? { gridTemplateRows: `${topHeight}px ${SPLITTER_HEIGHT}px 1fr` }
       : undefined;
 
+  const handleCreateProject = async (input: {
+    projectId: string;
+    projectGroup: string | null;
+    taskName: string;
+  }) => {
+    if (!currentScheduleId) {
+      setModalError('スケジュールが選択されていません。');
+      return false;
+    }
+    setModalError(null);
+    const ok = await createTask({
+      scheduleId: currentScheduleId,
+      importId: currentImportId ?? undefined,
+      projectId: input.projectId,
+      projectGroup: input.projectGroup,
+      taskName: input.taskName,
+      memberName: '未割り当て',
+      assignees: [],
+      start: null,
+      end: null,
+      note: null
+    });
+    if (ok) {
+      setSelectedProjectId(input.projectId);
+      setIsModalOpen(false);
+    } else {
+      setModalError('プロジェクトの作成に失敗しました。');
+    }
+    return ok;
+  };
+
   return (
     <div className="page">
       <div className="page-header">
@@ -134,6 +176,16 @@ const ProjectsPage = () => {
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
+        <button
+          type="button"
+          className="cmd-button"
+          onClick={() => {
+            setModalError(null);
+            setIsModalOpen(true);
+          }}
+        >
+          ＋ 新規プロジェクト
+        </button>
       </div>
 
       <div className="projects-split" ref={containerRef} style={splitStyle}>
@@ -191,6 +243,17 @@ const ProjectsPage = () => {
           )}
         </div>
       </div>
+      <ProjectCreateModal
+        isOpen={isModalOpen}
+        existingProjectIds={existingProjectIds}
+        errorMessage={modalError}
+        onClearError={() => setModalError(null)}
+        onClose={() => {
+          setModalError(null);
+          setIsModalOpen(false);
+        }}
+        onCreate={handleCreateProject}
+      />
     </div>
   );
 };

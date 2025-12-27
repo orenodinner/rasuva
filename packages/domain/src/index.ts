@@ -35,5 +35,6 @@ export {
   diffTasks,
   generateNormalizedTasks
 };
+export { RawImportSchema, TaskCreateSchema } from './schema';
 export { extractJsonFromText } from './extract';
 export * from './types';

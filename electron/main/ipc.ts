@@ -6,7 +6,8 @@ import {
   diffTasks,
   normalizeImport,
   parseDateStrict,
-  parseImportJson
+  parseImportJson,
+  TaskCreateSchema
 } from '@domain';
 import type { DbClient } from '@db';
 import type { FlatTaskRow, NormalizedTask } from '@domain';
@@ -277,6 +278,19 @@ const normalizeAssignees = (values: string[]) => {
   return Array.from(unique).sort((a, b) => a.localeCompare(b));
 };
 
+const buildTaskRawDate = (start: string | null, end: string | null) => {
+  if (start && end) {
+    return start === end ? start : `${start}..${end}`;
+  }
+  if (start) {
+    return start;
+  }
+  if (end) {
+    return end;
+  }
+  return 'TBD';
+};
+
 const escapeCsv = (value: string | null) => {
   if (value === null) {
     return '';
@@ -513,6 +527,140 @@ export const registerIpcHandlers = (db: DbClient) => {
         diff
       }
     };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.taskCreate, async (_event, payload) => {
+    const parsedPayload = TaskCreateSchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const {
+      scheduleId,
+      importId: importIdRaw,
+      projectId: projectIdRaw,
+      projectGroup: projectGroupRaw,
+      taskName: taskNameRaw,
+      memberName: memberNameRaw,
+      assignees: assigneesRaw,
+      start: startRaw,
+      end: endRaw,
+      note: noteRaw
+    } = parsedPayload.data;
+
+    const projectId = projectIdRaw.trim();
+    const taskName = taskNameRaw.trim();
+    const memberName = memberNameRaw.trim();
+    const projectGroup =
+      projectGroupRaw && projectGroupRaw.trim().length > 0 ? projectGroupRaw.trim() : null;
+    const note = noteRaw && noteRaw.trim().length > 0 ? noteRaw.trim() : null;
+
+    if (!projectId || !taskName || !memberName) {
+      return { ok: false, error: 'Required fields are missing.' };
+    }
+
+    const start = startRaw === null ? null : parseDateStrict(startRaw);
+    const end = endRaw === null ? null : parseDateStrict(endRaw);
+
+    if (startRaw !== null && start === null) {
+      return { ok: false, error: 'Invalid start date.' };
+    }
+
+    if (endRaw !== null && end === null) {
+      return { ok: false, error: 'Invalid end date.' };
+    }
+
+    if (start !== null && end !== null && end < start) {
+      return { ok: false, error: 'End date must be on or after start date.' };
+    }
+
+    const status =
+      start === null || end === null ? 'unscheduled' : ('scheduled' as const);
+    const assignees = normalizeAssignees(assigneesRaw).filter((name) => name !== memberName);
+    const rawDate = buildTaskRawDate(start, end);
+
+    const input = {
+      memberName,
+      projectId,
+      projectGroup,
+      taskName,
+      assignees,
+      start,
+      end,
+      rawDate,
+      note,
+      status
+    };
+
+    const existingImportId = importIdRaw ?? db.getLatestImportId(scheduleId);
+    if (existingImportId) {
+      const currentImport = db.getImportById(scheduleId, existingImportId);
+      if (!currentImport) {
+        return { ok: false, error: 'Import not found.' };
+      }
+
+      const existingTasks = db.getTasksByImportId(existingImportId);
+      if (existingTasks.some((task) => task.projectId === projectId)) {
+        return { ok: false, error: 'Project ID already exists.' };
+      }
+
+      const task = db.insertTask(existingImportId, input);
+      return { ok: true, task, importId: existingImportId };
+    }
+
+    const rawImport = {
+      members: [
+        {
+          name: memberName,
+          projects: [
+            {
+              project_id: projectId,
+              group: projectGroup,
+              tasks: [
+                {
+                  task_name: taskName,
+                  start,
+                  end,
+                  raw_date: rawDate,
+                  note,
+                  assign: assignees
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    const summary = {
+      totalMembers: 1,
+      totalProjects: 1,
+      totalTasks: 1,
+      scheduledCount: status === 'scheduled' ? 1 : 0,
+      unscheduledCount: status === 'unscheduled' ? 1 : 0,
+      invalidCount: 0,
+      warningsCount: 0,
+      skippedProjects: 0
+    };
+
+    const diffSummary = {
+      added: 1,
+      updated: 0,
+      archived: 0,
+      invalid: 0,
+      unscheduled: status === 'unscheduled' ? 1 : 0
+    };
+
+    const importId = db.insertImport(scheduleId, {
+      createdAt: new Date().toISOString(),
+      source: 'manual',
+      rawJson: JSON.stringify(rawImport, null, 2),
+      summary,
+      diffSummary
+    });
+
+    const task = db.insertTask(importId, input);
+    return { ok: true, task, importId };
   });
 
   ipcMain.handle(IPC_CHANNELS.diffGet, async (_event, payload) => {

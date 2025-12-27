@@ -53,6 +53,19 @@ export interface TaskUpdateInput {
   assignees: string[];
 }
 
+export interface TaskCreateInput {
+  scheduleId: number;
+  importId?: number;
+  projectId: string;
+  projectGroup: string | null;
+  taskName: string;
+  memberName: string;
+  assignees: string[];
+  start: string | null;
+  end: string | null;
+  note: string | null;
+}
+
 export interface ImportWarning {
   code:
     | 'project_id_missing'
