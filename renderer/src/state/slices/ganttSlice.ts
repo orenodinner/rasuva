@@ -18,6 +18,7 @@ export interface GanttSlice {
   loadGantt: (importId?: number) => Promise<void>;
   createTask: (input: TaskCreateInput) => Promise<boolean>;
   updateTask: (input: TaskUpdateInput) => Promise<boolean>;
+  deleteTask: (task: NormalizedTask) => Promise<boolean>;
   refreshHistoryStatus: (importId?: number) => Promise<void>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
@@ -155,6 +156,55 @@ export const createGanttSlice: StateCreator<AppState, [], [], GanttSlice> = (set
         get().gantt?.tasks.find((task) => task.taskKeyFull === response.task.taskKeyFull) ??
         response.task;
       set({ selectedTask: refreshed });
+      get().setLastError(null);
+      return true;
+    },
+    deleteTask: async (task) => {
+      if (!window.api) {
+        get().setLastError(API_MISSING_MESSAGE);
+        return false;
+      }
+
+      const importId = get().currentImportId;
+      if (!importId) {
+        get().setLastError('インポートが選択されていません。');
+        return false;
+      }
+
+      const response = await window.api.taskDelete({ importId, taskKeyFull: task.taskKeyFull });
+      if (!response.ok) {
+        get().setLastError(response.error);
+        return false;
+      }
+
+      set((state) => {
+        if (!state.gantt) {
+          return {};
+        }
+        const nextTasks = state.gantt.tasks.filter(
+          (entry) => entry.taskKeyFull !== task.taskKeyFull
+        );
+        const nextSelectedIds = state.selectedTaskIds.filter(
+          (id) => id !== task.taskKeyFull
+        );
+        const nextSelectedTask =
+          state.selectedTask?.taskKeyFull === task.taskKeyFull
+            ? nextSelectedIds
+                .map((id) => nextTasks.find((entry) => entry.taskKeyFull === id))
+                .find(Boolean) ?? null
+            : state.selectedTask;
+        const nextTaskOrder = state.taskOrder.filter(
+          (entry) => entry.taskKeyFull !== task.taskKeyFull
+        );
+
+        return {
+          gantt: { ...state.gantt, tasks: nextTasks },
+          selectedTask: nextSelectedTask,
+          selectedTaskIds: nextSelectedIds,
+          taskOrder: nextTaskOrder
+        };
+      });
+
       get().setLastError(null);
       return true;
     },

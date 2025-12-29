@@ -246,6 +246,11 @@ const taskUpdateSchema = z.object({
   assignees: z.array(z.string())
 });
 
+const taskDeleteSchema = z.object({
+  importId: z.number().int().positive(),
+  taskKeyFull: z.string().min(1)
+});
+
 const historySchema = z.object({
   importId: z.number().int().positive()
 });
@@ -1080,6 +1085,21 @@ export const registerIpcHandlers = (db: DbClient) => {
     }
 
     return { ok: true, task: historyResult.updatedTask };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.taskDelete, async (_event, payload) => {
+    const parsedPayload = taskDeleteSchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const { importId, taskKeyFull } = parsedPayload.data;
+    const deleted = db.deleteTask(importId, taskKeyFull);
+    if (!deleted) {
+      return { ok: false, error: '削除対象のタスクが見つかりません。' };
+    }
+
+    return { ok: true, taskKeyFull };
   });
 
   ipcMain.handle(IPC_CHANNELS.historyStatus, async (_event, payload) => {

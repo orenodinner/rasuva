@@ -17,6 +17,12 @@ const GanttPage = () => {
   const expandAll = useAppStore((state) => state.expandAll);
   const isUnscheduledDrawerOpen = useAppStore((state) => state.isUnscheduledDrawerOpen);
   const toggleUnscheduledDrawer = useAppStore((state) => state.toggleUnscheduledDrawer);
+  const selectedTask = useAppStore((state) => state.selectedTask);
+  const taskOrder = useAppStore((state) => state.taskOrder);
+  const setSelectedTask = useAppStore((state) => state.setSelectedTask);
+  const triggerEditFocus = useAppStore((state) => state.triggerEditFocus);
+  const deleteTask = useAppStore((state) => state.deleteTask);
+  const setLastError = useAppStore((state) => state.setLastError);
 
   const allGroupIds = useMemo(() => {
     if (!gantt?.tasks) {
@@ -85,6 +91,87 @@ const GanttPage = () => {
     const payload = JSON.stringify({ collapsedGroups });
     localStorage.setItem(storageKey, payload);
   }, [storageKey, collapsedGroups]);
+
+  useEffect(() => {
+    const isTypingElement = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+      return (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      );
+    };
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (isTypingElement(event.target)) {
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        if (selectedTask) {
+          event.preventDefault();
+          setSelectedTask(null);
+        }
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        if (selectedTask) {
+          event.preventDefault();
+          triggerEditFocus();
+        }
+        return;
+      }
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        if (!selectedTask) {
+          return;
+        }
+        event.preventDefault();
+        const confirmed = window.confirm('このタスクを削除しますか？');
+        if (!confirmed) {
+          return;
+        }
+        deleteTask(selectedTask).catch((error) => {
+          console.error('Failed to delete task from keyboard shortcut.', error);
+          setLastError(
+            error instanceof Error ? error.message : 'タスクの削除に失敗しました。'
+          );
+        });
+        return;
+      }
+
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
+        return;
+      }
+      if (taskOrder.length === 0) {
+        return;
+      }
+
+      const currentIndex = selectedTask
+        ? taskOrder.findIndex((task) => task.taskKeyFull === selectedTask.taskKeyFull)
+        : -1;
+      const nextIndex =
+        event.key === 'ArrowDown'
+          ? currentIndex < 0
+            ? 0
+            : Math.min(taskOrder.length - 1, currentIndex + 1)
+          : currentIndex < 0
+            ? taskOrder.length - 1
+            : Math.max(0, currentIndex - 1);
+
+      const nextTask = taskOrder[nextIndex];
+      if (nextTask && nextTask.taskKeyFull !== selectedTask?.taskKeyFull) {
+        event.preventDefault();
+        setSelectedTask(nextTask);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [selectedTask, taskOrder, setSelectedTask, triggerEditFocus, deleteTask, setLastError]);
 
   if (!currentScheduleId) {
     return (

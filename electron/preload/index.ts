@@ -48,7 +48,9 @@ const api = {
   taskCreate: (input: TaskCreateInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.taskCreate, input),
   taskUpdate: (input: TaskUpdateInput) =>
-    ipcRenderer.invoke(IPC_CHANNELS.taskUpdate, input)
+    ipcRenderer.invoke(IPC_CHANNELS.taskUpdate, input),
+  taskDelete: (input: { importId: number; taskKeyFull: string }) =>
+    ipcRenderer.invoke(IPC_CHANNELS.taskDelete, input)
 };
 
 contextBridge.exposeInMainWorld('api', api);

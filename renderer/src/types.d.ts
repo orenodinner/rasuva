@@ -72,6 +72,9 @@ declare global {
       taskUpdate: (
         input: TaskUpdateInput
       ) => Promise<ApiSuccess<{ task: NormalizedTask }> | ApiFailure>;
+      taskDelete: (
+        input: { importId: number; taskKeyFull: string }
+      ) => Promise<ApiSuccess<{ taskKeyFull: string }> | ApiFailure>;
     };
   }
 }

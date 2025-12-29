@@ -16,6 +16,7 @@ export const IPC_CHANNELS = {
   exportJson: 'export.json',
   taskCreate: 'task.create',
   taskUpdate: 'task.update',
+  taskDelete: 'task.delete',
   historyUndo: 'history.undo',
   historyRedo: 'history.redo',
   historyStatus: 'history.status',

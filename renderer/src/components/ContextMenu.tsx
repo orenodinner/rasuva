@@ -7,8 +7,11 @@ const ContextMenu = () => {
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
   const triggerEditFocus = useAppStore((state) => state.triggerEditFocus);
   const updateTask = useAppStore((state) => state.updateTask);
+  const createTask = useAppStore((state) => state.createTask);
+  const deleteTask = useAppStore((state) => state.deleteTask);
   const setLastError = useAppStore((state) => state.setLastError);
   const openTaskCreateModal = useAppStore((state) => state.openTaskCreateModal);
+  const currentScheduleId = useAppStore((state) => state.currentScheduleId);
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
@@ -140,6 +143,52 @@ const ContextMenu = () => {
         }
       };
 
+      const handleDuplicate = async () => {
+        if (!currentScheduleId) {
+          setLastError('スケジュールが選択されていません。');
+          hideContextMenu();
+          return;
+        }
+        hideContextMenu();
+        try {
+          const ok = await createTask({
+            scheduleId: currentScheduleId,
+            allowExistingProjectId: true,
+            projectId: task.projectId,
+            projectGroup: task.projectGroup ?? null,
+            taskName: `${task.taskName} のコピー`,
+            memberName: task.memberName,
+            assignees: task.assignees ?? [],
+            start: task.start ?? null,
+            end: task.end ?? null,
+            note: task.note ?? null
+          });
+          if (!ok) {
+            setLastError('タスクの複製に失敗しました。');
+          }
+        } catch (error) {
+          console.error('Failed to duplicate task from context menu.', error);
+          setLastError(error instanceof Error ? error.message : 'タスクの複製に失敗しました。');
+        }
+      };
+
+      const handleDelete = async () => {
+        hideContextMenu();
+        const confirmed = window.confirm('このタスクを削除しますか？');
+        if (!confirmed) {
+          return;
+        }
+        try {
+          const ok = await deleteTask(task);
+          if (!ok) {
+            setLastError('タスクの削除に失敗しました。');
+          }
+        } catch (error) {
+          console.error('Failed to delete task from context menu.', error);
+          setLastError(error instanceof Error ? error.message : 'タスクの削除に失敗しました。');
+        }
+      };
+
       return (
         <div
           ref={menuRef}
@@ -150,6 +199,9 @@ const ContextMenu = () => {
           <button type="button" className="gantt-context-menu__item" onClick={handleEdit}>
             詳細を開く
           </button>
+          <button type="button" className="gantt-context-menu__item" onClick={handleDuplicate}>
+            タスクを複製
+          </button>
           <button
             type="button"
             className="gantt-context-menu__item"
@@ -157,6 +209,13 @@ const ContextMenu = () => {
             disabled={task.status === 'unscheduled'}
           >
             未確定にする
+          </button>
+          <button
+            type="button"
+            className="gantt-context-menu__item gantt-context-menu__item--danger"
+            onClick={handleDelete}
+          >
+            タスクを削除
           </button>
         </div>
       );
