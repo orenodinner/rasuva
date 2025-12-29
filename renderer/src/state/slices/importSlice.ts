@@ -12,6 +12,7 @@ export interface ImportSlice {
   diff: DiffResult | null;
   imports: ImportListItem[];
   setJsonText: (value: string) => void;
+  appendJsonText: (value: string) => void;
   setImportSource: (value: ImportSource) => void;
   loadPreview: () => Promise<boolean>;
   loadExcelImport: () => Promise<boolean>;
@@ -58,6 +59,15 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
     diff: null,
     imports: [],
     setJsonText: (value) => set({ jsonText: value }),
+    appendJsonText: (value) =>
+      set((state) => {
+        if (!value) {
+          return {};
+        }
+        const separator =
+          state.jsonText.length > 0 && !state.jsonText.endsWith('\n') ? '\n' : '';
+        return { jsonText: `${state.jsonText}${separator}${value}` };
+      }),
     setImportSource: (value) => set({ importSource: value }),
     loadPreview: async () => {
       if (!window.api) {
