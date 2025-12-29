@@ -206,6 +206,11 @@ export interface DbClient {
   getPreviousImportId: (scheduleId: number, importId: number) => number | null;
   getTasksByImportId: (importId: number) => NormalizedTask[];
   getTaskByKey: (importId: number, taskKeyFull: string) => NormalizedTask | null;
+  deleteTask: (importId: number, taskKeyFull: string) => boolean;
+  deleteTaskWithHistory: (
+    importId: number,
+    taskKeyFull: string
+  ) => { taskKeyFull: string } | null;
   updateTask: (importId: number, taskKeyFull: string, updates: TaskUpdatePayload) => string | null;
   getImportById: (scheduleId: number, importId: number) => ImportListItem | null;
   getSavedViews: (scheduleId: number) => SavedViewItem[];
@@ -627,6 +632,53 @@ export const createDb = (dbPath: string): DbClient => {
     return row ? rowToTask(row) : null;
   };
 
+  const deleteTaskInternal = (importId: number, taskKeyFull: string) => {
+    const execute = db.transaction(() => {
+      const row = db
+        .prepare(
+          `SELECT id, task_key_full FROM tasks WHERE import_id = @importId AND task_key_full = @taskKeyFull`
+        )
+        .get({ importId, taskKeyFull }) as { id: number; task_key_full: string } | undefined;
+
+      if (!row) {
+        return null;
+      }
+
+      db.prepare(
+        `DELETE FROM command_history WHERE import_id = @importId AND target_task_id = @taskId`
+      ).run({ importId, taskId: row.id });
+
+      const result = db
+        .prepare(`DELETE FROM tasks WHERE import_id = @importId AND task_key_full = @taskKeyFull`)
+        .run({ importId, taskKeyFull });
+
+      if (result.changes === 0) {
+        throw new Error('Task deletion failed.');
+      }
+
+      return row.task_key_full;
+    });
+
+    return execute();
+  };
+
+  const deleteTask = (importId: number, taskKeyFull: string) => {
+    try {
+      return deleteTaskInternal(importId, taskKeyFull) !== null;
+    } catch {
+      return false;
+    }
+  };
+
+  const deleteTaskWithHistory = (importId: number, taskKeyFull: string) => {
+    try {
+      const deletedKey = deleteTaskInternal(importId, taskKeyFull);
+      return deletedKey ? { taskKeyFull: deletedKey } : null;
+    } catch {
+      return null;
+    }
+  };
+
   const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   const getNextTaskKeyFull = (importId: number, baseKey: string, currentKeyFull: string) => {
@@ -984,6 +1036,8 @@ export const createDb = (dbPath: string): DbClient => {
     getPreviousImportId,
     getTasksByImportId,
     getTaskByKey,
+    deleteTask,
+    deleteTaskWithHistory,
     updateTask,
     updateTaskWithHistory,
     insertCommandHistory,

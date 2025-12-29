@@ -246,6 +246,11 @@ const taskUpdateSchema = z.object({
   assignees: z.array(z.string())
 });
 
+const taskDeleteSchema = z.object({
+  importId: z.number().int().positive(),
+  taskKeyFull: z.string().min(1)
+});
+
 const historySchema = z.object({
   importId: z.number().int().positive()
 });
@@ -1080,6 +1085,26 @@ export const registerIpcHandlers = (db: DbClient) => {
     }
 
     return { ok: true, task: historyResult.updatedTask };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.taskDelete, async (_event, payload) => {
+    const parsedPayload = taskDeleteSchema.safeParse(payload);
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const { importId, taskKeyFull } = parsedPayload.data;
+    try {
+      const result = db.deleteTaskWithHistory(importId, taskKeyFull);
+      if (!result) {
+        return { ok: false, error: '削除対象のタスクが見つかりません。' };
+      }
+
+      return { ok: true, taskKeyFull: result.taskKeyFull };
+    } catch (error) {
+      console.error('Failed to delete task with history cleanup.', error);
+      return { ok: false, error: 'タスクの削除に失敗しました。' };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.historyStatus, async (_event, payload) => {

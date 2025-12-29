@@ -20,6 +20,12 @@ export interface UISlice {
     projectId: string | null;
     projectGroup: string | null;
   };
+  confirmDialog: {
+    isOpen: boolean;
+    message: string;
+    confirmLabel: string;
+    cancelLabel: string;
+  };
   isUnscheduledDrawerOpen: boolean;
   contextMenu: {
     visible: boolean;
@@ -39,72 +45,116 @@ export interface UISlice {
   toggleUnscheduledDrawer: () => void;
   openTaskCreateModal: (payload: { projectId: string; projectGroup?: string | null }) => void;
   closeTaskCreateModal: () => void;
+  openConfirmDialog: (
+    message: string,
+    options?: { confirmLabel?: string; cancelLabel?: string }
+  ) => Promise<boolean>;
+  resolveConfirmDialog: (confirmed: boolean) => void;
   showContextMenu: (payload: { x: number; y: number; target: ContextMenuTarget }) => void;
   hideContextMenu: () => void;
 }
 
-export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => ({
-  search: '',
-  zoom: 'month',
-  statusFilter: 'all',
-  lastError: null,
-  shouldFocusEdit: false,
-  inlineEditTaskKey: null,
-  taskCreateModal: {
-    isOpen: false,
-    projectId: null,
-    projectGroup: null
-  },
-  isUnscheduledDrawerOpen: false,
-  contextMenu: {
-    visible: false,
-    x: 0,
-    y: 0,
-    target: null
-  },
-  setSearch: (search) => set({ search }),
-  setZoom: (zoom) => set({ zoom }),
-  setStatusFilter: (value) => set({ statusFilter: value }),
-  setLastError: (message) => set({ lastError: message }),
-  clearError: () => set({ lastError: null }),
-  triggerEditFocus: () => set({ shouldFocusEdit: true }),
-  consumeEditFocus: () => set({ shouldFocusEdit: false }),
-  startInlineEdit: (taskKeyFull) => set({ inlineEditTaskKey: taskKeyFull }),
-  stopInlineEdit: () => set({ inlineEditTaskKey: null }),
-  toggleUnscheduledDrawer: () =>
-    set((state) => ({ isUnscheduledDrawerOpen: !state.isUnscheduledDrawerOpen })),
-  openTaskCreateModal: ({ projectId, projectGroup }) =>
-    set({
-      taskCreateModal: {
-        isOpen: true,
-        projectId,
-        projectGroup: projectGroup ?? null
+export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => {
+  let confirmResolver: ((confirmed: boolean) => void) | null = null;
+
+  return {
+    search: '',
+    zoom: 'month',
+    statusFilter: 'all',
+    lastError: null,
+    shouldFocusEdit: false,
+    inlineEditTaskKey: null,
+    taskCreateModal: {
+      isOpen: false,
+      projectId: null,
+      projectGroup: null
+    },
+    confirmDialog: {
+      isOpen: false,
+      message: '',
+      confirmLabel: 'OK',
+      cancelLabel: 'キャンセル'
+    },
+    isUnscheduledDrawerOpen: false,
+    contextMenu: {
+      visible: false,
+      x: 0,
+      y: 0,
+      target: null
+    },
+    setSearch: (search) => set({ search }),
+    setZoom: (zoom) => set({ zoom }),
+    setStatusFilter: (value) => set({ statusFilter: value }),
+    setLastError: (message) => set({ lastError: message }),
+    clearError: () => set({ lastError: null }),
+    triggerEditFocus: () => set({ shouldFocusEdit: true }),
+    consumeEditFocus: () => set({ shouldFocusEdit: false }),
+    startInlineEdit: (taskKeyFull) => set({ inlineEditTaskKey: taskKeyFull }),
+    stopInlineEdit: () => set({ inlineEditTaskKey: null }),
+    toggleUnscheduledDrawer: () =>
+      set((state) => ({ isUnscheduledDrawerOpen: !state.isUnscheduledDrawerOpen })),
+    openTaskCreateModal: ({ projectId, projectGroup }) =>
+      set({
+        taskCreateModal: {
+          isOpen: true,
+          projectId,
+          projectGroup: projectGroup ?? null
+        }
+      }),
+    closeTaskCreateModal: () =>
+      set({
+        taskCreateModal: {
+          isOpen: false,
+          projectId: null,
+          projectGroup: null
+        }
+      }),
+    openConfirmDialog: (message, options) =>
+      new Promise((resolve) => {
+        if (confirmResolver) {
+          confirmResolver(false);
+        }
+        confirmResolver = resolve;
+        set({
+          confirmDialog: {
+            isOpen: true,
+            message,
+            confirmLabel: options?.confirmLabel ?? 'OK',
+            cancelLabel: options?.cancelLabel ?? 'キャンセル'
+          }
+        });
+      }),
+    resolveConfirmDialog: (confirmed) => {
+      if (confirmResolver) {
+        confirmResolver(confirmed);
+        confirmResolver = null;
       }
-    }),
-  closeTaskCreateModal: () =>
-    set({
-      taskCreateModal: {
-        isOpen: false,
-        projectId: null,
-        projectGroup: null
-      }
-    }),
-  showContextMenu: ({ x, y, target }) =>
-    set({
-      contextMenu: {
-        visible: true,
-        x,
-        y,
-        target
-      }
-    }),
-  hideContextMenu: () =>
-    set({
-      contextMenu: {
-        visible: false,
-        x: 0,
-        y: 0,
-        target: null
-      }
-    })
-});
+      set({
+        confirmDialog: {
+          isOpen: false,
+          message: '',
+          confirmLabel: 'OK',
+          cancelLabel: 'キャンセル'
+        }
+      });
+    },
+    showContextMenu: ({ x, y, target }) =>
+      set({
+        contextMenu: {
+          visible: true,
+          x,
+          y,
+          target
+        }
+      }),
+    hideContextMenu: () =>
+      set({
+        contextMenu: {
+          visible: false,
+          x: 0,
+          y: 0,
+          target: null
+        }
+      })
+  };
+};

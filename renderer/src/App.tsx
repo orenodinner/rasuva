@@ -3,6 +3,7 @@ import { Route, Routes, useNavigate } from 'react-router-dom';
 import SideNav from './components/SideNav';
 import CommandBar from './components/CommandBar';
 import DetailsPane from './components/DetailsPane';
+import ConfirmDialog from './components/ConfirmDialog';
 import TaskCreateModal from './components/TaskCreateModal';
 import HomePage from './pages/HomePage';
 import ImportPage from './pages/ImportPage';
@@ -224,6 +225,7 @@ const App = () => {
         }}
         onCreate={handleCreateTask}
       />
+      <ConfirmDialog />
     </div>
   );
 };
