@@ -206,6 +206,7 @@ export const createGanttSlice: StateCreator<AppState, [], [], GanttSlice> = (set
       });
 
       get().setLastError(null);
+      await get().refreshHistoryStatus(importId);
       return true;
     },
     refreshHistoryStatus: async (importId) => {

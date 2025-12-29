@@ -9,6 +9,7 @@ const ContextMenu = () => {
   const updateTask = useAppStore((state) => state.updateTask);
   const createTask = useAppStore((state) => state.createTask);
   const deleteTask = useAppStore((state) => state.deleteTask);
+  const openConfirmDialog = useAppStore((state) => state.openConfirmDialog);
   const setLastError = useAppStore((state) => state.setLastError);
   const openTaskCreateModal = useAppStore((state) => state.openTaskCreateModal);
   const currentScheduleId = useAppStore((state) => state.currentScheduleId);
@@ -174,7 +175,15 @@ const ContextMenu = () => {
 
       const handleDelete = async () => {
         hideContextMenu();
-        const confirmed = window.confirm('このタスクを削除しますか？');
+        let confirmed = false;
+        try {
+          confirmed = await openConfirmDialog('このタスクを削除しますか？', {
+            confirmLabel: '削除',
+            cancelLabel: 'キャンセル'
+          });
+        } catch {
+          confirmed = window.confirm('このタスクを削除しますか？');
+        }
         if (!confirmed) {
           return;
         }

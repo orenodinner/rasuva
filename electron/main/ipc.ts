@@ -1094,12 +1094,17 @@ export const registerIpcHandlers = (db: DbClient) => {
     }
 
     const { importId, taskKeyFull } = parsedPayload.data;
-    const deleted = db.deleteTask(importId, taskKeyFull);
-    if (!deleted) {
-      return { ok: false, error: '削除対象のタスクが見つかりません。' };
-    }
+    try {
+      const result = db.deleteTaskWithHistory(importId, taskKeyFull);
+      if (!result) {
+        return { ok: false, error: '削除対象のタスクが見つかりません。' };
+      }
 
-    return { ok: true, taskKeyFull };
+      return { ok: true, taskKeyFull: result.taskKeyFull };
+    } catch (error) {
+      console.error('Failed to delete task with history cleanup.', error);
+      return { ok: false, error: 'タスクの削除に失敗しました。' };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.historyStatus, async (_event, payload) => {

@@ -104,7 +104,7 @@ const GanttPage = () => {
       );
     };
 
-    const handleKeydown = (event: KeyboardEvent) => {
+    const handleKeydown = async (event: KeyboardEvent) => {
       if (isTypingElement(event.target)) {
         return;
       }
@@ -134,12 +134,17 @@ const GanttPage = () => {
         if (!confirmed) {
           return;
         }
-        deleteTask(selectedTask).catch((error) => {
+        try {
+          const ok = await deleteTask(selectedTask);
+          if (!ok) {
+            setLastError('タスクの削除に失敗しました。');
+          }
+        } catch (error) {
           console.error('Failed to delete task from keyboard shortcut.', error);
           setLastError(
             error instanceof Error ? error.message : 'タスクの削除に失敗しました。'
           );
-        });
+        }
         return;
       }
 
