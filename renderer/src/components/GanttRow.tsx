@@ -344,6 +344,14 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
         : null;
   const isCollapsed = groupId ? data.collapsedGroups.includes(groupId) : false;
   const rowStyle: CSSProperties = { ...(style as CSSProperties), width: data.totalWidth };
+  const dataRowType = row.type === 'task' ? 'task' : row.type;
+  const dataRowId =
+    row.type === 'member'
+      ? row.memberName
+      : row.type === 'project'
+        ? row.projectId ?? ''
+        : row.task?.taskKeyFull ?? row.id;
+  const dataProjectId = row.projectId ?? '';
 
   const handleRowContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (row.type !== 'project' || !row.projectId) {
@@ -369,6 +377,10 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
       style={rowStyle}
       onClick={() => row.task && data.setSelectedTask(row.task)}
       onContextMenu={handleRowContextMenu}
+      data-row-type={dataRowType}
+      data-row-id={dataRowId}
+      data-member-name={row.memberName}
+      data-project-id={dataProjectId}
     >
       <div className={`gantt-label gantt-label--level-${row.level}`} style={{ width: data.labelWidth }}>
         {isGroup && groupId ? (

@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useRef } from 'react';
 import ContextMenu from '../components/ContextMenu';
 import GanttView from '../components/GanttView';
+import UnscheduledDrawer from '../components/UnscheduledDrawer';
 import { useAppStore } from '../state/store';
 
 const GanttPage = () => {
@@ -14,6 +15,8 @@ const GanttPage = () => {
   const setCollapsedGroups = useAppStore((state) => state.setCollapsedGroups);
   const collapseAll = useAppStore((state) => state.collapseAll);
   const expandAll = useAppStore((state) => state.expandAll);
+  const isUnscheduledDrawerOpen = useAppStore((state) => state.isUnscheduledDrawerOpen);
+  const toggleUnscheduledDrawer = useAppStore((state) => state.toggleUnscheduledDrawer);
 
   const allGroupIds = useMemo(() => {
     if (!gantt?.tasks) {
@@ -31,6 +34,13 @@ const GanttPage = () => {
       });
     });
     return Array.from(groupIds);
+  }, [gantt]);
+
+  const unscheduledCount = useMemo(() => {
+    if (!gantt?.tasks) {
+      return 0;
+    }
+    return gantt.tasks.filter((task) => task.status === 'unscheduled').length;
   }, [gantt]);
 
   const storageKey = currentScheduleId ? `rasuva:view:${currentScheduleId}` : null;
@@ -135,8 +145,17 @@ const GanttPage = () => {
         >
           すべて展開
         </button>
+        <button
+          className={`cmd-button cmd-button--ghost${isUnscheduledDrawerOpen ? ' cmd-button--active' : ''}`}
+          type="button"
+          onClick={toggleUnscheduledDrawer}
+          disabled={unscheduledCount === 0}
+        >
+          未確定タスク ({unscheduledCount}件)
+        </button>
       </div>
       <GanttView />
+      <UnscheduledDrawer isOpen={isUnscheduledDrawerOpen} />
       <ContextMenu />
     </div>
   );

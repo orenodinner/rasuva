@@ -1,10 +1,17 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, HTMLAttributes } from 'react';
+import type { CSSProperties, HTMLAttributes, DragEvent } from 'react';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { FixedSizeList, type ListOnScrollProps } from 'react-window';
 import type { NormalizedTask } from '@domain';
 import { useAppStore } from '../state/store';
-import { formatIsoDate, getWeekendRects, toUtcDate } from '../utils/ganttMath';
+import {
+  addUtcDays,
+  diffUtcDays,
+  formatIsoDate,
+  getDateFromX,
+  getWeekendRects,
+  toUtcDate
+} from '../utils/ganttMath';
 import GanttHeader from './GanttHeader';
 import GanttRow, { type GanttRowData, type GanttRowItem } from './GanttRow';
 
@@ -599,6 +606,110 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     [scheduleHeaderScrollLeft]
   );
 
+  const handleDragOver = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      if (!timelineStart) {
+        return;
+      }
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+    },
+    [timelineStart]
+  );
+
+  const handleDrop = useCallback(
+    async (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      if (!timelineStart || !scrollRef.current) {
+        return;
+      }
+      const raw = event.dataTransfer.getData('application/json');
+      if (!raw) {
+        return;
+      }
+      let payload: { taskKeyFull?: unknown };
+      try {
+        payload = JSON.parse(raw) as { taskKeyFull?: unknown };
+      } catch {
+        return;
+      }
+      if (typeof payload.taskKeyFull !== 'string') {
+        return;
+      }
+      const task = taskLookup.get(payload.taskKeyFull);
+      if (!task) {
+        return;
+      }
+
+      const targetElement = event.target instanceof Element ? event.target : null;
+      const rowElement = targetElement?.closest<HTMLElement>('[data-row-type]');
+      if (!rowElement) {
+        return;
+      }
+      const memberName = rowElement.dataset.memberName?.trim();
+      if (!memberName) {
+        return;
+      }
+      const projectIdFromRow = rowElement.dataset.projectId?.trim();
+      const projectId =
+        projectIdFromRow && projectIdFromRow.length > 0 ? projectIdFromRow : task.projectId;
+      if (!projectId) {
+        return;
+      }
+
+      const scrollElement = scrollRef.current;
+      const scrollRect = scrollElement.getBoundingClientRect();
+      const timelineX = Math.max(
+        0,
+        event.clientX - scrollRect.left + scrollElement.scrollLeft - labelWidth
+      );
+
+      const startDate = getDateFromX(timelineX, timelineStart, dayWidth);
+      const startIso = formatIsoDate(startDate);
+      if (!startIso) {
+        return;
+      }
+
+      const durationDays =
+        task.start && task.end
+          ? diffUtcDays(toUtcDate(task.start), toUtcDate(task.end)) + 1
+          : 1;
+      const endIso = formatIsoDate(addUtcDays(startDate, Math.max(0, durationDays - 1)));
+      const nextProjectGroup = projectGroups.get(projectId) ?? task.projectGroup ?? null;
+
+      try {
+        const ok = await updateTask({
+          currentTaskKeyFull: task.taskKeyFull,
+          memberName,
+          projectId,
+          projectGroup: nextProjectGroup,
+          taskName: task.taskName,
+          start: startIso,
+          end: endIso,
+          note: task.note ?? null,
+          assignees: task.assignees ?? []
+        });
+        if (!ok) {
+          setLastError('未確定タスクの更新に失敗しました。');
+        }
+      } catch (error) {
+        console.error('Failed to schedule task from drawer.', error);
+        setLastError(
+          error instanceof Error ? error.message : '未確定タスクの更新に失敗しました。'
+        );
+      }
+    },
+    [
+      timelineStart,
+      taskLookup,
+      projectGroups,
+      updateTask,
+      setLastError,
+      labelWidth,
+      dayWidth
+    ]
+  );
+
   if (sourceTasks.length === 0) {
     return (
       <div className="empty-state">{emptyLabel ?? 'インポート済みデータがありません。'}</div>
@@ -640,7 +751,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
             ticks={ticks}
           />
         </div>
-        <div className="gantt-body">
+        <div className="gantt-body" onDragOver={handleDragOver} onDrop={handleDrop}>
           {listData ? (
             <AutoSizer>
               {({ height, width }) => (

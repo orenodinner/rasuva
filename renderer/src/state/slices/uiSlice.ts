@@ -20,6 +20,7 @@ export interface UISlice {
     projectId: string | null;
     projectGroup: string | null;
   };
+  isUnscheduledDrawerOpen: boolean;
   contextMenu: {
     visible: boolean;
     x: number;
@@ -35,6 +36,7 @@ export interface UISlice {
   consumeEditFocus: () => void;
   startInlineEdit: (taskKeyFull: string) => void;
   stopInlineEdit: () => void;
+  toggleUnscheduledDrawer: () => void;
   openTaskCreateModal: (payload: { projectId: string; projectGroup?: string | null }) => void;
   closeTaskCreateModal: () => void;
   showContextMenu: (payload: { x: number; y: number; target: ContextMenuTarget }) => void;
@@ -53,6 +55,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
     projectId: null,
     projectGroup: null
   },
+  isUnscheduledDrawerOpen: false,
   contextMenu: {
     visible: false,
     x: 0,
@@ -68,6 +71,8 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
   consumeEditFocus: () => set({ shouldFocusEdit: false }),
   startInlineEdit: (taskKeyFull) => set({ inlineEditTaskKey: taskKeyFull }),
   stopInlineEdit: () => set({ inlineEditTaskKey: null }),
+  toggleUnscheduledDrawer: () =>
+    set((state) => ({ isUnscheduledDrawerOpen: !state.isUnscheduledDrawerOpen })),
   openTaskCreateModal: ({ projectId, projectGroup }) =>
     set({
       taskCreateModal: {
