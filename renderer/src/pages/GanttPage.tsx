@@ -180,7 +180,15 @@ const GanttPage = () => {
 
     window.addEventListener('keydown', handleKeydown);
     return () => window.removeEventListener('keydown', handleKeydown);
-  }, [selectedTask, taskOrder, setSelectedTask, triggerEditFocus, deleteTask, setLastError]);
+  }, [
+    selectedTask,
+    taskOrder,
+    setSelectedTask,
+    triggerEditFocus,
+    deleteTask,
+    openConfirmDialog,
+    setLastError
+  ]);
 
   if (!currentScheduleId) {
     return (
