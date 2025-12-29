@@ -22,6 +22,7 @@ const GanttPage = () => {
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
   const triggerEditFocus = useAppStore((state) => state.triggerEditFocus);
   const deleteTask = useAppStore((state) => state.deleteTask);
+  const openConfirmDialog = useAppStore((state) => state.openConfirmDialog);
   const setLastError = useAppStore((state) => state.setLastError);
 
   const allGroupIds = useMemo(() => {
@@ -130,11 +131,14 @@ const GanttPage = () => {
           return;
         }
         event.preventDefault();
-        const confirmed = window.confirm('このタスクを削除しますか？');
-        if (!confirmed) {
-          return;
-        }
         try {
+          const confirmed = await openConfirmDialog('このタスクを削除しますか？', {
+            confirmLabel: '削除',
+            cancelLabel: 'キャンセル'
+          });
+          if (!confirmed) {
+            return;
+          }
           const ok = await deleteTask(selectedTask);
           if (!ok) {
             setLastError('タスクの削除に失敗しました。');

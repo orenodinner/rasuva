@@ -34,8 +34,17 @@ const ConfirmDialog = () => {
   return (
     <div
       className="modal-backdrop"
+      role="button"
+      tabIndex={0}
+      aria-label="Close dialog backdrop"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
+          resolveConfirmDialog(false);
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === 'Escape') {
+          event.preventDefault();
           resolveConfirmDialog(false);
         }
       }}
