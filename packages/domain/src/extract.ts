@@ -1,4 +1,4 @@
-import { RawImportSchema } from './schema';
+import { RawImportSchema, RawMemberSchema, RawProjectSchema, RawTaskSchema } from './schema';
 import type { RawImport } from './types';
 
 const CODE_BLOCK_REGEX = /```(?:json)?\s*([\s\S]*?)```/g;
@@ -16,13 +16,16 @@ const extractCodeBlocks = (text: string) => {
   return blocks;
 };
 
+const FRAGMENT_KEYS = ['"members"', '"projects"', '"tasks"', '"project_id"', '"task_name"'];
+
 const extractRawBlocks = (text: string) => {
   const blocks: string[] = [];
   const length = text.length;
   let index = 0;
 
   while (index < length) {
-    if (text[index] !== '{') {
+    const startChar = text[index];
+    if (startChar !== '{' && startChar !== '[') {
       index += 1;
       continue;
     }
@@ -30,8 +33,8 @@ const extractRawBlocks = (text: string) => {
     const start = index;
     let inString = false;
     let escaped = false;
-    let foundMembers = false;
-    const stack: string[] = ['{'];
+    let foundKey = false;
+    const stack: string[] = [startChar];
     index += 1;
 
     while (index < length) {
@@ -50,8 +53,11 @@ const extractRawBlocks = (text: string) => {
       }
 
       if (char === '"') {
-        if (text.slice(index, index + 9) === '"members"') {
-          foundMembers = true;
+        for (const key of FRAGMENT_KEYS) {
+          if (text.slice(index, index + key.length) === key) {
+            foundKey = true;
+            break;
+          }
         }
         inString = true;
         index += 1;
@@ -73,7 +79,7 @@ const extractRawBlocks = (text: string) => {
         }
         index += 1;
         if (stack.length === 0) {
-          if (foundMembers) {
+          if (foundKey) {
             blocks.push(text.slice(start, index));
           }
           break;
@@ -85,7 +91,7 @@ const extractRawBlocks = (text: string) => {
     }
 
     if (stack.length > 0) {
-      if (foundMembers) {
+      if (foundKey) {
         blocks.push(text.slice(start));
       }
       break;
@@ -146,12 +152,89 @@ const repairJsonText = (text: string) => {
   return output;
 };
 
+const wrapProjectsAsImport = (projects: RawImport['members'][number]['projects']): RawImport => ({
+  members: [
+    {
+      name: '',
+      projects
+    }
+  ]
+});
+
+const tryWrapFragment = (value: unknown): RawImport | null => {
+  const memberResult = RawMemberSchema.safeParse(value);
+  if (memberResult.success) {
+    return { members: [memberResult.data] };
+  }
+
+  const membersResult = RawMemberSchema.array().safeParse(value);
+  if (membersResult.success) {
+    return { members: membersResult.data };
+  }
+
+  const projectResult = RawProjectSchema.safeParse(value);
+  if (projectResult.success) {
+    return wrapProjectsAsImport([projectResult.data]);
+  }
+
+  const projectsResult = RawProjectSchema.array().safeParse(value);
+  if (projectsResult.success) {
+    return wrapProjectsAsImport(projectsResult.data);
+  }
+
+  const taskResult = RawTaskSchema.safeParse(value);
+  if (taskResult.success) {
+    return wrapProjectsAsImport([
+      {
+        project_id: null,
+        group: null,
+        tasks: [taskResult.data]
+      }
+    ]);
+  }
+
+  const tasksResult = RawTaskSchema.array().safeParse(value);
+  if (tasksResult.success) {
+    return wrapProjectsAsImport([
+      {
+        project_id: null,
+        group: null,
+        tasks: tasksResult.data
+      }
+    ]);
+  }
+
+  if (value && typeof value === 'object' && 'tasks' in value) {
+    const container = value as { tasks?: unknown; group?: unknown; project_id?: unknown };
+    const embeddedTasks = RawTaskSchema.array().safeParse(container.tasks);
+    if (embeddedTasks.success) {
+      const projectId =
+        typeof container.project_id === 'string' || container.project_id === null
+          ? container.project_id
+          : null;
+      const group = typeof container.group === 'string' ? container.group : null;
+      return wrapProjectsAsImport([
+        {
+          project_id: projectId ?? null,
+          group,
+          tasks: embeddedTasks.data
+        }
+      ]);
+    }
+  }
+
+  return null;
+};
+
 const parseRawImport = (text: string): RawImport | null => {
   try {
     const repaired = repairJsonText(text);
     const parsed = JSON.parse(repaired) as unknown;
     const result = RawImportSchema.safeParse(parsed);
-    return result.success ? (result.data as RawImport) : null;
+    if (result.success) {
+      return result.data as RawImport;
+    }
+    return tryWrapFragment(parsed);
   } catch {
     return null;
   }
@@ -204,7 +287,16 @@ const mergeRawImports = (imports: RawImport[]): RawImport => {
 
 export const extractJsonFromText = (text: string): RawImport | null => {
   const codeBlocks = extractCodeBlocks(text);
-  const rawBlocks = codeBlocks.length > 0 ? codeBlocks : extractRawBlocks(text);
+  const rawBlocks =
+    codeBlocks.length > 0
+      ? [
+          ...codeBlocks.flatMap((block) => {
+            const extracted = extractRawBlocks(block);
+            return extracted.length > 0 ? [block, ...extracted] : [block];
+          }),
+          ...extractRawBlocks(text)
+        ]
+      : extractRawBlocks(text);
   const uniqueBlocks = Array.from(new Set(rawBlocks.map((block) => block.trim()))).filter(
     (block) => block.length > 0
   );

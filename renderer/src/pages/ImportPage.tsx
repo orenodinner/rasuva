@@ -6,13 +6,16 @@ import { useAppStore } from '../state/store';
 const ImportPage = () => {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
+  const appendFileRef = useRef<HTMLInputElement>(null);
   const jsonText = useAppStore((state) => state.jsonText);
   const setJsonText = useAppStore((state) => state.setJsonText);
+  const appendJsonText = useAppStore((state) => state.appendJsonText);
   const setImportSource = useAppStore((state) => state.setImportSource);
   const loadPreview = useAppStore((state) => state.loadPreview);
   const loadExcelImport = useAppStore((state) => state.loadExcelImport);
   const lastError = useAppStore((state) => state.lastError);
   const clearError = useAppStore((state) => state.clearError);
+  const setLastError = useAppStore((state) => state.setLastError);
 
   useEffect(() => {
     const handler = () => fileRef.current?.click();
@@ -25,6 +28,7 @@ const ImportPage = () => {
     if (!file) {
       return;
     }
+    event.target.value = '';
     const reader = new FileReader();
     reader.onload = () => {
       const text = typeof reader.result === 'string' ? reader.result : '';
@@ -32,6 +36,41 @@ const ImportPage = () => {
       setImportSource('file');
     };
     reader.readAsText(file);
+  };
+
+  const handleAppendFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    event.target.value = '';
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === 'string' ? reader.result : '';
+      appendJsonText(text);
+      setImportSource('file');
+    };
+    reader.readAsText(file);
+  };
+
+  const handleAppendClipboard = async () => {
+    clearError();
+    if (!navigator.clipboard?.readText) {
+      setLastError('クリップボードが利用できません。');
+      return;
+    }
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) {
+        setLastError('クリップボードが空です。');
+        return;
+      }
+      appendJsonText(text);
+      setImportSource('paste');
+    } catch (error) {
+      console.error('Failed to read clipboard.', error);
+      setLastError('クリップボードの読み取りに失敗しました。');
+    }
   };
 
   const handlePreview = async () => {
@@ -57,7 +96,7 @@ const ImportPage = () => {
         <p>JSON を貼り付けるか、ファイル（JSON/Excel）を読み込みます。</p>
       </div>
       <div className="import-actions">
-        <button className="cmd-button" onClick={() => fileRef.current?.click()}>
+        <button className="cmd-button" type="button" onClick={() => fileRef.current?.click()}>
           JSONファイルを選択
         </button>
         <input
@@ -67,10 +106,31 @@ const ImportPage = () => {
           className="file-input"
           onChange={handleFileChange}
         />
-        <button className="cmd-button cmd-button--ghost" onClick={handleExcelImport}>
+        <button
+          className="cmd-button cmd-button--ghost"
+          type="button"
+          onClick={() => appendFileRef.current?.click()}
+        >
+          ファイルを追加
+        </button>
+        <input
+          ref={appendFileRef}
+          type="file"
+          accept="application/json,.json"
+          className="file-input"
+          onChange={handleAppendFileChange}
+        />
+        <button
+          className="cmd-button cmd-button--ghost"
+          type="button"
+          onClick={handleAppendClipboard}
+        >
+          クリップボードから追記
+        </button>
+        <button className="cmd-button cmd-button--ghost" type="button" onClick={handleExcelImport}>
           Excelからインポート
         </button>
-        <button className="cmd-button cmd-button--ghost" onClick={handlePreview}>
+        <button className="cmd-button cmd-button--ghost" type="button" onClick={handlePreview}>
           プレビュー
         </button>
       </div>
