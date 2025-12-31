@@ -23,6 +23,7 @@ const DetailsPane = () => {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [note, setNote] = useState('');
+  const [reason, setReason] = useState('');
   const [assigneesText, setAssigneesText] = useState('');
   const taskNameInputRef = useRef<HTMLInputElement>(null);
 
@@ -36,6 +37,7 @@ const DetailsPane = () => {
       setStart('');
       setEnd('');
       setNote('');
+      setReason('');
       setAssigneesText('');
       return;
     }
@@ -47,6 +49,7 @@ const DetailsPane = () => {
     setStart(task.start ?? '');
     setEnd(task.end ?? '');
     setNote(task.note ?? '');
+    setReason('');
     setAssigneesText(task.assignees.join(', '));
   }, [task]);
 
@@ -119,6 +122,7 @@ const DetailsPane = () => {
           .filter((value) => value.length > 0 && value !== trimmedMemberName)
       )
     );
+    const trimmedReason = reason.trim();
     const ok = await updateTask({
       currentTaskKeyFull: task.taskKeyFull,
       memberName: trimmedMemberName,
@@ -128,7 +132,8 @@ const DetailsPane = () => {
       start: start.trim() ? start.trim() : null,
       end: end.trim() ? end.trim() : null,
       note: note.trim() ? note.trim() : null,
-      assignees
+      assignees,
+      reason: trimmedReason.length > 0 ? trimmedReason : null
     });
     if (ok) {
       clearRequiredFieldsError();
@@ -255,6 +260,15 @@ const DetailsPane = () => {
                   rows={3}
                   value={note}
                   onChange={(event) => setNote(event.target.value)}
+                />
+              </div>
+              <div className="detail-block">
+                <div className="detail-label">変更理由（任意）</div>
+                <textarea
+                  className="detail-textarea"
+                  rows={2}
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
                 />
               </div>
               <div className="detail-block">
