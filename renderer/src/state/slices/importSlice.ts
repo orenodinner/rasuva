@@ -32,10 +32,10 @@ const prepareJsonText = (jsonText: string): PreparedJsonResult => {
     return { ok: true, text: jsonText };
   } catch {
     const extracted = extractJsonFromText(jsonText);
-    if (!extracted) {
+    if (!extracted.rawJson) {
       return { ok: false, error: INVALID_JSON_MESSAGE };
     }
-    return { ok: true, text: JSON.stringify(extracted, null, 2) };
+    return { ok: true, text: JSON.stringify(extracted.rawJson, null, 2) };
   }
 };
 

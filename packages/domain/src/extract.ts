@@ -1,16 +1,26 @@
 import { RawImportSchema, RawMemberSchema, RawProjectSchema, RawTaskSchema } from './schema';
-import type { RawImport } from './types';
+import type { ExtractionResult, RawImport, RepairLogEntry } from './types';
 
 const CODE_BLOCK_REGEX = /```(?:json)?\s*([\s\S]*?)```/g;
 
-const extractCodeBlocks = (text: string) => {
-  const blocks: string[] = [];
+type TextBlock = {
+  start: number;
+  end: number;
+  text: string;
+};
+
+const extractCodeBlocks = (text: string): TextBlock[] => {
+  const blocks: TextBlock[] = [];
   CODE_BLOCK_REGEX.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = CODE_BLOCK_REGEX.exec(text)) !== null) {
     const block = match[1].trim();
     if (block.length > 0) {
-      blocks.push(block);
+      blocks.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        text: block
+      });
     }
   }
   return blocks;
@@ -18,8 +28,8 @@ const extractCodeBlocks = (text: string) => {
 
 const FRAGMENT_KEYS = ['"members"', '"projects"', '"tasks"', '"project_id"', '"task_name"'];
 
-const extractRawBlocks = (text: string) => {
-  const blocks: string[] = [];
+const extractRawBlocks = (text: string): TextBlock[] => {
+  const blocks: TextBlock[] = [];
   const length = text.length;
   let index = 0;
 
@@ -80,7 +90,7 @@ const extractRawBlocks = (text: string) => {
         index += 1;
         if (stack.length === 0) {
           if (foundKey) {
-            blocks.push(text.slice(start, index));
+            blocks.push({ start, end: index, text: text.slice(start, index) });
           }
           break;
         }
@@ -92,7 +102,7 @@ const extractRawBlocks = (text: string) => {
 
     if (stack.length > 0) {
       if (foundKey) {
-        blocks.push(text.slice(start));
+        blocks.push({ start, end: length, text: text.slice(start) });
       }
       break;
     }
@@ -101,11 +111,12 @@ const extractRawBlocks = (text: string) => {
   return blocks;
 };
 
-const repairJsonText = (text: string) => {
+const repairJsonText = (text: string): { repaired: string; repairLog: RepairLogEntry[] } => {
   const stack: string[] = [];
   let inString = false;
   let escaped = false;
   let output = '';
+  const repairLog: RepairLogEntry[] = [];
 
   for (let i = 0; i < text.length; i += 1) {
     const char = text[i];
@@ -143,13 +154,26 @@ const repairJsonText = (text: string) => {
 
   if (inString) {
     output += '"';
+    repairLog.push({
+      type: 'fixed_quote',
+      original: '',
+      fixed: '"',
+      index: output.length - 1
+    });
   }
 
   for (let i = stack.length - 1; i >= 0; i -= 1) {
-    output += stack[i] === '{' ? '}' : ']';
+    const fixed = stack[i] === '{' ? '}' : ']';
+    output += fixed;
+    repairLog.push({
+      type: 'closed_brace',
+      original: '',
+      fixed,
+      index: output.length - 1
+    });
   }
 
-  return output;
+  return { repaired: output, repairLog };
 };
 
 const wrapProjectsAsImport = (projects: RawImport['members'][number]['projects']): RawImport => ({
@@ -226,17 +250,19 @@ const tryWrapFragment = (value: unknown): RawImport | null => {
   return null;
 };
 
-const parseRawImport = (text: string): RawImport | null => {
+const parseRawImport = (
+  text: string
+): { rawImport: RawImport | null; repairLog: RepairLogEntry[] } => {
   try {
-    const repaired = repairJsonText(text);
+    const { repaired, repairLog } = repairJsonText(text);
     const parsed = JSON.parse(repaired) as unknown;
     const result = RawImportSchema.safeParse(parsed);
     if (result.success) {
-      return result.data as RawImport;
+      return { rawImport: result.data as RawImport, repairLog };
     }
-    return tryWrapFragment(parsed);
+    return { rawImport: tryWrapFragment(parsed), repairLog };
   } catch {
-    return null;
+    return { rawImport: null, repairLog: [] };
   }
 };
 
@@ -285,33 +311,89 @@ const mergeRawImports = (imports: RawImport[]): RawImport => {
   return { members };
 };
 
-export const extractJsonFromText = (text: string): RawImport | null => {
+const buildSegments = (
+  textLength: number,
+  blocks: { start: number; end: number; type: 'json' | 'garbage' }[]
+) => {
+  const segments: ExtractionResult['segments'] = [];
+  let cursor = 0;
+
+  blocks.forEach((block) => {
+    if (block.start > cursor) {
+      segments.push({ start: cursor, end: block.start, type: 'text' });
+    }
+    segments.push({ start: block.start, end: block.end, type: block.type });
+    cursor = Math.max(cursor, block.end);
+  });
+
+  if (cursor < textLength) {
+    segments.push({ start: cursor, end: textLength, type: 'text' });
+  }
+
+  if (segments.length === 0) {
+    segments.push({ start: 0, end: textLength, type: 'text' });
+  }
+
+  return segments;
+};
+
+export const extractJsonFromText = (text: string): ExtractionResult => {
   const codeBlocks = extractCodeBlocks(text);
   const rawBlocks =
     codeBlocks.length > 0
       ? [
           ...codeBlocks.flatMap((block) => {
-            const extracted = extractRawBlocks(block);
+            const extracted = extractRawBlocks(block.text);
             return extracted.length > 0 ? [block, ...extracted] : [block];
           }),
           ...extractRawBlocks(text)
         ]
       : extractRawBlocks(text);
-  const uniqueBlocks = Array.from(new Set(rawBlocks.map((block) => block.trim()))).filter(
-    (block) => block.length > 0
+
+  const codeRanges = codeBlocks.map((block) => ({ start: block.start, end: block.end }));
+  const filteredRawBlocks = rawBlocks.filter((block) =>
+    codeRanges.every((range) => block.end <= range.start || block.start >= range.end)
   );
+  const candidateBlocks = (codeBlocks.length > 0 ? [...codeBlocks, ...filteredRawBlocks] : rawBlocks)
+    .filter((block) => block.text.trim().length > 0)
+    .sort((a, b) => a.start - b.start);
 
-  const parsedBlocks = uniqueBlocks
-    .map((block) => parseRawImport(block))
-    .filter((value): value is RawImport => value !== null);
+  const nonOverlappingBlocks: TextBlock[] = [];
+  let lastEnd = -1;
+  candidateBlocks.forEach((block) => {
+    if (block.start < lastEnd) {
+      return;
+    }
+    nonOverlappingBlocks.push(block);
+    lastEnd = block.end;
+  });
 
-  if (parsedBlocks.length === 0) {
-    return null;
-  }
+  const parsedBlocks: RawImport[] = [];
+  const segments: { start: number; end: number; type: 'json' | 'garbage' }[] = [];
+  const repairLog: RepairLogEntry[] = [];
 
-  if (parsedBlocks.length === 1) {
-    return parsedBlocks[0];
-  }
+  nonOverlappingBlocks.forEach((block) => {
+    const result = parseRawImport(block.text);
+    const hasJson = Boolean(result.rawImport);
+    segments.push({ start: block.start, end: block.end, type: hasJson ? 'json' : 'garbage' });
+    if (result.rawImport) {
+      parsedBlocks.push(result.rawImport);
+    }
+    result.repairLog.forEach((entry) => {
+      repairLog.push({ ...entry, index: entry.index + block.start });
+    });
+  });
 
-  return mergeRawImports(parsedBlocks);
+  const merged =
+    parsedBlocks.length === 0
+      ? null
+      : parsedBlocks.length === 1
+        ? parsedBlocks[0]
+        : mergeRawImports(parsedBlocks);
+
+  return {
+    rawJson: merged,
+    segments: buildSegments(text.length, segments),
+    repairLog
+  };
 };
