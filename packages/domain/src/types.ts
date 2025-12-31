@@ -1,5 +1,24 @@
 export type TaskStatus = 'scheduled' | 'unscheduled' | 'invalid_date';
 
+export type ExtractionSegment = {
+  start: number;
+  end: number;
+  type: 'json' | 'text' | 'garbage';
+};
+
+export type RepairLogEntry = {
+  type: 'fixed_quote' | 'closed_brace' | 'date_normalized';
+  original: string;
+  fixed: string;
+  index: number;
+};
+
+export type ExtractionResult = {
+  rawJson: RawImport | null;
+  segments: ExtractionSegment[];
+  repairLog: RepairLogEntry[];
+};
+
 export interface RawImport {
   members: RawMember[];
 }

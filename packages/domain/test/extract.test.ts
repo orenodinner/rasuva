@@ -24,16 +24,16 @@ const makeImport = (memberName: string, projectId: string, taskName: string) => 
 
 describe('extractJsonFromText', () => {
   it('returns null for empty input', () => {
-    expect(extractJsonFromText('')).toBeNull();
+    expect(extractJsonFromText('').rawJson).toBeNull();
   });
 
   it('returns null for plain text input', () => {
-    expect(extractJsonFromText('just some plain text')).toBeNull();
+    expect(extractJsonFromText('just some plain text').rawJson).toBeNull();
   });
 
   it('returns null when JSON lacks members field', () => {
     const input = ['```json', '{ "foo": "bar" }', '```'].join('\n');
-    expect(extractJsonFromText(input)).toBeNull();
+    expect(extractJsonFromText(input).rawJson).toBeNull();
   });
 
   it('extracts JSON from noisy chat logs', () => {
@@ -46,7 +46,7 @@ describe('extractJsonFromText', () => {
       'User: Thanks!'
     ].join('\n');
 
-    const result = extractJsonFromText(input);
+    const result = extractJsonFromText(input).rawJson;
     expect(result).toEqual(rawImport);
   });
 
@@ -67,7 +67,7 @@ describe('extractJsonFromText', () => {
       '              "raw_date": "2025-01-'
     ].join('\n');
 
-    const result = extractJsonFromText(input);
+    const result = extractJsonFromText(input).rawJson;
     expect(result).not.toBeNull();
     if (!result) {
       return;
@@ -85,7 +85,7 @@ describe('extractJsonFromText', () => {
     const second = makeImport('Suzuki', 'P2', 'Task B');
     const input = `${JSON.stringify(first)}\n\nUser: Next\n\n${JSON.stringify(second)}`;
 
-    const result = extractJsonFromText(input);
+    const result = extractJsonFromText(input).rawJson;
     expect(result).not.toBeNull();
     if (!result) {
       return;
@@ -108,7 +108,7 @@ describe('extractJsonFromText', () => {
       '```'
     ].join('\n');
 
-    const result = extractJsonFromText(input);
+    const result = extractJsonFromText(input).rawJson;
     expect(result).not.toBeNull();
     if (!result) {
       return;
