@@ -70,6 +70,7 @@ export interface TaskUpdateInput {
   end: string | null;
   note: string | null;
   assignees: string[];
+  reason?: string | null;
 }
 
 export interface TaskCreateInput {

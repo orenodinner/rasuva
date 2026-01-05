@@ -243,7 +243,8 @@ const taskUpdateSchema = z.object({
   start: z.string().nullable(),
   end: z.string().nullable(),
   note: z.string().nullable(),
-  assignees: z.array(z.string())
+  assignees: z.array(z.string()),
+  reason: z.string().nullable().optional()
 });
 
 const taskDeleteSchema = z.object({
@@ -1036,6 +1037,8 @@ export const registerIpcHandlers = (db: DbClient) => {
     const endRaw = parsedPayload.data.end;
     const noteRaw = parsedPayload.data.note ?? null;
     const note = noteRaw && noteRaw.trim().length > 0 ? noteRaw.trim() : null;
+    const reasonRaw = parsedPayload.data.reason ?? null;
+    const reason = reasonRaw && reasonRaw.trim().length > 0 ? reasonRaw.trim() : null;
     const assignees = normalizeAssignees(parsedPayload.data.assignees).filter(
       (name) => name !== memberName
     );
@@ -1063,6 +1066,10 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: '終了日が開始日より前です。' };
     }
 
+    const noteWithReason = reason
+      ? `${note ? `${note}\n` : ''}理由: ${reason}`
+      : note;
+
     const historyResult = db.updateTaskWithHistory(importId, currentTaskKeyFull, {
       memberName,
       projectId,
@@ -1070,7 +1077,7 @@ export const registerIpcHandlers = (db: DbClient) => {
       taskName,
       start: status === 'scheduled' ? start : null,
       end: status === 'scheduled' ? end : null,
-      note,
+      note: noteWithReason,
       status,
       assignees
     });
