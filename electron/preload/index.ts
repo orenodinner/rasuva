@@ -1,13 +1,24 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipcChannels';
-import type { NormalizedTask, SavedViewState, TaskCreateInput, TaskUpdateInput } from '@domain';
+import type {
+  ImportApplyMode,
+  NormalizedTask,
+  SavedViewState,
+  TaskCreateInput,
+  TaskUpdateInput
+} from '@domain';
 
 const api = {
-  importPreview: (jsonText: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.importPreview, { jsonText }),
-  importExcel: () => ipcRenderer.invoke(IPC_CHANNELS.importExcel),
-  importApply: (jsonText: string, source: 'paste' | 'file' | 'excel', scheduleId: number) =>
-    ipcRenderer.invoke(IPC_CHANNELS.importApply, { jsonText, source, scheduleId }),
+  importPreview: (jsonText: string, scheduleId?: number) =>
+    ipcRenderer.invoke(IPC_CHANNELS.importPreview, scheduleId ? { jsonText, scheduleId } : { jsonText }),
+  importExcel: (scheduleId?: number) =>
+    ipcRenderer.invoke(IPC_CHANNELS.importExcel, scheduleId ? { scheduleId } : {}),
+  importApply: (
+    jsonText: string,
+    source: 'paste' | 'file' | 'excel',
+    scheduleId: number,
+    mode: ImportApplyMode
+  ) => ipcRenderer.invoke(IPC_CHANNELS.importApply, { jsonText, source, scheduleId, mode }),
   diffGet: (scheduleId: number, importId?: number) =>
     ipcRenderer.invoke(IPC_CHANNELS.diffGet, { scheduleId, importId }),
   ganttQuery: (scheduleId: number, importId?: number) =>

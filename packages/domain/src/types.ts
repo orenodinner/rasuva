@@ -1,4 +1,5 @@
 export type TaskStatus = 'scheduled' | 'unscheduled' | 'invalid_date';
+export type ImportApplyMode = 'incremental' | 'full';
 
 export type ExtractionSegment = {
   start: number;
@@ -112,6 +113,7 @@ export interface ImportSummary {
 export interface ImportPreviewResult {
   summary: ImportSummary;
   warnings: ImportWarning[];
+  diffSummary?: DiffSummary;
 }
 
 export interface DiffSummary {

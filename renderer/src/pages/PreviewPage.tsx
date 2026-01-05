@@ -9,12 +9,26 @@ const PreviewPage = () => {
   const loadGantt = useAppStore((state) => state.loadGantt);
   const lastError = useAppStore((state) => state.lastError);
 
-  const handleApply = async () => {
-    const result = await applyImport(importSource);
+  const handleApply = async (mode: 'incremental' | 'full') => {
+    const result = await applyImport(importSource, mode);
     if (result) {
       await loadGantt(result.importId);
       navigate('/diff');
     }
+  };
+
+  const handleApplyIncremental = async () => {
+    await handleApply('incremental');
+  };
+
+  const handleApplyFull = async () => {
+    const confirmed = window.confirm(
+      '全面改訂として適用します。現在のデータはインポート内容で置き換えられます。よろしいですか？'
+    );
+    if (!confirmed) {
+      return;
+    }
+    await handleApply('full');
   };
 
   if (!preview) {
@@ -31,7 +45,8 @@ const PreviewPage = () => {
     );
   }
 
-  const { summary, warnings } = preview;
+  const { summary, warnings, diffSummary } = preview;
+  const archivedCount = diffSummary?.archived ?? 0;
 
   return (
     <div className="page">
@@ -79,9 +94,24 @@ const PreviewPage = () => {
         )}
       </div>
       {lastError ? <div className="alert">{lastError}</div> : null}
+      {archivedCount > 0 ? (
+        <div className="alert">
+          入力データに含まれないタスクが {archivedCount} 件あります。
+        </div>
+      ) : null}
+      <div className="preview-hints">
+        <div>追記・更新: 既存のタスクを残し、新しいデータのみ追加・更新します。</div>
+        <div>
+          全面改訂: 現在のデータをこのインポート内容で完全に置き換えます。
+        </div>
+        <div>※追記モードではアーカイブは発生しません。</div>
+      </div>
       <div className="action-row">
-        <button className="cmd-button" onClick={handleApply}>
-          インポートを適用
+        <button className="cmd-button" type="button" onClick={handleApplyIncremental}>
+          追記・更新として適用
+        </button>
+        <button className="cmd-button cmd-button--danger" type="button" onClick={handleApplyFull}>
+          全面改訂として適用
         </button>
       </div>
     </div>
