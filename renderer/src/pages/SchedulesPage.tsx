@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../state/store';
 
 const SchedulesPage = () => {
   const [name, setName] = useState('');
   const [editingScheduleId, setEditingScheduleId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [originalEditingName, setOriginalEditingName] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
   const schedules = useAppStore((state) => state.schedules);
   const currentScheduleId = useAppStore((state) => state.currentScheduleId);
   const loadSchedules = useAppStore((state) => state.loadSchedules);
@@ -17,6 +20,16 @@ const SchedulesPage = () => {
     loadSchedules();
   }, [loadSchedules]);
 
+  useEffect(() => {
+    if (editingScheduleId === null) {
+      return;
+    }
+    const rafId = requestAnimationFrame(() => {
+      editInputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [editingScheduleId]);
+
   const handleCreate = async () => {
     if (!name.trim()) {
       return;
@@ -26,13 +39,27 @@ const SchedulesPage = () => {
   };
 
   const startRename = (scheduleId: number, currentName: string) => {
+    if (
+      editingScheduleId !== null &&
+      editingScheduleId !== scheduleId &&
+      editingName !== originalEditingName
+    ) {
+      const ok = window.confirm('編集内容が未保存です。破棄して別のスケジュールを編集しますか？');
+      if (!ok) {
+        return;
+      }
+    }
     setEditingScheduleId(scheduleId);
     setEditingName(currentName);
+    setOriginalEditingName(currentName);
+    setRenameError(null);
   };
 
   const cancelRename = () => {
     setEditingScheduleId(null);
     setEditingName('');
+    setOriginalEditingName('');
+    setRenameError(null);
   };
 
   const handleRenameSave = async () => {
@@ -43,9 +70,16 @@ const SchedulesPage = () => {
     if (!next) {
       return;
     }
-    const ok = await updateSchedule(editingScheduleId, next);
-    if (ok) {
-      cancelRename();
+    try {
+      const ok = await updateSchedule(editingScheduleId, next);
+      if (ok) {
+        cancelRename();
+      } else {
+        setRenameError('名称変更に失敗しました。もう一度お試しください。');
+      }
+    } catch (error) {
+      console.error('Failed to update schedule name.', error);
+      setRenameError('名称変更に失敗しました。もう一度お試しください。');
     }
   };
 
@@ -88,11 +122,23 @@ const SchedulesPage = () => {
                 {editingScheduleId === schedule.id ? (
                   <>
                     <input
+                      ref={editInputRef}
                       className="text-input"
                       value={editingName}
                       onChange={(event) => setEditingName(event.target.value)}
                       placeholder="新しいスケジュール名"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void handleRenameSave();
+                        }
+                        if (event.key === 'Escape') {
+                          event.preventDefault();
+                          cancelRename();
+                        }
+                      }}
                     />
+                    {renameError ? <div className="alert">{renameError}</div> : null}
                     <div className="list-subtitle">更新 {schedule.updatedAt}</div>
                   </>
                 ) : (

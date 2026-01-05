@@ -32,23 +32,15 @@ const formatYearMonth = (date: Date) => {
 
 const getTodayIso = () => new Date().toISOString().slice(0, 10);
 
-const addDays = (date: Date, days: number) => {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
-};
-
-const diffDays = (start: Date, end: Date) => {
-  return Math.floor((end.getTime() - start.getTime()) / MS_PER_DAY);
-};
-
 const getSundayOnOrBefore = (date: Date) => {
   const day = date.getUTCDay();
-  return addDays(date, -day);
+  return addUtcDays(date, -day);
 };
 
 const getNextSundayAfter = (date: Date) => {
   const day = date.getUTCDay();
   const offset = day === 0 ? 7 : 7 - day;
-  return addDays(date, offset);
+  return addUtcDays(date, offset);
 };
 
 const getWeekStart = (dateStr: string) => {
@@ -428,7 +420,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     const config = zoomConfig[zoom];
     const focus = toUtcDate(focusDate);
     const dayWidth = config.columnWidth / config.unitDays;
-    const offsetDays = diffDays(timelineStart, focus);
+    const offsetDays = diffUtcDays(timelineStart, focus);
     const scrollLeft = Math.max(0, offsetDays * dayWidth - 120);
     setHorizontalScroll(scrollLeft, 'smooth');
     setFocusDate(null);
@@ -437,7 +429,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const { unitDays, columnWidth } = zoomConfig[zoom];
   const dayWidth = columnWidth / unitDays;
   const rangeDays =
-    timelineStart && timelineEnd ? diffDays(timelineStart, timelineEnd) + 1 : 0;
+    timelineStart && timelineEnd ? diffUtcDays(timelineStart, timelineEnd) + 1 : 0;
   const columnCount = timelineStart && timelineEnd ? Math.ceil(rangeDays / unitDays) : 0;
   const timelineWidth = columnCount * columnWidth;
   const labelWidth = 260;
@@ -465,8 +457,8 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     if (selectedDate < timelineStart || selectedDate > timelineEnd) {
       return null;
     }
-    const offsetDays = diffDays(timelineStart, selectedDate);
-    const rangeDays = diffDays(timelineStart, timelineEnd) + 1;
+    const offsetDays = diffUtcDays(timelineStart, selectedDate);
+    const rangeDays = diffUtcDays(timelineStart, timelineEnd) + 1;
     const blockWidthDays = Math.min(unitDays, rangeDays - offsetDays);
     if (blockWidthDays <= 0 || offsetDays < 0) {
       return null;
@@ -494,7 +486,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     }[] = [];
 
     for (let index = 0; index < columnCount; index += 1) {
-      const tickDate = addDays(timelineStart, index * unitDays);
+      const tickDate = addUtcDays(timelineStart, index * unitDays);
       const key = formatIsoDate(tickDate);
       const yearLabel = `${tickDate.getUTCFullYear()}`;
       const monthLabel = `${tickDate.getUTCMonth() + 1}`.padStart(2, '0');
@@ -591,9 +583,9 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       if (clickedDate < timelineStart || clickedDate > timelineEnd) {
         return;
       }
-      const offsetDays = diffDays(timelineStart, clickedDate);
+      const offsetDays = diffUtcDays(timelineStart, clickedDate);
       const blockStartDays = Math.floor(offsetDays / unitDays) * unitDays;
-      const blockStartDate = addDays(timelineStart, blockStartDays);
+      const blockStartDate = addUtcDays(timelineStart, blockStartDays);
       const blockKey = formatIsoDate(blockStartDate);
       if (!blockKey) {
         return;
@@ -636,7 +628,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       buildTooltip,
       buildSearchHaystack,
       toUtcDate,
-      diffDays,
+      diffDays: diffUtcDays,
       onTimelineClick: handleTimelineClick,
       getScrollLeft
     };

@@ -407,10 +407,27 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
       <div
         className="gantt-timeline"
         style={{ width: data.timelineWidth }}
+        role="button"
+        tabIndex={0}
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
           const scrollLeft = data.getScrollLeft();
           const x = event.clientX - rect.left + scrollLeft;
+          if (x < 0 || x > data.timelineWidth) {
+            return;
+          }
+          data.onTimelineClick(x);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+          }
+          if (event.key === ' ') {
+            event.preventDefault();
+          }
+          const rect = event.currentTarget.getBoundingClientRect();
+          const scrollLeft = data.getScrollLeft();
+          const x = rect.width / 2 + scrollLeft;
           if (x < 0 || x > data.timelineWidth) {
             return;
           }

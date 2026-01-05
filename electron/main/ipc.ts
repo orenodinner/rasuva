@@ -112,9 +112,9 @@ const excelSerialToDate = (value: number) => {
 const pad2 = (value: number) => `${value}`.padStart(2, '0');
 
 const formatDateStamp = (date: Date) => {
-  const year = date.getFullYear();
-  const month = pad2(date.getMonth() + 1);
-  const day = pad2(date.getDate());
+  const year = date.getUTCFullYear();
+  const month = pad2(date.getUTCMonth() + 1);
+  const day = pad2(date.getUTCDate());
   return `${year}${month}${day}`;
 };
 
