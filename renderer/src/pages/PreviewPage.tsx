@@ -107,10 +107,10 @@ const PreviewPage = () => {
         <div>※追記モードではアーカイブは発生しません。</div>
       </div>
       <div className="action-row">
-        <button className="cmd-button" onClick={handleApplyIncremental}>
+        <button className="cmd-button" type="button" onClick={handleApplyIncremental}>
           追記・更新として適用
         </button>
-        <button className="cmd-button cmd-button--danger" onClick={handleApplyFull}>
+        <button className="cmd-button cmd-button--danger" type="button" onClick={handleApplyFull}>
           全面改訂として適用
         </button>
       </div>

@@ -192,7 +192,7 @@ const applySchema = z.object({
   jsonText: z.string(),
   source: z.enum(['paste', 'file', 'excel']),
   scheduleId: scheduleIdSchema,
-  mode: z.enum(['incremental', 'full']).optional()
+  mode: z.enum(['incremental', 'full'])
 });
 
 const diffSchema = z.object({
