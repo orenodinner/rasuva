@@ -3,6 +3,8 @@ import { useAppStore } from '../state/store';
 
 const SchedulesPage = () => {
   const [name, setName] = useState('');
+  const [editingScheduleId, setEditingScheduleId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState('');
   const schedules = useAppStore((state) => state.schedules);
   const currentScheduleId = useAppStore((state) => state.currentScheduleId);
   const loadSchedules = useAppStore((state) => state.loadSchedules);
@@ -23,12 +25,28 @@ const SchedulesPage = () => {
     setName('');
   };
 
-  const handleRename = async (scheduleId: number, currentName: string) => {
-    const next = window.prompt('新しいスケジュール名', currentName);
-    if (!next || !next.trim()) {
+  const startRename = (scheduleId: number, currentName: string) => {
+    setEditingScheduleId(scheduleId);
+    setEditingName(currentName);
+  };
+
+  const cancelRename = () => {
+    setEditingScheduleId(null);
+    setEditingName('');
+  };
+
+  const handleRenameSave = async () => {
+    if (!editingScheduleId) {
       return;
     }
-    await updateSchedule(scheduleId, next.trim());
+    const next = editingName.trim();
+    if (!next) {
+      return;
+    }
+    const ok = await updateSchedule(editingScheduleId, next);
+    if (ok) {
+      cancelRename();
+    }
   };
 
   const handleDelete = async (scheduleId: number, scheduleName: string) => {
@@ -47,7 +65,7 @@ const SchedulesPage = () => {
     <div className="page">
       <div className="page-header">
         <h1>スケジュール管理</h1>
-        <p>複数のスケジュールを作成し、切り替えて管理します。</p>
+        <p>既存のスケジュールを作成・編集・削除します。</p>
       </div>
       <div className="view-save">
         <input
@@ -57,7 +75,7 @@ const SchedulesPage = () => {
           onChange={(event) => setName(event.target.value)}
         />
         <button type="button" className="cmd-button" onClick={handleCreate}>
-          作成
+          追加
         </button>
       </div>
       {schedules.length === 0 ? (
@@ -67,37 +85,73 @@ const SchedulesPage = () => {
           {schedules.map((schedule) => (
             <div key={schedule.id} className="list-row list-row--action">
               <div>
-                <div className="list-title">{schedule.name}</div>
-                <div className="list-subtitle">更新 {schedule.updatedAt}</div>
+                {editingScheduleId === schedule.id ? (
+                  <>
+                    <input
+                      className="text-input"
+                      value={editingName}
+                      onChange={(event) => setEditingName(event.target.value)}
+                      placeholder="新しいスケジュール名"
+                    />
+                    <div className="list-subtitle">更新 {schedule.updatedAt}</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="list-title">{schedule.name}</div>
+                    <div className="list-subtitle">更新 {schedule.updatedAt}</div>
+                  </>
+                )}
               </div>
               <div className="list-metrics">
                 <span>ID {schedule.id}</span>
                 <span>{schedule.description ?? '説明なし'}</span>
               </div>
               <div className="list-actions">
-                <button
-                  type="button"
-                  className="cmd-button cmd-button--ghost"
-                  disabled={schedule.id === currentScheduleId}
-                  onClick={() => switchSchedule(schedule.id)}
-                >
-                  {schedule.id === currentScheduleId ? '使用中' : '切り替え'}
-                </button>
-                <button
-                  type="button"
-                  className="cmd-button cmd-button--ghost"
-                  onClick={() => handleRename(schedule.id, schedule.name)}
-                >
-                  名称変更
-                </button>
-                <button
-                  type="button"
-                  className="cmd-button"
-                  disabled={schedule.id === currentScheduleId}
-                  onClick={() => handleDelete(schedule.id, schedule.name)}
-                >
-                  削除
-                </button>
+                {editingScheduleId === schedule.id ? (
+                  <>
+                    <button
+                      type="button"
+                      className="cmd-button"
+                      onClick={handleRenameSave}
+                      disabled={editingName.trim().length === 0}
+                    >
+                      保存
+                    </button>
+                    <button
+                      type="button"
+                      className="cmd-button cmd-button--ghost"
+                      onClick={cancelRename}
+                    >
+                      キャンセル
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="cmd-button cmd-button--ghost"
+                      disabled={schedule.id === currentScheduleId}
+                      onClick={() => switchSchedule(schedule.id)}
+                    >
+                      {schedule.id === currentScheduleId ? '使用中' : '切り替え'}
+                    </button>
+                    <button
+                      type="button"
+                      className="cmd-button cmd-button--ghost"
+                      onClick={() => startRename(schedule.id, schedule.name)}
+                    >
+                      名称変更
+                    </button>
+                    <button
+                      type="button"
+                      className="cmd-button"
+                      disabled={schedule.id === currentScheduleId}
+                      onClick={() => handleDelete(schedule.id, schedule.name)}
+                    >
+                      削除
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))}

@@ -5,6 +5,10 @@ export interface GanttTick {
   key: string;
   weekLabel: string;
   dateLabel: string;
+  yearLabel: string;
+  monthLabel: string;
+  dayLabel: string;
+  isToday: boolean;
 }
 
 interface GanttHeaderProps {
@@ -29,22 +33,29 @@ const GanttHeader = ({
   ticks
 }: GanttHeaderProps) => {
   const rowStyle: CSSProperties = { minWidth: totalWidth, width: totalWidth };
-  const shouldGroup = zoom !== 'day' || ticks.length > 1;
-  const groupedTicks = ticks.reduce<{ key: string; label: string; span: number }[]>(
-    (acc, tick) => {
-      if (!shouldGroup) {
-        acc.push({ key: `${tick.key}-group`, label: tick.weekLabel, span: 1 });
+  const buildGroups = (
+    keySelector: (tick: GanttTick) => string,
+    labelSelector: (tick: GanttTick) => string
+  ) =>
+    ticks.reduce<{ key: string; label: string; span: number; groupKey: string }[]>(
+      (acc, tick) => {
+        const groupKey = keySelector(tick);
+        const label = labelSelector(tick);
+        const lastGroup = acc[acc.length - 1];
+        if (lastGroup && lastGroup.groupKey === groupKey) {
+          lastGroup.span += 1;
+          return acc;
+        }
+        acc.push({ key: `${tick.key}-${groupKey}`, label, span: 1, groupKey });
         return acc;
-      }
-      const lastGroup = acc[acc.length - 1];
-      if (lastGroup && lastGroup.label === tick.weekLabel) {
-        lastGroup.span += 1;
-        return acc;
-      }
-      acc.push({ key: `${tick.key}-group`, label: tick.weekLabel, span: 1 });
-      return acc;
-    },
-    []
+      },
+      []
+    );
+  const groupedTicks = buildGroups((tick) => tick.weekLabel, (tick) => tick.weekLabel);
+  const yearGroups = buildGroups((tick) => tick.yearLabel, (tick) => tick.yearLabel);
+  const monthGroups = buildGroups(
+    (tick) => `${tick.yearLabel}-${tick.monthLabel}`,
+    (tick) => tick.monthLabel
   );
   const labelStyle: CSSProperties = { width: labelWidth };
   const timelineStyle: CSSProperties = {
@@ -57,42 +68,131 @@ const GanttHeader = ({
 
   return (
     <div className="gantt-header-rows" style={headerRowsStyle}>
-      <div className="gantt-row gantt-row--header gantt-row--header-top" style={rowStyle}>
-        <div className="gantt-label gantt-label--header" style={labelStyle}>
-          {labelText}
-        </div>
-        <div className="gantt-timeline-clip" style={{ width: timelineWidth }}>
-          <div
-            className="gantt-timeline gantt-timeline--header gantt-timeline--header-top"
-            style={timelineStyle}
-          >
-            {groupedTicks.map((group) => (
+      {zoom === 'day' ? (
+        <>
+          <div className="gantt-row gantt-row--header gantt-row--header-top" style={rowStyle}>
+            <div className="gantt-label gantt-label--header" style={labelStyle}>
+              {labelText}
+            </div>
+            <div className="gantt-timeline-clip" style={{ width: timelineWidth }}>
               <div
-                key={group.key}
-                className="gantt-tick gantt-tick--group"
-                style={{ width: columnWidth * group.span }}
+                className="gantt-timeline gantt-timeline--header gantt-timeline--header-top"
+                style={timelineStyle}
               >
-                <span className="gantt-tick__week">{group.label}</span>
+                {yearGroups.map((group) => (
+                  <div
+                    key={group.key}
+                    className="gantt-tick gantt-tick--group"
+                    style={{ width: columnWidth * group.span }}
+                  >
+                    <span className="gantt-tick__week">{group.label}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </div>
-      <div className="gantt-row gantt-row--header gantt-row--header-bottom" style={rowStyle}>
-        <div
-          className="gantt-label gantt-label--header gantt-label--header-spacer"
-          style={labelStyle}
-        />
-        <div className="gantt-timeline-clip" style={{ width: timelineWidth }}>
-          <div className="gantt-timeline gantt-timeline--header" style={timelineStyle}>
-            {ticks.map((tick) => (
-              <div key={tick.key} className="gantt-tick" style={{ width: columnWidth }}>
-                <span className="gantt-tick__date">{tick.dateLabel}</span>
+          <div className="gantt-row gantt-row--header gantt-row--header-middle" style={rowStyle}>
+            <div
+              className="gantt-label gantt-label--header gantt-label--header-spacer"
+              style={labelStyle}
+            />
+            <div className="gantt-timeline-clip" style={{ width: timelineWidth }}>
+              <div
+                className="gantt-timeline gantt-timeline--header gantt-timeline--header-top"
+                style={timelineStyle}
+              >
+                {monthGroups.map((group) => (
+                  <div
+                    key={group.key}
+                    className="gantt-tick gantt-tick--group"
+                    style={{ width: columnWidth * group.span }}
+                  >
+                    <span className="gantt-tick__week">{group.label}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </div>
+          <div className="gantt-row gantt-row--header gantt-row--header-bottom" style={rowStyle}>
+            <div
+              className="gantt-label gantt-label--header gantt-label--header-spacer"
+              style={labelStyle}
+            />
+            <div className="gantt-timeline-clip" style={{ width: timelineWidth }}>
+              <div className="gantt-timeline gantt-timeline--header" style={timelineStyle}>
+                {ticks.map((tick) => (
+                  <div
+                    key={tick.key}
+                    className={tick.isToday ? 'gantt-tick gantt-tick--today' : 'gantt-tick'}
+                    style={{ width: columnWidth }}
+                  >
+                    <span
+                      className={
+                        tick.isToday
+                          ? 'gantt-tick__date gantt-tick__date--today'
+                          : 'gantt-tick__date'
+                      }
+                    >
+                      {tick.dayLabel}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="gantt-row gantt-row--header gantt-row--header-top" style={rowStyle}>
+            <div className="gantt-label gantt-label--header" style={labelStyle}>
+              {labelText}
+            </div>
+            <div className="gantt-timeline-clip" style={{ width: timelineWidth }}>
+              <div
+                className="gantt-timeline gantt-timeline--header gantt-timeline--header-top"
+                style={timelineStyle}
+              >
+                {groupedTicks.map((group) => (
+                  <div
+                    key={group.key}
+                    className="gantt-tick gantt-tick--group"
+                    style={{ width: columnWidth * group.span }}
+                  >
+                    <span className="gantt-tick__week">{group.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="gantt-row gantt-row--header gantt-row--header-bottom" style={rowStyle}>
+            <div
+              className="gantt-label gantt-label--header gantt-label--header-spacer"
+              style={labelStyle}
+            />
+            <div className="gantt-timeline-clip" style={{ width: timelineWidth }}>
+              <div className="gantt-timeline gantt-timeline--header" style={timelineStyle}>
+                {ticks.map((tick) => (
+                  <div
+                    key={tick.key}
+                    className={tick.isToday ? 'gantt-tick gantt-tick--today' : 'gantt-tick'}
+                    style={{ width: columnWidth }}
+                  >
+                    <span
+                      className={
+                        tick.isToday
+                          ? 'gantt-tick__date gantt-tick__date--today'
+                          : 'gantt-tick__date'
+                      }
+                    >
+                      {tick.dateLabel}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

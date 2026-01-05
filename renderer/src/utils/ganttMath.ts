@@ -41,6 +41,11 @@ export const isHoliday = (date: Date) => {
   return day === 0 || day === 6;
 };
 
+export const getTodayUtcDate = () => {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+};
+
 export const diffUtcDays = (start: Date, end: Date) => {
   return Math.floor((end.getTime() - start.getTime()) / MS_PER_DAY);
 };
@@ -94,4 +99,30 @@ export const getWeekendRects = (timelineStart: Date, timelineEnd: Date, dayWidth
   }
 
   return rects;
+};
+
+export const getTodayRect = (
+  timelineStart: Date,
+  timelineEnd: Date,
+  dayWidth: number,
+  unitDays: number
+) => {
+  if (dayWidth <= 0 || unitDays <= 0) {
+    return null;
+  }
+  const today = getTodayUtcDate();
+  if (today.getTime() < timelineStart.getTime() || today.getTime() > timelineEnd.getTime()) {
+    return null;
+  }
+  const rangeDays = diffUtcDays(timelineStart, timelineEnd) + 1;
+  const offsetDays = diffUtcDays(timelineStart, today);
+  const blockStartDays = Math.floor(offsetDays / unitDays) * unitDays;
+  const blockWidthDays = Math.min(unitDays, rangeDays - blockStartDays);
+  if (blockWidthDays <= 0) {
+    return null;
+  }
+  return {
+    left: blockStartDays * dayWidth,
+    width: blockWidthDays * dayWidth
+  };
 };

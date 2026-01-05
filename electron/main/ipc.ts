@@ -109,6 +109,20 @@ const excelSerialToDate = (value: number) => {
   return new Date(excelEpoch + value * MS_PER_DAY);
 };
 
+const pad2 = (value: number) => `${value}`.padStart(2, '0');
+
+const formatDateStamp = (date: Date) => {
+  const year = date.getFullYear();
+  const month = pad2(date.getMonth() + 1);
+  const day = pad2(date.getDate());
+  return `${year}${month}${day}`;
+};
+
+const sanitizeFilename = (value: string) => {
+  const sanitized = value.replace(/[\\/:*?"<>|]/g, '_').trim();
+  return sanitized.length > 0 ? sanitized : 'rasuva_export';
+};
+
 const cellToText = (value: unknown): string | null => {
   if (value === null || value === undefined) {
     return null;
@@ -971,7 +985,14 @@ export const registerIpcHandlers = (db: DbClient) => {
 
     const dialogResult = await dialog.showSaveDialog({
       title: 'Export Excel',
-      defaultPath: `rasuva_export_${importId}.xlsx`,
+      defaultPath: (() => {
+        const schedule = db
+          .listSchedules()
+          .find((item) => item.id === parsedPayload.data.scheduleId);
+        const scheduleName = sanitizeFilename(schedule?.name ?? 'rasuva_export');
+        const dateStamp = formatDateStamp(new Date());
+        return `${scheduleName}_${dateStamp}.xlsx`;
+      })(),
       filters: [{ name: 'Excel', extensions: ['xlsx'] }]
     });
 
