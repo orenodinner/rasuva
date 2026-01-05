@@ -537,8 +537,7 @@ export const registerIpcHandlers = (db: DbClient) => {
     const normalized = normalizeImport(parsed.data);
     const latestImportId = db.getLatestImportId(parsedPayload.data.scheduleId);
     const prevTasks = latestImportId ? db.getTasksByImportId(latestImportId) : [];
-    const mode = parsedPayload.data.mode ?? 'incremental';
-    const finalTasks = mergeTasksForSave(prevTasks, normalized.tasks, mode);
+    const finalTasks = mergeTasksForSave(prevTasks, normalized.tasks, parsedPayload.data.mode);
     const diff = diffTasks(prevTasks, finalTasks);
     const summary = summarizeTasksForImport(
       finalTasks,
