@@ -1,4 +1,4 @@
-﻿const SettingsPage = () => {
+const SettingsPage = () => {
   return (
     <div className="page">
       <div className="page-header">

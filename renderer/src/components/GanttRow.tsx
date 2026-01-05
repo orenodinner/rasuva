@@ -26,6 +26,8 @@ export interface GanttRowData {
   timelineStart: Date;
   timelineEnd: Date;
   weekendRects: { left: number; width: number }[];
+  todayRect: { left: number; width: number } | null;
+  selectedColumnRect: { left: number; width: number } | null;
   projectGroups: Map<string, string | null>;
   collapsedGroups: string[];
   toggleGroup: (groupId: string) => void;
@@ -44,6 +46,8 @@ export interface GanttRowData {
   buildSearchHaystack: (task: NormalizedTask) => string;
   toUtcDate: (value: string) => Date;
   diffDays: (start: Date, end: Date) => number;
+  onTimelineClick: (x: number) => void;
+  getScrollLeft: () => number;
 }
 
 interface GanttTaskBarProps {
@@ -400,7 +404,36 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
           row.label
         )}
       </div>
-      <div className="gantt-timeline" style={{ width: data.timelineWidth }}>
+      <div
+        className="gantt-timeline"
+        style={{ width: data.timelineWidth }}
+        role="button"
+        tabIndex={0}
+        onClick={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          const scrollLeft = data.getScrollLeft();
+          const x = event.clientX - rect.left + scrollLeft;
+          if (x < 0 || x > data.timelineWidth) {
+            return;
+          }
+          data.onTimelineClick(x);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+          }
+          if (event.key === ' ') {
+            event.preventDefault();
+          }
+          const rect = event.currentTarget.getBoundingClientRect();
+          const scrollLeft = data.getScrollLeft();
+          const x = rect.width / 2 + scrollLeft;
+          if (x < 0 || x > data.timelineWidth) {
+            return;
+          }
+          data.onTimelineClick(x);
+        }}
+      >
         {data.weekendRects.map((rect, index) => (
           <div
             key={`weekend-${rect.left}-${rect.width}-${index}`}
@@ -408,6 +441,18 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
             style={{ left: rect.left, width: rect.width }}
           />
         ))}
+        {data.todayRect ? (
+          <div
+            className="gantt-today-highlight"
+            style={{ left: data.todayRect.left, width: data.todayRect.width }}
+          />
+        ) : null}
+        {data.selectedColumnRect ? (
+          <div
+            className="gantt-column-highlight"
+            style={{ left: data.selectedColumnRect.left, width: data.selectedColumnRect.width }}
+          />
+        ) : null}
         {row.type === 'task' && row.task && row.task.start && row.task.end ? (
           (() => {
             const startDate = data.toUtcDate(row.task.start);

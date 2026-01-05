@@ -9,6 +9,8 @@ import {
   diffUtcDays,
   formatIsoDate,
   getDateFromX,
+  getTodayRect,
+  getTodayUtcDate,
   getWeekendRects,
   toUtcDate
 } from '../utils/ganttMath';
@@ -30,23 +32,15 @@ const formatYearMonth = (date: Date) => {
 
 const getTodayIso = () => new Date().toISOString().slice(0, 10);
 
-const addDays = (date: Date, days: number) => {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
-};
-
-const diffDays = (start: Date, end: Date) => {
-  return Math.floor((end.getTime() - start.getTime()) / MS_PER_DAY);
-};
-
 const getSundayOnOrBefore = (date: Date) => {
   const day = date.getUTCDay();
-  return addDays(date, -day);
+  return addUtcDays(date, -day);
 };
 
 const getNextSundayAfter = (date: Date) => {
   const day = date.getUTCDay();
   const offset = day === 0 ? 7 : 7 - day;
-  return addDays(date, offset);
+  return addUtcDays(date, offset);
 };
 
 const getWeekStart = (dateStr: string) => {
@@ -203,6 +197,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const startInlineEdit = useAppStore((state) => state.startInlineEdit);
   const stopInlineEdit = useAppStore((state) => state.stopInlineEdit);
   const showContextMenu = useAppStore((state) => state.showContextMenu);
+  const [selectedColumnKey, setSelectedColumnKey] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<FixedSizeList<GanttRowData> | null>(null);
@@ -425,7 +420,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     const config = zoomConfig[zoom];
     const focus = toUtcDate(focusDate);
     const dayWidth = config.columnWidth / config.unitDays;
-    const offsetDays = diffDays(timelineStart, focus);
+    const offsetDays = diffUtcDays(timelineStart, focus);
     const scrollLeft = Math.max(0, offsetDays * dayWidth - 120);
     setHorizontalScroll(scrollLeft, 'smooth');
     setFocusDate(null);
@@ -434,7 +429,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const { unitDays, columnWidth } = zoomConfig[zoom];
   const dayWidth = columnWidth / unitDays;
   const rangeDays =
-    timelineStart && timelineEnd ? diffDays(timelineStart, timelineEnd) + 1 : 0;
+    timelineStart && timelineEnd ? diffUtcDays(timelineStart, timelineEnd) + 1 : 0;
   const columnCount = timelineStart && timelineEnd ? Math.ceil(rangeDays / unitDays) : 0;
   const timelineWidth = columnCount * columnWidth;
   const labelWidth = 260;
@@ -445,22 +440,69 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     }
     return getWeekendRects(timelineStart, timelineEnd, dayWidth);
   }, [timelineStart, timelineEnd, dayWidth]);
+  const todayRect = useMemo(() => {
+    if (!timelineStart || !timelineEnd) {
+      return null;
+    }
+    return getTodayRect(timelineStart, timelineEnd, dayWidth, unitDays);
+  }, [timelineStart, timelineEnd, dayWidth, unitDays]);
+  const selectedColumnRect = useMemo(() => {
+    if (!timelineStart || !timelineEnd || !selectedColumnKey) {
+      return null;
+    }
+    const selectedDate = toUtcDate(selectedColumnKey);
+    if (Number.isNaN(selectedDate.getTime())) {
+      return null;
+    }
+    if (selectedDate < timelineStart || selectedDate > timelineEnd) {
+      return null;
+    }
+    const offsetDays = diffUtcDays(timelineStart, selectedDate);
+    const rangeDays = diffUtcDays(timelineStart, timelineEnd) + 1;
+    const blockWidthDays = Math.min(unitDays, rangeDays - offsetDays);
+    if (blockWidthDays <= 0 || offsetDays < 0) {
+      return null;
+    }
+    return {
+      left: offsetDays * dayWidth,
+      width: blockWidthDays * dayWidth
+    };
+  }, [timelineStart, timelineEnd, selectedColumnKey, dayWidth, unitDays]);
 
   const ticks = useMemo(() => {
     if (!timelineStart) {
       return [];
     }
-    const result: { key: string; weekLabel: string; dateLabel: string }[] = [];
+    const today = getTodayUtcDate();
+    const todayTime = today.getTime();
+    const result: {
+      key: string;
+      weekLabel: string;
+      dateLabel: string;
+      yearLabel: string;
+      monthLabel: string;
+      dayLabel: string;
+      isToday: boolean;
+    }[] = [];
 
     for (let index = 0; index < columnCount; index += 1) {
-      const tickDate = addDays(timelineStart, index * unitDays);
+      const tickDate = addUtcDays(timelineStart, index * unitDays);
       const key = formatIsoDate(tickDate);
+      const yearLabel = `${tickDate.getUTCFullYear()}`;
+      const monthLabel = `${tickDate.getUTCMonth() + 1}`.padStart(2, '0');
+      const tickEnd = addUtcDays(tickDate, Math.max(0, unitDays - 1));
+      const isToday = todayTime >= tickDate.getTime() && todayTime <= tickEnd.getTime();
 
       if (zoom === 'day') {
+        const dayLabel = formatDayWithWeekday(tickDate);
         result.push({
           key,
           weekLabel: formatYearMonth(tickDate),
-          dateLabel: formatDayWithWeekday(tickDate)
+          dateLabel: dayLabel,
+          yearLabel,
+          monthLabel,
+          dayLabel,
+          isToday
         });
         continue;
       }
@@ -469,10 +511,15 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
         const weekStart = getSundayOnOrBefore(tickDate);
         const { week } = getWeekNumber(weekStart);
         const monthLabel = formatYearMonth(weekStart);
+        const dateLabel = `${week}W ${formatMonthDay(weekStart)}`;
         result.push({
           key,
           weekLabel: monthLabel,
-          dateLabel: `${week}W ${formatMonthDay(weekStart)}`
+          dateLabel,
+          yearLabel,
+          monthLabel,
+          dayLabel: dateLabel,
+          isToday
         });
         continue;
       }
@@ -481,23 +528,72 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
         const weekStart = getSundayOnOrBefore(tickDate);
         const { week } = getWeekNumber(weekStart);
         const monthLabel = formatYearMonth(weekStart);
+        const dateLabel = `${week}W`;
         result.push({
           key,
           weekLabel: monthLabel,
-          dateLabel: `${week}W`
+          dateLabel,
+          yearLabel,
+          monthLabel,
+          dayLabel: dateLabel,
+          isToday
         });
         continue;
       }
 
+      const dateLabel = formatQuarterRange(tickDate);
       result.push({
         key,
         weekLabel: `${tickDate.getUTCFullYear()}`,
-        dateLabel: formatQuarterRange(tickDate)
+        dateLabel,
+        yearLabel,
+        monthLabel,
+        dayLabel: dateLabel,
+        isToday
       });
     }
 
     return result;
   }, [timelineStart, columnCount, unitDays, zoom]);
+
+  useEffect(() => {
+    if (!selectedColumnKey || !timelineStart || !timelineEnd) {
+      return;
+    }
+    const selectedDate = toUtcDate(selectedColumnKey);
+    if (selectedDate < timelineStart || selectedDate > timelineEnd) {
+      setSelectedColumnKey(null);
+    }
+  }, [selectedColumnKey, timelineStart, timelineEnd]);
+
+  const getScrollLeft = useCallback(() => scrollRef.current?.scrollLeft ?? 0, []);
+
+  const handleTimelineClick = useCallback(
+    (x: number) => {
+      if (!timelineStart || !timelineEnd) {
+        return;
+      }
+      if (x < 0 || x > timelineWidth) {
+        return;
+      }
+      const clickedDate = getDateFromX(x, timelineStart, dayWidth);
+      if (Number.isNaN(clickedDate.getTime())) {
+        return;
+      }
+      if (clickedDate < timelineStart || clickedDate > timelineEnd) {
+        return;
+      }
+      const offsetDays = diffUtcDays(timelineStart, clickedDate);
+      const blockStartDays = Math.floor(offsetDays / unitDays) * unitDays;
+      const blockStartDate = addUtcDays(timelineStart, blockStartDays);
+      const blockKey = formatIsoDate(blockStartDate);
+      if (!blockKey) {
+        return;
+      }
+      setSelectedColumnKey((prev) => (prev === blockKey ? null : blockKey));
+    },
+    [timelineStart, timelineEnd, dayWidth, unitDays, timelineWidth]
+  );
 
   const listData = useMemo<GanttRowData | null>(() => {
     if (!timelineStart || !timelineEnd) {
@@ -513,6 +609,8 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       timelineStart,
       timelineEnd,
       weekendRects,
+      todayRect,
+      selectedColumnRect,
       projectGroups,
       collapsedGroups,
       toggleGroup,
@@ -530,7 +628,9 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       buildTooltip,
       buildSearchHaystack,
       toUtcDate,
-      diffDays
+      diffDays: diffUtcDays,
+      onTimelineClick: handleTimelineClick,
+      getScrollLeft
     };
   }, [
     visibleRows,
@@ -542,6 +642,8 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     timelineStart,
     timelineEnd,
     weekendRects,
+    todayRect,
+    selectedColumnRect,
     projectGroups,
     collapsedGroups,
     toggleGroup,
@@ -555,7 +657,9 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     stopInlineEdit,
     showContextMenu,
     taskLookup,
-    getBarClassName
+    getBarClassName,
+    handleTimelineClick,
+    getScrollLeft
   ]);
 
   const InnerElement = useMemo(() => {

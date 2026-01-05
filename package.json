@@ -1,7 +1,7 @@
 {
   "name": "rasuva",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "OSS-only Electron Gantt manager for internal Windows 11 use",
   "main": "dist-electron/main/index.js",
   "workspaces": [
@@ -63,7 +63,7 @@
     "productName": "Rasuva",
     "asar": true,
     "asarUnpack": [
-      "**/*.node" 
+      "**/*.node"
     ],
     "files": [
       "dist/**",
@@ -74,10 +74,10 @@
         "nsis"
       ]
     },
-        "publish": [
+    "publish": [
       {
         "provider": "github",
-        "owner": "orenodinner", 
+        "owner": "orenodinner",
         "repo": "rasuva"
       }
     ]

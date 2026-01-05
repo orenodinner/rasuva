@@ -1011,6 +1011,24 @@ body {
   z-index: 0;
 }
 
+.gantt-today-highlight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 192, 203, 0.4);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.gantt-column-highlight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(80, 140, 255, 0.25);
+  pointer-events: none;
+  z-index: 0;
+}
+
 .gantt-timeline--header-top {
   background-image: none;
 }
@@ -1041,6 +1059,16 @@ body {
   font-size: var(--tick-date-font-size, 10px);
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+.gantt-tick--today {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.gantt-tick__date--today {
+  color: var(--danger);
+  font-weight: 700;
 }
 
 .gantt-bar {
