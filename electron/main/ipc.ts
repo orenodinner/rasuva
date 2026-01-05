@@ -9,6 +9,7 @@ import {
   parseImportJson,
   TaskCreateSchema
 } from '@domain';
+import { buildResourceLoadData } from '@domain/resourceLoad';
 import type { DbClient } from '@db';
 import type { FlatTaskRow, NormalizedTask } from '@domain';
 import { writeFileSync } from 'fs';
@@ -933,6 +934,118 @@ export const registerIpcHandlers = (db: DbClient) => {
           ]
         });
       }
+    }
+
+    const resourceLoadSheet = workbook.addWorksheet('Resource Load');
+    const resourceLoadData = buildResourceLoadData(tasks);
+    const resourceBaseColumns = [
+      { header: '担当者', key: 'member', width: 20 },
+      { header: 'プロジェクト', key: 'project', width: 18 },
+      { header: 'タスク', key: 'task', width: 28 }
+    ];
+
+    if (!resourceLoadData) {
+      resourceLoadSheet.columns = resourceBaseColumns;
+      resourceLoadSheet.addRow({});
+      resourceLoadSheet.addRow({ task: '予定ありタスクがありません。' });
+    } else {
+      const dateColumns = resourceLoadData.dates.map((date) => ({
+        header: `${date.day}`,
+        key: `date_${date.iso}`,
+        width: 4
+      }));
+      resourceLoadSheet.columns = [...resourceBaseColumns, ...dateColumns];
+      resourceLoadSheet.views = [
+        {
+          state: 'frozen',
+          ySplit: 1,
+          xSplit: resourceBaseColumns.length
+        }
+      ];
+
+      const weekendFill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE6E6E6' }
+      };
+      const summaryFill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF5F5F5' }
+      };
+      const taskFill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFC6EFCE' }
+      };
+
+      const dateColumnStartIndex = resourceBaseColumns.length + 1;
+      const weekendColumns: number[] = [];
+
+      const headerRow = resourceLoadSheet.getRow(1);
+      headerRow.font = { bold: true };
+      resourceBaseColumns.forEach((_column, index) => {
+        headerRow.getCell(index + 1).alignment = { vertical: 'middle' };
+      });
+      resourceLoadData.dates.forEach((date, index) => {
+        const columnIndex = dateColumnStartIndex + index;
+        const cell = headerRow.getCell(columnIndex);
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        if (date.isWeekend) {
+          weekendColumns.push(columnIndex);
+          cell.fill = weekendFill;
+        }
+      });
+
+      resourceLoadData.members.forEach((memberGroup) => {
+        const summaryRowValues: Record<string, string | number> = {
+          member: memberGroup.memberName,
+          project: '',
+          task: '【業務負荷件数】'
+        };
+        resourceLoadData.dates.forEach((date, index) => {
+          const count = memberGroup.dailyCounts[index];
+          if (count > 0) {
+            summaryRowValues[`date_${date.iso}`] = count;
+          }
+        });
+
+        const summaryRow = resourceLoadSheet.addRow(summaryRowValues);
+        summaryRow.font = { bold: true };
+        summaryRow.getCell(1).fill = summaryFill;
+        for (let index = 0; index < resourceLoadData.dates.length; index += 1) {
+          summaryRow.getCell(dateColumnStartIndex + index).alignment = {
+            horizontal: 'center',
+            vertical: 'middle'
+          };
+        }
+        weekendColumns.forEach((columnIndex) => {
+          const cell = summaryRow.getCell(columnIndex);
+          if (!cell.fill) {
+            cell.fill = weekendFill;
+          }
+        });
+
+        memberGroup.tasks.forEach((taskRange) => {
+          const row = resourceLoadSheet.addRow({
+            member: '',
+            project: taskRange.task.projectId,
+            task: taskRange.task.taskName
+          });
+
+          weekendColumns.forEach((columnIndex) => {
+            const cell = row.getCell(columnIndex);
+            if (!cell.fill) {
+              cell.fill = weekendFill;
+            }
+          });
+
+          for (let index = taskRange.startIndex; index <= taskRange.endIndex; index += 1) {
+            const cell = row.getCell(dateColumnStartIndex + index);
+            cell.fill = taskFill;
+          }
+        });
+      });
     }
 
     const sheet = workbook.addWorksheet('Tasks');
