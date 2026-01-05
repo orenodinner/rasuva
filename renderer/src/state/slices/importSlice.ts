@@ -1,6 +1,12 @@
 import type { StateCreator } from 'zustand';
 import { extractJsonFromText } from '@domain';
-import type { DiffResult, ImportApplyResult, ImportListItem, ImportPreviewResult } from '@domain';
+import type {
+  DiffResult,
+  ImportApplyMode,
+  ImportApplyResult,
+  ImportListItem,
+  ImportPreviewResult
+} from '@domain';
 import type { AppState } from '../store';
 
 export type ImportSource = 'paste' | 'file' | 'excel';
@@ -16,7 +22,7 @@ export interface ImportSlice {
   setImportSource: (value: ImportSource) => void;
   loadPreview: () => Promise<boolean>;
   loadExcelImport: () => Promise<boolean>;
-  applyImport: (source: ImportSource) => Promise<ImportApplyResult | null>;
+  applyImport: (source: ImportSource, mode: ImportApplyMode) => Promise<ImportApplyResult | null>;
   loadDiff: (importId?: number) => Promise<void>;
   loadImports: () => Promise<void>;
 }
@@ -79,7 +85,11 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
         get().setLastError(preparedText.error);
         return false;
       }
-      const response = await window.api.importPreview(preparedText.text);
+      const scheduleId = get().currentScheduleId;
+      const response = await window.api.importPreview(
+        preparedText.text,
+        scheduleId ?? undefined
+      );
       if (response.ok) {
         set({ preview: response.preview });
         get().setLastError(null);
@@ -93,7 +103,8 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
         get().setLastError(API_MISSING_MESSAGE);
         return false;
       }
-      const response = await window.api.importExcel();
+      const scheduleId = get().currentScheduleId;
+      const response = await window.api.importExcel(scheduleId ?? undefined);
       if (response.ok) {
         const preparedText = getAndPrepareJsonText(response.jsonText);
         if (!preparedText.ok) {
@@ -111,7 +122,7 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
       get().setLastError(response.error);
       return false;
     },
-    applyImport: async (source) => {
+    applyImport: async (source, mode) => {
       if (!window.api) {
         get().setLastError(API_MISSING_MESSAGE);
         return null;
@@ -126,7 +137,7 @@ export const createImportSlice: StateCreator<AppState, [], [], ImportSlice> = (s
         get().setLastError(preparedText.error);
         return null;
       }
-      const response = await window.api.importApply(preparedText.text, source, scheduleId);
+      const response = await window.api.importApply(preparedText.text, source, scheduleId, mode);
       if (response.ok) {
         set({
           diff: response.result.diff,

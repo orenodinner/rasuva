@@ -4,9 +4,11 @@ import {
   convertFlatTasksToRawImport,
   convertNormalizedTasksToRawImport,
   diffTasks,
+  mergeTasksForSave,
   normalizeImport,
   parseDateStrict,
   parseImportJson,
+  summarizeTasksForImport,
   TaskCreateSchema
 } from '@domain';
 import type { DbClient } from '@db';
@@ -175,16 +177,22 @@ const toColumnLetter = (index: number) => {
   return result;
 };
 
+const scheduleIdSchema = z.number().int().positive();
+
 const previewSchema = z.object({
-  jsonText: z.string()
+  jsonText: z.string(),
+  scheduleId: scheduleIdSchema.optional()
 });
 
-const scheduleIdSchema = z.number().int().positive();
+const importExcelSchema = z.object({
+  scheduleId: scheduleIdSchema.optional()
+});
 
 const applySchema = z.object({
   jsonText: z.string(),
   source: z.enum(['paste', 'file', 'excel']),
-  scheduleId: scheduleIdSchema
+  scheduleId: scheduleIdSchema,
+  mode: z.enum(['incremental', 'full']).optional()
 });
 
 const diffSchema = z.object({
@@ -351,7 +359,15 @@ export const registerIpcHandlers = (db: DbClient) => {
     }
 
     const normalized = normalizeImport(parsed.data);
-    return { ok: true, preview: { summary: normalized.summary, warnings: normalized.warnings } };
+    const scheduleId = parsedPayload.data.scheduleId;
+    const latestImportId = scheduleId ? db.getLatestImportId(scheduleId) : null;
+    const prevTasks = latestImportId ? db.getTasksByImportId(latestImportId) : [];
+    const diffSummary = scheduleId ? diffTasks(prevTasks, normalized.tasks).summary : undefined;
+
+    return {
+      ok: true,
+      preview: { summary: normalized.summary, warnings: normalized.warnings, diffSummary }
+    };
   });
 
   ipcMain.handle(IPC_CHANNELS.schedulesList, async () => {
@@ -402,7 +418,13 @@ export const registerIpcHandlers = (db: DbClient) => {
     return { ok: true, deleted: true };
   });
 
-  ipcMain.handle(IPC_CHANNELS.importExcel, async () => {
+  ipcMain.handle(IPC_CHANNELS.importExcel, async (_event, payload) => {
+    const parsedPayload = importExcelSchema.safeParse(payload ?? {});
+    if (!parsedPayload.success) {
+      return { ok: false, error: 'Invalid payload.' };
+    }
+
+    const scheduleId = parsedPayload.data.scheduleId;
     const dialogResult = await dialog.showOpenDialog({
       title: 'Import Excel',
       filters: [{ name: 'Excel', extensions: ['xlsx'] }],
@@ -490,10 +512,13 @@ export const registerIpcHandlers = (db: DbClient) => {
     const rawImport = convertFlatTasksToRawImport(rows);
     const normalized = normalizeImport(rawImport);
     const jsonText = JSON.stringify(rawImport, null, 2);
+    const latestImportId = scheduleId ? db.getLatestImportId(scheduleId) : null;
+    const prevTasks = latestImportId ? db.getTasksByImportId(latestImportId) : [];
+    const diffSummary = scheduleId ? diffTasks(prevTasks, normalized.tasks).summary : undefined;
 
     return {
       ok: true,
-      preview: { summary: normalized.summary, warnings: normalized.warnings },
+      preview: { summary: normalized.summary, warnings: normalized.warnings, diffSummary },
       jsonText
     };
   });
@@ -512,17 +537,24 @@ export const registerIpcHandlers = (db: DbClient) => {
     const normalized = normalizeImport(parsed.data);
     const latestImportId = db.getLatestImportId(parsedPayload.data.scheduleId);
     const prevTasks = latestImportId ? db.getTasksByImportId(latestImportId) : [];
-    const diff = diffTasks(prevTasks, normalized.tasks);
+    const mode = parsedPayload.data.mode ?? 'incremental';
+    const finalTasks = mergeTasksForSave(prevTasks, normalized.tasks, mode);
+    const diff = diffTasks(prevTasks, finalTasks);
+    const summary = summarizeTasksForImport(
+      finalTasks,
+      normalized.warnings.length,
+      normalized.summary.skippedProjects
+    );
 
     const importId = db.insertImport(parsedPayload.data.scheduleId, {
       createdAt: new Date().toISOString(),
       source: parsedPayload.data.source,
       rawJson: parsedPayload.data.jsonText,
-      summary: normalized.summary,
+      summary,
       diffSummary: diff.summary
     });
 
-    db.insertTasks(importId, normalized.tasks);
+    db.insertTasks(importId, finalTasks);
     db.insertWarnings(importId, normalized.warnings);
 
     return {

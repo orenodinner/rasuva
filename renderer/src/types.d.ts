@@ -1,6 +1,7 @@
 import type {
   DiffResult,
   ImportApplyResult,
+  ImportApplyMode,
   ImportListItem,
   ImportPreviewResult,
   ScheduleItem,
@@ -19,14 +20,18 @@ type ApiSuccess<T> = { ok: true } & T;
 declare global {
   interface Window {
     api: {
-      importPreview: (jsonText: string) => Promise<ApiSuccess<{ preview: ImportPreviewResult }> | ApiFailure>;
-      importExcel: () => Promise<
+      importPreview: (
+        jsonText: string,
+        scheduleId?: number
+      ) => Promise<ApiSuccess<{ preview: ImportPreviewResult }> | ApiFailure>;
+      importExcel: (scheduleId?: number) => Promise<
         ApiSuccess<{ preview: ImportPreviewResult; jsonText: string }> | ApiFailure
       >;
       importApply: (
         jsonText: string,
         source: 'paste' | 'file' | 'excel',
-        scheduleId: number
+        scheduleId: number,
+        mode: ImportApplyMode
       ) => Promise<ApiSuccess<{ result: ImportApplyResult }> | ApiFailure>;
       diffGet: (
         scheduleId: number,

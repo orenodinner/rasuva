@@ -3,6 +3,7 @@ import { convertFlatTasksToRawImport, normalizeImport, parseDateStrict } from '.
 import { convertNormalizedTasksToRawImport } from './denormalize';
 import { diffTasks } from './diff';
 import { generateNormalizedTasks } from './generate';
+import { mergeTasksForSave, summarizeTasksForImport } from './merge';
 import type { RawImport } from './types';
 
 export const parseImportJson = (jsonText: string) => {
@@ -33,7 +34,9 @@ export {
   normalizeImport,
   parseDateStrict,
   diffTasks,
-  generateNormalizedTasks
+  generateNormalizedTasks,
+  mergeTasksForSave,
+  summarizeTasksForImport
 };
 export { RawImportSchema, TaskCreateSchema } from './schema';
 export { extractJsonFromText } from './extract';
