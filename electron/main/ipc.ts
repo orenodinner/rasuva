@@ -4,6 +4,7 @@ import {
   convertFlatTasksToRawImport,
   convertNormalizedTasksToRawImport,
   diffTasks,
+  flattenTasksByMember,
   mergeTasksForSave,
   normalizeImport,
   parseDateStrict,
@@ -106,6 +107,26 @@ const addUtcDays = (date: Date, days: number) => {
   return new Date(date.getTime() + MS_PER_DAY * days);
 };
 
+const isWeekendUtc = (date: Date) => {
+  const day = date.getUTCDay();
+  return day === 0 || day === 6;
+};
+
+const formatMonthDay = (date: Date) => {
+  const month = date.getUTCMonth() + 1;
+  const day = date.getUTCDate();
+  return `${month}/${day}`;
+};
+
+const formatTaskRangeLabel = (start: Date | null, end: Date | null) => {
+  if (!start || !end) {
+    return '未確定';
+  }
+  const startLabel = formatMonthDay(start);
+  const endLabel = formatMonthDay(end);
+  return startLabel === endLabel ? startLabel : `${startLabel}-${endLabel}`;
+};
+
 const excelSerialToDate = (value: number) => {
   const excelEpoch = Date.UTC(1899, 11, 30);
   return new Date(excelEpoch + value * MS_PER_DAY);
@@ -123,6 +144,13 @@ const formatDateStamp = (date: Date) => {
 const sanitizeFilename = (value: string) => {
   const sanitized = value.replace(/[\\/:*?"<>|]/g, '_').trim();
   return sanitized.length > 0 ? sanitized : 'rasuva_export';
+};
+
+const buildDefaultExportFilename = (db: DbClient, scheduleId: number) => {
+  const schedule = db.listSchedules().find((item) => item.id === scheduleId);
+  const scheduleName = sanitizeFilename(schedule?.name ?? 'rasuva_export');
+  const dateStamp = formatDateStamp(new Date());
+  return `${scheduleName}_${dateStamp}.xlsx`;
 };
 
 const cellToText = (value: unknown): string | null => {
@@ -980,6 +1008,117 @@ export const registerIpcHandlers = (db: DbClient) => {
       }
     }
 
+    const membersGanttSheet = workbook.addWorksheet('MembersGantt');
+    const membersGanttRows = flattenTasksByMember(tasks);
+    const membersGanttBaseColumns = [
+      { header: '', key: 'member', width: 20 },
+      { header: '', key: 'project', width: 18 },
+      { header: '', key: 'task', width: 28 },
+      { header: '', key: 'range', width: 16 }
+    ];
+    const membersScheduled = tasks.filter(
+      (task) => task.status === 'scheduled' && task.start && task.end
+    );
+    const memberDateRange = membersScheduled
+      .map((task) => ({
+        start: parseIsoDate(task.start!),
+        end: parseIsoDate(task.end!)
+      }))
+      .filter(
+        (item): item is { start: Date; end: Date } =>
+          item.start !== null && item.end !== null
+      );
+
+    if (membersGanttRows.length === 0 || memberDateRange.length === 0) {
+      membersGanttSheet.columns = membersGanttBaseColumns;
+      membersGanttSheet.addRow({});
+      membersGanttSheet.addRow({ task: '予定ありタスクがありません。' });
+    } else {
+      const rangeStart = memberDateRange.reduce(
+        (min, item) => (item.start < min ? item.start : min),
+        memberDateRange[0].start
+      );
+      const rangeEnd = memberDateRange.reduce(
+        (max, item) => (item.end > max ? item.end : max),
+        memberDateRange[0].end
+      );
+
+      const memberDates: Date[] = [];
+      const dateIndexByIso = new Map<string, number>();
+      const dateColumns: Array<{ header: string; key: string; width: number }> = [];
+      for (let cursor = rangeStart; cursor <= rangeEnd; cursor = addUtcDays(cursor, 1)) {
+        const iso = formatIsoDate(cursor);
+        dateIndexByIso.set(iso, memberDates.length);
+        memberDates.push(cursor);
+        dateColumns.push({ header: iso, key: `date_${iso}`, width: 3 });
+      }
+
+      membersGanttSheet.columns = [...membersGanttBaseColumns, ...dateColumns];
+      membersGanttSheet.views = [
+        {
+          state: 'frozen',
+          ySplit: 1,
+          xSplit: membersGanttBaseColumns.length
+        }
+      ];
+
+      const headerRow = membersGanttSheet.getRow(1);
+      headerRow.font = { bold: true };
+      const weekendFill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFEEEEEE' }
+      };
+      const taskFill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF90EE90' }
+      };
+      const dateColumnStartIndex = membersGanttBaseColumns.length + 1;
+      const weekendColumns: number[] = [];
+
+      memberDates.forEach((date, index) => {
+        const columnIndex = dateColumnStartIndex + index;
+        const cell = headerRow.getCell(columnIndex);
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        if (isWeekendUtc(date)) {
+          weekendColumns.push(columnIndex);
+          cell.fill = weekendFill;
+        }
+      });
+
+      let lastMemberName = '';
+      membersGanttRows.forEach(({ memberName, task }) => {
+        const startDate = task.start ? parseIsoDate(task.start) : null;
+        const endDate = task.end ? parseIsoDate(task.end) : null;
+        const row = membersGanttSheet.addRow({
+          member: memberName !== lastMemberName ? memberName : '',
+          project: task.projectId,
+          task: task.taskName,
+          range: formatTaskRangeLabel(startDate, endDate)
+        });
+        lastMemberName = memberName;
+
+        weekendColumns.forEach((columnIndex) => {
+          const cell = row.getCell(columnIndex);
+          if (!cell.fill) {
+            cell.fill = weekendFill;
+          }
+        });
+
+        if (startDate && endDate) {
+          const startIndex = dateIndexByIso.get(formatIsoDate(startDate));
+          const endIndex = dateIndexByIso.get(formatIsoDate(endDate));
+          if (startIndex !== undefined && endIndex !== undefined) {
+            for (let index = startIndex; index <= endIndex; index += 1) {
+              const cell = row.getCell(dateColumnStartIndex + index);
+              cell.fill = taskFill;
+            }
+          }
+        }
+      });
+    }
+
     const sheet = workbook.addWorksheet('Tasks');
 
     sheet.columns = [
@@ -1016,14 +1155,7 @@ export const registerIpcHandlers = (db: DbClient) => {
 
     const dialogResult = await dialog.showSaveDialog({
       title: 'Export Excel',
-      defaultPath: (() => {
-        const schedule = db
-          .listSchedules()
-          .find((item) => item.id === parsedPayload.data.scheduleId);
-        const scheduleName = sanitizeFilename(schedule?.name ?? 'rasuva_export');
-        const dateStamp = formatDateStamp(new Date());
-        return `${scheduleName}_${dateStamp}.xlsx`;
-      })(),
+      defaultPath: buildDefaultExportFilename(db, parsedPayload.data.scheduleId),
       filters: [{ name: 'Excel', extensions: ['xlsx'] }]
     });
 

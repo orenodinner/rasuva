@@ -2,6 +2,7 @@ import { RawImportSchema } from './schema';
 import { convertFlatTasksToRawImport, normalizeImport, parseDateStrict } from './normalize';
 import { convertNormalizedTasksToRawImport } from './denormalize';
 import { diffTasks } from './diff';
+import { flattenTasksByMember } from './exportUtils';
 import { generateNormalizedTasks } from './generate';
 import { mergeTasksForSave, summarizeTasksForImport } from './merge';
 import type { RawImport } from './types';
@@ -34,6 +35,7 @@ export {
   normalizeImport,
   parseDateStrict,
   diffTasks,
+  flattenTasksByMember,
   generateNormalizedTasks,
   mergeTasksForSave,
   summarizeTasksForImport
