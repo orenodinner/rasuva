@@ -928,12 +928,14 @@ body {
 }
 
 .gantt-row {
+  position: relative;
   display: grid;
   grid-template-columns: 260px 1fr;
   min-height: var(--row-height, 28px);
   height: var(--row-height, 28px);
   align-items: center;
   border-bottom: 1px solid rgba(230, 220, 203, 0.6);
+  isolation: isolate;
 }
 
 .gantt-row--header {
@@ -947,6 +949,8 @@ body {
   background: var(--panel);
   padding: 6px 12px;
   font-weight: 600;
+  z-index: 10;
+  border-right: 1px solid var(--border);
 }
 
 .gantt-toggle {
@@ -968,6 +972,7 @@ body {
 
 .gantt-label--header {
   background: var(--panel-strong);
+  z-index: 11;
 }
 
 .gantt-label--level-1 {
@@ -992,6 +997,7 @@ body {
   align-items: center;
   min-height: var(--row-height, 28px);
   border-left: 1px solid var(--grid-line-color);
+  z-index: 1;
   background-image: repeating-linear-gradient(
     90deg,
     var(--grid-line-color-soft) 0,
@@ -1087,7 +1093,7 @@ body {
   cursor: grab;
   user-select: none;
   touch-action: none;
-  z-index: 1;
+  z-index: 2;
 }
 
 .gantt-bar span {
