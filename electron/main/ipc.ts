@@ -19,6 +19,7 @@ import ExcelJS from 'exceljs';
 import { IPC_CHANNELS } from '../shared/ipcChannels';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MS_PER_WEEK = MS_PER_DAY * 7;
 
 type HistoryState = { pointer: number; ids: number[] };
 
@@ -107,11 +108,6 @@ const addUtcDays = (date: Date, days: number) => {
   return new Date(date.getTime() + MS_PER_DAY * days);
 };
 
-const isWeekendUtc = (date: Date) => {
-  const day = date.getUTCDay();
-  return day === 0 || day === 6;
-};
-
 const formatMonthDay = (date: Date) => {
   const month = date.getUTCMonth() + 1;
   const day = date.getUTCDate();
@@ -125,6 +121,49 @@ const formatTaskRangeLabel = (start: Date | null, end: Date | null) => {
   const startLabel = formatMonthDay(start);
   const endLabel = formatMonthDay(end);
   return startLabel === endLabel ? startLabel : `${startLabel}-${endLabel}`;
+};
+
+const formatMonthDayPadded = (date: Date) => {
+  const month = pad2(date.getUTCMonth() + 1);
+  const day = pad2(date.getUTCDate());
+  return `${month}/${day}`;
+};
+
+const getSundayOnOrBeforeUtc = (date: Date) => {
+  const day = date.getUTCDay();
+  return addUtcDays(date, -day);
+};
+
+const getNextSundayAfterUtc = (date: Date) => {
+  const day = date.getUTCDay();
+  const offset = day === 0 ? 7 : 7 - day;
+  return addUtcDays(date, offset);
+};
+
+const getMondayOnOrBeforeUtc = (date: Date) => {
+  const day = date.getUTCDay();
+  const offset = (day + 6) % 7;
+  return addUtcDays(date, -offset);
+};
+
+const getSundayOnOrAfterUtc = (date: Date) => {
+  const day = date.getUTCDay();
+  const offset = day === 0 ? 0 : 7 - day;
+  return addUtcDays(date, offset);
+};
+
+const getProjectWeekNumber = (date: Date) => {
+  const weekStart = getSundayOnOrBeforeUtc(date);
+  const year = weekStart.getUTCFullYear();
+  const jan1 = new Date(Date.UTC(year, 0, 1));
+  const firstSunday = getNextSundayAfterUtc(jan1);
+
+  if (weekStart.getTime() <= jan1.getTime() || weekStart.getTime() < firstSunday.getTime()) {
+    return 1;
+  }
+
+  const diffWeeks = Math.floor((weekStart.getTime() - firstSunday.getTime()) / MS_PER_WEEK);
+  return diffWeeks + 2;
 };
 
 const excelSerialToDate = (value: number) => {
@@ -1043,17 +1082,35 @@ export const registerIpcHandlers = (db: DbClient) => {
         memberDateRange[0].end
       );
 
-      const memberDates: Date[] = [];
-      const dateIndexByIso = new Map<string, number>();
-      const dateColumns: Array<{ header: string; key: string; width: number }> = [];
-      for (let cursor = rangeStart; cursor <= rangeEnd; cursor = addUtcDays(cursor, 1)) {
+      const rangeStartMonday = getMondayOnOrBeforeUtc(rangeStart);
+      const rangeEndSunday = getSundayOnOrAfterUtc(rangeEnd);
+      const weekColumns: Array<{
+        header: string;
+        key: string;
+        width: number;
+        weekStart: Date;
+        weekEnd: Date;
+      }> = [];
+      for (
+        let cursor = rangeStartMonday;
+        cursor <= rangeEndSunday;
+        cursor = addUtcDays(cursor, 7)
+      ) {
         const iso = formatIsoDate(cursor);
-        dateIndexByIso.set(iso, memberDates.length);
-        memberDates.push(cursor);
-        dateColumns.push({ header: iso, key: `date_${iso}`, width: 3 });
+        const weekNumber = getProjectWeekNumber(cursor);
+        weekColumns.push({
+          header: `${formatMonthDayPadded(cursor)} (${weekNumber}W)`,
+          key: `week_${iso}`,
+          width: 12,
+          weekStart: cursor,
+          weekEnd: addUtcDays(cursor, 6)
+        });
       }
 
-      membersGanttSheet.columns = [...membersGanttBaseColumns, ...dateColumns];
+      membersGanttSheet.columns = [
+        ...membersGanttBaseColumns,
+        ...weekColumns.map(({ header, key, width }) => ({ header, key, width }))
+      ];
       membersGanttSheet.views = [
         {
           state: 'frozen',
@@ -1064,27 +1121,16 @@ export const registerIpcHandlers = (db: DbClient) => {
 
       const headerRow = membersGanttSheet.getRow(1);
       headerRow.font = { bold: true };
-      const weekendFill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFEEEEEE' }
-      };
       const taskFill = {
         type: 'pattern',
         pattern: 'solid',
         fgColor: { argb: 'FF90EE90' }
       };
       const dateColumnStartIndex = membersGanttBaseColumns.length + 1;
-      const weekendColumns: number[] = [];
-
-      memberDates.forEach((date, index) => {
+      weekColumns.forEach((_week, index) => {
         const columnIndex = dateColumnStartIndex + index;
         const cell = headerRow.getCell(columnIndex);
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        if (isWeekendUtc(date)) {
-          weekendColumns.push(columnIndex);
-          cell.fill = weekendFill;
-        }
       });
 
       let lastMemberName = '';
@@ -1099,22 +1145,14 @@ export const registerIpcHandlers = (db: DbClient) => {
         });
         lastMemberName = memberName;
 
-        weekendColumns.forEach((columnIndex) => {
-          const cell = row.getCell(columnIndex);
-          if (!cell.fill) {
-            cell.fill = weekendFill;
-          }
-        });
-
         if (startDate && endDate) {
-          const startIndex = dateIndexByIso.get(formatIsoDate(startDate));
-          const endIndex = dateIndexByIso.get(formatIsoDate(endDate));
-          if (startIndex !== undefined && endIndex !== undefined) {
-            for (let index = startIndex; index <= endIndex; index += 1) {
+          weekColumns.forEach((week, index) => {
+            const overlaps = startDate <= week.weekEnd && endDate >= week.weekStart;
+            if (overlaps) {
               const cell = row.getCell(dateColumnStartIndex + index);
               cell.fill = taskFill;
             }
-          }
+          });
         }
       });
     }
