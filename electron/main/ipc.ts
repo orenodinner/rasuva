@@ -1,12 +1,18 @@
 import { BrowserWindow, Menu, MenuItem, dialog, ipcMain } from 'electron';
 import { z } from 'zod';
 import {
+  addUtcDays,
   convertFlatTasksToRawImport,
   convertNormalizedTasksToRawImport,
   diffTasks,
   flattenTasksByMember,
+  formatIsoDate,
+  generateTimelineStructure,
+  getNextSundayAfterUtc,
+  getSundayOnOrBeforeUtc,
   mergeTasksForSave,
   normalizeImport,
+  parseIsoDate,
   parseDateStrict,
   parseImportJson,
   summarizeTasksForImport,
@@ -86,28 +92,6 @@ class HistoryManager {
 
 const historyManager = new HistoryManager();
 
-const parseIsoDate = (value: string) => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) {
-    return null;
-  }
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  return new Date(Date.UTC(year, month - 1, day));
-};
-
-const formatIsoDate = (date: Date) => {
-  const year = date.getUTCFullYear();
-  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getUTCDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const addUtcDays = (date: Date, days: number) => {
-  return new Date(date.getTime() + MS_PER_DAY * days);
-};
-
 const formatMonthDay = (date: Date) => {
   const month = date.getUTCMonth() + 1;
   const day = date.getUTCDate();
@@ -127,17 +111,6 @@ const formatMonthDayPadded = (date: Date) => {
   const month = pad2(date.getUTCMonth() + 1);
   const day = pad2(date.getUTCDate());
   return `${month}/${day}`;
-};
-
-const getSundayOnOrBeforeUtc = (date: Date) => {
-  const day = date.getUTCDay();
-  return addUtcDays(date, -day);
-};
-
-const getNextSundayAfterUtc = (date: Date) => {
-  const day = date.getUTCDay();
-  const offset = day === 0 ? 7 : 7 - day;
-  return addUtcDays(date, offset);
 };
 
 const getMondayOnOrBeforeUtc = (date: Date) => {
@@ -940,88 +913,115 @@ export const registerIpcHandlers = (db: DbClient) => {
       ganttSheet.addRow({});
       ganttSheet.addRow({ taskName: '予定ありタスクがありません。' });
     } else {
-      const startDates = scheduledTasks
-        .map((task) => parseIsoDate(task.start!))
-        .filter((date): date is Date => date !== null)
-        .sort((a, b) => a.getTime() - b.getTime());
-      const endDates = scheduledTasks
-        .map((task) => parseIsoDate(task.end!))
-        .filter((date): date is Date => date !== null)
-        .sort((a, b) => a.getTime() - b.getTime());
+      const timeline = generateTimelineStructure(scheduledTasks);
+      const weekColumns = timeline.weeks.map((week) => ({
+        key: `week_${week.start}`,
+        width: 4
+      }));
 
-      const rangeStart = startDates[0];
-      const rangeEnd = endDates[endDates.length - 1];
-
-      const dateColumns: Array<{ header: string; key: string; width: number }> = [];
-      const dates: Date[] = [];
-      for (let cursor = rangeStart; cursor <= rangeEnd; cursor = addUtcDays(cursor, 1)) {
-        const iso = formatIsoDate(cursor);
-        dates.push(cursor);
-        dateColumns.push({ header: iso, key: `date_${iso}`, width: 3 });
-      }
-
-      ganttSheet.columns = [...baseColumns, ...dateColumns];
+      ganttSheet.columns = [
+        ...baseColumns.map((column) => ({ key: column.key, width: column.width })),
+        ...weekColumns
+      ];
       ganttSheet.views = [
         {
           state: 'frozen',
-          ySplit: 1,
+          ySplit: 3,
           xSplit: baseColumns.length
         }
       ];
 
-      const headerRow = ganttSheet.getRow(1);
-      headerRow.font = { bold: true };
-      baseColumns.forEach((_column, index) => {
-        headerRow.getCell(index + 1).alignment = { vertical: 'middle' };
+      const yearRow = ganttSheet.getRow(1);
+      const monthRow = ganttSheet.getRow(2);
+      const weekRow = ganttSheet.getRow(3);
+      yearRow.font = { bold: true };
+      monthRow.font = { bold: true };
+      weekRow.font = { bold: true };
+
+      baseColumns.forEach((column, index) => {
+        const colIndex = index + 1;
+        ganttSheet.mergeCells(1, colIndex, 3, colIndex);
+        const cell = yearRow.getCell(colIndex);
+        cell.value = column.header;
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
 
-      dates.forEach((date, index) => {
-        const cell = headerRow.getCell(baseColumns.length + index + 1);
-        cell.value = date;
-        cell.numFmt = 'm/d';
+      const weekStartColumnIndex = baseColumns.length + 1;
+      let columnIndex = weekStartColumnIndex;
+      timeline.years.forEach((group) => {
+        const start = columnIndex;
+        const end = columnIndex + group.span - 1;
+        if (group.span > 0) {
+          ganttSheet.mergeCells(1, start, 1, end);
+          const cell = yearRow.getCell(start);
+          cell.value = `${group.label}年`;
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        }
+        columnIndex += group.span;
+      });
+
+      columnIndex = weekStartColumnIndex;
+      timeline.months.forEach((group) => {
+        const start = columnIndex;
+        const end = columnIndex + group.span - 1;
+        if (group.span > 0) {
+          ganttSheet.mergeCells(2, start, 2, end);
+          const cell = monthRow.getCell(start);
+          cell.value = `${group.label}月`;
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        }
+        columnIndex += group.span;
+      });
+
+      timeline.weeks.forEach((week, index) => {
+        const cell = weekRow.getCell(weekStartColumnIndex + index);
+        cell.value = week.label;
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
 
       const startColumnIndex = baseColumns.findIndex((column) => column.key === 'start') + 1;
       const endColumnIndex = baseColumns.findIndex((column) => column.key === 'end') + 1;
-      const statusColumnIndex = baseColumns.findIndex((column) => column.key === 'status') + 1;
-      const dateColumnStartIndex = baseColumns.length + 1;
 
       ganttSheet.getColumn(startColumnIndex).numFmt = 'yyyy-mm-dd';
       ganttSheet.getColumn(endColumnIndex).numFmt = 'yyyy-mm-dd';
 
       tasks.forEach((task) => {
+        const taskStart = task.start ? parseIsoDate(task.start) : null;
+        const taskEnd = task.end ? parseIsoDate(task.end) : null;
         const row = ganttSheet.addRow({
           memberName: task.memberName,
           projectId: task.projectId,
           projectGroup: task.projectGroup ?? '',
           taskName: task.taskName,
           assignees: task.assignees.join(', '),
-          start: task.start ? parseIsoDate(task.start) : null,
-          end: task.end ? parseIsoDate(task.end) : null,
+          start: taskStart,
+          end: taskEnd,
           status: task.status
         });
 
-        const rowIndex = row.number;
-        const startCell = toColumnLetter(startColumnIndex);
-        const endCell = toColumnLetter(endColumnIndex);
-        const statusCell = toColumnLetter(statusColumnIndex);
+        if (task.status !== 'scheduled' || !taskStart || !taskEnd) {
+          return;
+        }
 
-        dates.forEach((_date, index) => {
-          const columnIndex = dateColumnStartIndex + index;
-          const columnLetter = toColumnLetter(columnIndex);
-          const formula = `IF(AND($${statusCell}${rowIndex}="scheduled",$${startCell}${rowIndex}<=${columnLetter}$1,$${endCell}${rowIndex}>=${columnLetter}$1),IF($${startCell}${rowIndex}=${columnLetter}$1,"★","■"),"")`;
-          const cell = ganttSheet.getCell(rowIndex, columnIndex);
-          cell.value = { formula, result: '' };
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        timeline.weeks.forEach((week, index) => {
+          const weekStart = parseIsoDate(week.start);
+          const weekEnd = parseIsoDate(week.end);
+          if (!weekStart || !weekEnd) {
+            return;
+          }
+          if (taskStart <= weekEnd && taskEnd >= weekStart) {
+            const cell = row.getCell(weekStartColumnIndex + index);
+            cell.value = '■';
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          }
         });
       });
 
-      if (tasks.length > 0) {
-        const dateColumnEndIndex = dateColumnStartIndex + dates.length - 1;
-        const startLetter = toColumnLetter(dateColumnStartIndex);
+      if (tasks.length > 0 && timeline.weeks.length > 0) {
+        const dateColumnEndIndex = weekStartColumnIndex + timeline.weeks.length - 1;
+        const startLetter = toColumnLetter(weekStartColumnIndex);
         const endLetter = toColumnLetter(dateColumnEndIndex);
-        const rangeRef = `${startLetter}2:${endLetter}${tasks.length + 1}`;
+        const rangeRef = `${startLetter}4:${endLetter}${tasks.length + 3}`;
 
         ganttSheet.addConditionalFormatting({
           ref: rangeRef,
@@ -1032,14 +1032,6 @@ export const registerIpcHandlers = (db: DbClient) => {
               text: '■',
               style: {
                 font: { color: { argb: 'FF1E8E3E' } }
-              }
-            },
-            {
-              type: 'containsText',
-              operator: 'containsText',
-              text: '★',
-              style: {
-                font: { color: { argb: 'FFD93025' } }
               }
             }
           ]
@@ -1058,78 +1050,75 @@ export const registerIpcHandlers = (db: DbClient) => {
     const membersScheduled = tasks.filter(
       (task) => task.status === 'scheduled' && task.start && task.end
     );
-    const memberDateRange = membersScheduled
-      .map((task) => ({
-        start: parseIsoDate(task.start!),
-        end: parseIsoDate(task.end!)
-      }))
-      .filter(
-        (item): item is { start: Date; end: Date } =>
-          item.start !== null && item.end !== null
-      );
+    const membersTimeline = generateTimelineStructure(membersScheduled);
 
-    if (membersGanttRows.length === 0 || memberDateRange.length === 0) {
+    if (membersGanttRows.length === 0 || membersTimeline.weeks.length === 0) {
       membersGanttSheet.columns = membersGanttBaseColumns;
       membersGanttSheet.addRow({});
       membersGanttSheet.addRow({ task: '予定ありタスクがありません。' });
     } else {
-      const rangeStart = memberDateRange.reduce(
-        (min, item) => (item.start < min ? item.start : min),
-        memberDateRange[0].start
-      );
-      const rangeEnd = memberDateRange.reduce(
-        (max, item) => (item.end > max ? item.end : max),
-        memberDateRange[0].end
-      );
-
-      const rangeStartMonday = getMondayOnOrBeforeUtc(rangeStart);
-      const rangeEndSunday = getSundayOnOrAfterUtc(rangeEnd);
-      const weekColumns: Array<{
-        header: string;
-        key: string;
-        width: number;
-        weekStart: Date;
-        weekEnd: Date;
-      }> = [];
-      for (
-        let cursor = rangeStartMonday;
-        cursor <= rangeEndSunday;
-        cursor = addUtcDays(cursor, 7)
-      ) {
-        const iso = formatIsoDate(cursor);
-        const weekNumber = getProjectWeekNumber(cursor);
-        weekColumns.push({
-          header: `${formatMonthDayPadded(cursor)} (${weekNumber}W)`,
-          key: `week_${iso}`,
-          width: 12,
-          weekStart: cursor,
-          weekEnd: addUtcDays(cursor, 6)
-        });
-      }
+      const weekColumns = membersTimeline.weeks.map((week) => ({
+        key: `week_${week.start}`,
+        width: 4
+      }));
 
       membersGanttSheet.columns = [
-        ...membersGanttBaseColumns,
-        ...weekColumns.map(({ header, key, width }) => ({ header, key, width }))
+        ...membersGanttBaseColumns.map((column) => ({ key: column.key, width: column.width })),
+        ...weekColumns
       ];
       membersGanttSheet.views = [
         {
           state: 'frozen',
-          ySplit: 1,
+          ySplit: 3,
           xSplit: membersGanttBaseColumns.length
         }
       ];
 
-      const headerRow = membersGanttSheet.getRow(1);
-      headerRow.font = { bold: true };
-      const taskFill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF90EE90' }
-      };
-      const dateColumnStartIndex = membersGanttBaseColumns.length + 1;
-      weekColumns.forEach((_week, index) => {
-        const columnIndex = dateColumnStartIndex + index;
-        const cell = headerRow.getCell(columnIndex);
+      const yearRow = membersGanttSheet.getRow(1);
+      const monthRow = membersGanttSheet.getRow(2);
+      const weekRow = membersGanttSheet.getRow(3);
+      yearRow.font = { bold: true };
+      monthRow.font = { bold: true };
+      weekRow.font = { bold: true };
+
+      membersGanttBaseColumns.forEach((column, index) => {
+        const colIndex = index + 1;
+        membersGanttSheet.mergeCells(1, colIndex, 3, colIndex);
+        const cell = yearRow.getCell(colIndex);
+        cell.value = column.header;
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+
+      const weekStartColumnIndex = membersGanttBaseColumns.length + 1;
+      let columnIndex = weekStartColumnIndex;
+      membersTimeline.years.forEach((group) => {
+        const start = columnIndex;
+        const end = columnIndex + group.span - 1;
+        if (group.span > 0) {
+          membersGanttSheet.mergeCells(1, start, 1, end);
+          const cell = yearRow.getCell(start);
+          cell.value = `${group.label}年`;
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        }
+        columnIndex += group.span;
+      });
+
+      columnIndex = weekStartColumnIndex;
+      membersTimeline.months.forEach((group) => {
+        const start = columnIndex;
+        const end = columnIndex + group.span - 1;
+        if (group.span > 0) {
+          membersGanttSheet.mergeCells(2, start, 2, end);
+          const cell = monthRow.getCell(start);
+          cell.value = `${group.label}月`;
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        }
+        columnIndex += group.span;
+      });
+
+      membersTimeline.weeks.forEach((week, index) => {
+        const cell = weekRow.getCell(weekStartColumnIndex + index);
+        cell.value = week.label;
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
 
@@ -1145,16 +1134,44 @@ export const registerIpcHandlers = (db: DbClient) => {
         });
         lastMemberName = memberName;
 
-        if (startDate && endDate) {
-          weekColumns.forEach((week, index) => {
-            const overlaps = startDate <= week.weekEnd && endDate >= week.weekStart;
-            if (overlaps) {
-              const cell = row.getCell(dateColumnStartIndex + index);
-              cell.fill = taskFill;
-            }
-          });
+        if (task.status !== 'scheduled' || !startDate || !endDate) {
+          return;
         }
+
+        membersTimeline.weeks.forEach((week, index) => {
+          const weekStart = parseIsoDate(week.start);
+          const weekEnd = parseIsoDate(week.end);
+          if (!weekStart || !weekEnd) {
+            return;
+          }
+          if (startDate <= weekEnd && endDate >= weekStart) {
+            const cell = row.getCell(weekStartColumnIndex + index);
+            cell.value = '■';
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          }
+        });
       });
+
+      if (membersGanttRows.length > 0 && membersTimeline.weeks.length > 0) {
+        const dateColumnEndIndex = weekStartColumnIndex + membersTimeline.weeks.length - 1;
+        const startLetter = toColumnLetter(weekStartColumnIndex);
+        const endLetter = toColumnLetter(dateColumnEndIndex);
+        const rangeRef = `${startLetter}4:${endLetter}${membersGanttRows.length + 3}`;
+
+        membersGanttSheet.addConditionalFormatting({
+          ref: rangeRef,
+          rules: [
+            {
+              type: 'containsText',
+              operator: 'containsText',
+              text: '■',
+              style: {
+                font: { color: { argb: 'FF1E8E3E' } }
+              }
+            }
+          ]
+        });
+      }
     }
 
     const sheet = workbook.addWorksheet('Tasks');
