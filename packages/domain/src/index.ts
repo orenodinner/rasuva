@@ -2,7 +2,18 @@ import { RawImportSchema } from './schema';
 import { convertFlatTasksToRawImport, normalizeImport, parseDateStrict } from './normalize';
 import { convertNormalizedTasksToRawImport } from './denormalize';
 import { diffTasks } from './diff';
-import { flattenTasksByMember, generateTimelineStructure } from './exportUtils';
+import {
+  addUtcDays,
+  flattenTasksByMember,
+  formatIsoDate,
+  generateTimelineStructure,
+  getNextSundayAfterUtc,
+  getProjectWeekNumber,
+  getSundayOnOrBeforeUtc,
+  getWeekEnd,
+  getWeekStart,
+  parseIsoDate
+} from './exportUtils';
 import { generateNormalizedTasks } from './generate';
 import { mergeTasksForSave, summarizeTasksForImport } from './merge';
 import type { RawImport } from './types';
@@ -35,6 +46,14 @@ export {
   normalizeImport,
   parseDateStrict,
   diffTasks,
+  parseIsoDate,
+  formatIsoDate,
+  addUtcDays,
+  getSundayOnOrBeforeUtc,
+  getNextSundayAfterUtc,
+  getWeekStart,
+  getWeekEnd,
+  getProjectWeekNumber,
   flattenTasksByMember,
   generateTimelineStructure,
   generateNormalizedTasks,

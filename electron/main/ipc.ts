@@ -1,13 +1,18 @@
 import { BrowserWindow, Menu, MenuItem, dialog, ipcMain } from 'electron';
 import { z } from 'zod';
 import {
+  addUtcDays,
   convertFlatTasksToRawImport,
   convertNormalizedTasksToRawImport,
   diffTasks,
   flattenTasksByMember,
+  formatIsoDate,
   generateTimelineStructure,
+  getNextSundayAfterUtc,
+  getSundayOnOrBeforeUtc,
   mergeTasksForSave,
   normalizeImport,
+  parseIsoDate,
   parseDateStrict,
   parseImportJson,
   summarizeTasksForImport,
@@ -87,28 +92,6 @@ class HistoryManager {
 
 const historyManager = new HistoryManager();
 
-const parseIsoDate = (value: string) => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) {
-    return null;
-  }
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  return new Date(Date.UTC(year, month - 1, day));
-};
-
-const formatIsoDate = (date: Date) => {
-  const year = date.getUTCFullYear();
-  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getUTCDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const addUtcDays = (date: Date, days: number) => {
-  return new Date(date.getTime() + MS_PER_DAY * days);
-};
-
 const formatMonthDay = (date: Date) => {
   const month = date.getUTCMonth() + 1;
   const day = date.getUTCDate();
@@ -128,17 +111,6 @@ const formatMonthDayPadded = (date: Date) => {
   const month = pad2(date.getUTCMonth() + 1);
   const day = pad2(date.getUTCDate());
   return `${month}/${day}`;
-};
-
-const getSundayOnOrBeforeUtc = (date: Date) => {
-  const day = date.getUTCDay();
-  return addUtcDays(date, -day);
-};
-
-const getNextSundayAfterUtc = (date: Date) => {
-  const day = date.getUTCDay();
-  const offset = day === 0 ? 7 : 7 - day;
-  return addUtcDays(date, offset);
 };
 
 const getMondayOnOrBeforeUtc = (date: Date) => {

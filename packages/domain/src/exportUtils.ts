@@ -27,7 +27,7 @@ export interface ExportHeaderStructure {
   weeks: TimelineColumn[];
 }
 
-const parseIsoDate = (value: string): Date | null => {
+export const parseIsoDate = (value: string): Date | null => {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) {
     return null;
@@ -38,29 +38,29 @@ const parseIsoDate = (value: string): Date | null => {
   return new Date(Date.UTC(year, month - 1, day));
 };
 
-const formatIsoDate = (date: Date) => {
+export const formatIsoDate = (date: Date) => {
   const year = date.getUTCFullYear();
   const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
   const day = `${date.getUTCDate()}`.padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
-const addUtcDays = (date: Date, days: number) => {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+export const addUtcDays = (date: Date, days: number) => {
+  return new Date(date.getTime() + MS_PER_DAY * days);
 };
 
-const getSundayOnOrBeforeUtc = (date: Date) => {
+export const getSundayOnOrBeforeUtc = (date: Date) => {
   const day = date.getUTCDay();
   return addUtcDays(date, -day);
 };
 
-const getNextSundayAfterUtc = (date: Date) => {
+export const getNextSundayAfterUtc = (date: Date) => {
   const day = date.getUTCDay();
   const offset = day === 0 ? 7 : 7 - day;
   return addUtcDays(date, offset);
 };
 
-const getWeekStart = (date: Date) => {
+export const getWeekStart = (date: Date) => {
   const year = date.getUTCFullYear();
   const jan1 = new Date(Date.UTC(year, 0, 1));
   const firstSunday = getNextSundayAfterUtc(jan1);
@@ -70,7 +70,7 @@ const getWeekStart = (date: Date) => {
   return getSundayOnOrBeforeUtc(date);
 };
 
-const getProjectWeekNumber = (weekStart: Date) => {
+export const getProjectWeekNumber = (weekStart: Date) => {
   const year = weekStart.getUTCFullYear();
   const jan1 = new Date(Date.UTC(year, 0, 1));
   const firstSunday = getNextSundayAfterUtc(jan1);
@@ -83,7 +83,7 @@ const getProjectWeekNumber = (weekStart: Date) => {
   return diffWeeks + 2;
 };
 
-const getWeekEnd = (weekStart: Date) => {
+export const getWeekEnd = (weekStart: Date) => {
   const year = weekStart.getUTCFullYear();
   const jan1 = new Date(Date.UTC(year, 0, 1));
   const firstSunday = getNextSundayAfterUtc(jan1);
