@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flattenTasksByMember } from '../src/exportUtils';
+import { flattenTasksByMember, generateTimelineStructure } from '../src/exportUtils';
 import type { NormalizedTask } from '../src/types';
 
 const makeTask = (overrides: Partial<NormalizedTask>): NormalizedTask => ({
@@ -88,5 +88,29 @@ describe('flattenTasksByMember', () => {
       'P-1::Early',
       'P-2::Late'
     ]);
+  });
+});
+
+describe('generateTimelineStructure', () => {
+  it('builds week columns with year/month grouping', () => {
+    const tasks = [
+      makeTask({
+        start: '2024-01-01',
+        end: '2024-01-03',
+        taskKeyFull: 'P-1::Early'
+      }),
+      makeTask({
+        start: '2024-02-05',
+        end: '2024-02-06',
+        taskKeyFull: 'P-1::Later'
+      })
+    ];
+
+    const structure = generateTimelineStructure(tasks);
+    expect(structure.weeks.length).toBeGreaterThan(0);
+    expect(structure.years[0].label).toBe('2024');
+    expect(structure.months.some((group) => group.label === '1')).toBe(true);
+    expect(structure.months.some((group) => group.label === '2')).toBe(true);
+    expect(structure.weeks[0].label.endsWith('W')).toBe(true);
   });
 });
