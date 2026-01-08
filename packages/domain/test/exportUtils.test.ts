@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addUtcDays,
   flattenTasksByMember,
   generateTimelineStructure,
-  getNextSundayAfterUtc,
   getProjectWeekNumber,
   getSundayOnOrBeforeUtc,
   getWeekEnd,
-  getWeekStart
+  getWeekStart,
+  parseIsoDate
 } from '../src/exportUtils';
 import type { NormalizedTask } from '../src/types';
 
@@ -25,12 +24,6 @@ const makeTask = (overrides: Partial<NormalizedTask>): NormalizedTask => ({
   note: overrides.note ?? null,
   status: overrides.status ?? 'scheduled'
 });
-
-const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
-const toUtcDate = (iso: string) => {
-  const [year, month, day] = iso.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
-};
 
 describe('flattenTasksByMember', () => {
   it('expands tasks to owners and assignees and sorts by member', () => {
@@ -111,16 +104,10 @@ describe('week utilities', () => {
     const jan1 = new Date(Date.UTC(2023, 0, 1));
     const jan7 = new Date(Date.UTC(2023, 0, 7));
     const jan8 = new Date(Date.UTC(2023, 0, 8));
-    const firstSunday = getNextSundayAfterUtc(jan1);
-
     const weekStart = getWeekStart(jan1);
     expect(weekStart.getTime()).toBe(jan1.getTime());
     expect(getWeekEnd(weekStart).getTime()).toBe(jan7.getTime());
-    const expectedWeekNumber =
-      weekStart.getTime() < firstSunday.getTime()
-        ? 1
-        : Math.floor((weekStart.getTime() - firstSunday.getTime()) / MS_PER_WEEK) + 2;
-    expect(getProjectWeekNumber(weekStart)).toBe(expectedWeekNumber);
+    expect(getProjectWeekNumber(weekStart)).toBe(1);
 
     const nextWeekStart = getWeekStart(jan8);
     expect(nextWeekStart.getTime()).toBe(jan8.getTime());
@@ -133,16 +120,10 @@ describe('week utilities', () => {
     const jan6 = new Date(Date.UTC(2024, 0, 6));
     const jan7 = new Date(Date.UTC(2024, 0, 7));
     const jan13 = new Date(Date.UTC(2024, 0, 13));
-    const firstSunday = getNextSundayAfterUtc(jan1);
-
     const weekStart = getWeekStart(jan3);
     expect(weekStart.getTime()).toBe(jan1.getTime());
     expect(getWeekEnd(weekStart).getTime()).toBe(jan6.getTime());
-    const expectedWeekNumber =
-      weekStart.getTime() < firstSunday.getTime()
-        ? 1
-        : Math.floor((weekStart.getTime() - firstSunday.getTime()) / MS_PER_WEEK) + 2;
-    expect(getProjectWeekNumber(weekStart)).toBe(expectedWeekNumber);
+    expect(getProjectWeekNumber(weekStart)).toBe(1);
 
     const nextWeekStart = getWeekStart(jan7);
     expect(nextWeekStart.getTime()).toBe(jan7.getTime());
@@ -216,8 +197,9 @@ describe('generateTimelineStructure', () => {
     expect(structure.weeks.some((week) => week.label === '1W')).toBe(true);
     expect(structure.weeks.some((week) => week.label === '52W')).toBe(true);
     structure.weeks.forEach((week) => {
-      const weekStart = toUtcDate(week.start);
-      const expectedLabel = `${getProjectWeekNumber(weekStart)}W`;
+      const weekStart = parseIsoDate(week.start);
+      expect(weekStart).not.toBeNull();
+      const expectedLabel = `${getProjectWeekNumber(weekStart!)}W`;
       expect(week.label).toBe(expectedLabel);
     });
   });
