@@ -1,5 +1,5 @@
 :root {
-  font-family: "Bahnschrift", "Segoe UI Variable", "Yu Gothic UI", "Meiryo", sans-serif;
+  font-family: 'Bahnschrift', 'Segoe UI Variable', 'Yu Gothic UI', 'Meiryo', sans-serif;
   color: #1e1b16;
   background-color: #f4f1ea;
   --bg: #f4f1ea;
@@ -34,6 +34,7 @@ body {
   display: grid;
   grid-template-columns: 240px 1fr;
   height: 100vh;
+  min-width: 0;
 }
 
 .side-nav {
@@ -43,6 +44,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .side-nav__brand {
@@ -76,6 +79,7 @@ body {
 .side-nav__links {
   display: grid;
   gap: 6px;
+  min-height: 0;
 }
 
 .schedule-switcher {
@@ -123,7 +127,12 @@ body {
   padding: 8px 12px;
   border-radius: 10px;
   font-size: 14px;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .side-nav__link:hover {
@@ -145,16 +154,19 @@ body {
   display: grid;
   grid-template-rows: auto 1fr;
   background: var(--bg);
+  min-width: 0;
+  min-height: 0;
 }
 
 .command-bar {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: minmax(260px, auto) minmax(240px, 1fr) minmax(260px, auto);
   gap: 16px;
   align-items: center;
   padding: 16px 24px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
+  min-width: 0;
 }
 
 .command-bar__left,
@@ -168,6 +180,7 @@ body {
 .command-bar__center {
   display: flex;
   justify-content: center;
+  min-width: 0;
 }
 
 .search-input {
@@ -187,8 +200,18 @@ body {
   color: #fffaf2;
   cursor: pointer;
   font-weight: 600;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
   box-shadow: 0 8px 16px rgba(47, 124, 111, 0.2);
+  white-space: nowrap;
+}
+
+.cmd-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+  box-shadow: none;
 }
 
 .cmd-button:hover {
@@ -238,6 +261,7 @@ body {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .filter-pill--ghost {
@@ -269,11 +293,14 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .main-pane {
   padding: 24px;
   overflow: auto;
+  min-width: 0;
 }
 
 .details-pane {
@@ -349,7 +376,7 @@ body {
 }
 
 .detail-raw {
-  font-family: "Consolas", "Courier New", monospace;
+  font-family: 'Consolas', 'Courier New', monospace;
   font-size: 12px;
   color: var(--danger);
 }
@@ -430,10 +457,129 @@ body {
   font-size: 20px;
 }
 
+.import-panel {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
 .import-actions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.import-actions--sources {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.json-workspace {
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) minmax(240px, 320px);
+  gap: 16px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.json-editor-card,
+.import-tips {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+
+.json-editor-card {
+  display: grid;
+  grid-template-rows: auto minmax(360px, 1fr);
+  overflow: hidden;
+}
+
+.json-input-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: #fffdf8;
+}
+
+.json-input-toolbar h2,
+.import-tips h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.json-input-toolbar p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.json-input-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.json-status,
+.json-meta {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.json-status--ok {
+  color: var(--accent-strong);
+  background: rgba(47, 124, 111, 0.14);
+}
+
+.json-status--warn {
+  color: var(--danger);
+  background: rgba(180, 71, 63, 0.14);
+}
+
+.json-status--empty,
+.json-meta {
+  color: var(--text-muted);
+  background: rgba(109, 100, 88, 0.1);
+}
+
+.import-tips {
+  padding: 16px;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.import-tip {
+  display: grid;
+  gap: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(230, 220, 203, 0.75);
+}
+
+.import-tip strong {
+  color: var(--accent-strong);
+}
+
+.import-tip span {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
 }
 
 .export-actions {
@@ -447,14 +593,21 @@ body {
 }
 
 .json-input {
-  min-height: 280px;
+  min-height: 360px;
   width: 100%;
   padding: 16px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
+  border: none;
+  border-radius: 0;
   background: #fffef9;
-  font-family: "Consolas", "Courier New", monospace;
-  font-size: 12px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.json-input:focus {
+  outline: 2px solid rgba(47, 124, 111, 0.35);
+  outline-offset: -2px;
 }
 
 .warning-list {
@@ -476,6 +629,7 @@ body {
 
 .warning-message {
   color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 .action-row {
@@ -525,6 +679,7 @@ body {
   width: 100%;
   text-align: left;
   font: inherit;
+  min-width: 0;
 }
 
 .list-row--action {
@@ -538,11 +693,13 @@ body {
 
 .list-title {
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .list-subtitle {
   font-size: 12px;
   color: var(--text-muted);
+  overflow-wrap: anywhere;
 }
 
 .list-metrics {
@@ -550,6 +707,7 @@ body {
   gap: 12px;
   color: var(--text-muted);
   font-size: 12px;
+  flex-wrap: wrap;
 }
 
 .list-actions {
@@ -714,6 +872,8 @@ body {
 .task-table {
   display: grid;
   gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 
 .task-table__head,
@@ -722,6 +882,7 @@ body {
   grid-template-columns: 160px 140px 1fr 110px 110px 120px;
   gap: 12px;
   align-items: center;
+  min-width: 840px;
 }
 
 .task-table__head {
@@ -742,6 +903,7 @@ body {
 
 .task-table__task {
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .status-pill {
@@ -834,7 +996,7 @@ body {
 /* 既存の .gantt-page .gantt を以下のように修正してください */
 .gantt-page .gantt {
   /* 変更: 固定計算を削除し、Flexboxで残り領域を埋める */
-  height: auto; 
+  height: auto;
   flex: 1;
   min-height: 0; /* これがないとFlexアイテムが縮まない場合がある */
 }
@@ -924,7 +1086,6 @@ body {
 .gantt-grid {
   position: relative;
   display: block;
-  
 }
 
 .gantt-row {
@@ -951,6 +1112,10 @@ body {
   font-weight: 600;
   z-index: 10;
   border-right: 1px solid var(--border);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gantt-toggle {
@@ -963,11 +1128,22 @@ body {
   padding: 0;
   cursor: pointer;
   color: inherit;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .gantt-toggle__icon {
   font-size: 12px;
   color: var(--text-muted);
+  flex: 0 0 auto;
+}
+
+.gantt-toggle__text,
+.gantt-label__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gantt-label--header {
@@ -1104,11 +1280,28 @@ body {
   cursor: grabbing;
 }
 
+.gantt-bar--compact {
+  padding: 0 6px;
+  min-width: 18px;
+}
+
+.gantt-bar--compact .gantt-bar-content span {
+  display: none;
+}
+
 .gantt-bar-content {
   display: flex;
   align-items: center;
   flex: 1;
+  min-width: 0;
   pointer-events: auto;
+}
+
+.gantt-bar-content span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gantt-inline-input {
@@ -1255,6 +1448,18 @@ body {
 }
 
 @media (max-width: 1200px) {
+  .command-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .command-bar__center {
+    justify-content: stretch;
+  }
+
+  .search-input {
+    width: 100%;
+  }
+
   .content-shell {
     grid-template-columns: 1fr;
   }
@@ -1272,6 +1477,10 @@ body {
   .task-table__head,
   .task-table__row {
     grid-template-columns: 130px 120px 1fr 90px 90px 110px;
+  }
+
+  .json-workspace {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1295,6 +1504,22 @@ body {
 
   .main-pane {
     padding: 16px;
+  }
+
+  .json-input-toolbar {
+    display: grid;
+  }
+
+  .json-input-actions {
+    justify-content: flex-start;
+  }
+
+  .json-editor-card {
+    grid-template-rows: auto minmax(300px, 1fr);
+  }
+
+  .json-input {
+    min-height: 300px;
   }
 }
 

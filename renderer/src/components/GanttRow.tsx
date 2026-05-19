@@ -133,20 +133,13 @@ const GanttTaskBar = ({
           const deltaDays = deltaStart;
           const tasksToMove = selectedTaskIds
             .map((taskKey) => taskLookup.get(taskKey))
-            .filter(
-              (entry): entry is NormalizedTask =>
-                Boolean(entry && entry.start && entry.end)
-            );
+            .filter((entry): entry is NormalizedTask => Boolean(entry && entry.start && entry.end));
           if (tasksToMove.length > 1) {
             try {
               const results = await Promise.all(
                 tasksToMove.map((entry) => {
-                  const nextStart = formatIsoDate(
-                    addUtcDays(toUtcDate(entry.start!), deltaDays)
-                  );
-                  const nextEnd = formatIsoDate(
-                    addUtcDays(toUtcDate(entry.end!), deltaDays)
-                  );
+                  const nextStart = formatIsoDate(addUtcDays(toUtcDate(entry.start!), deltaDays));
+                  const nextEnd = formatIsoDate(addUtcDays(toUtcDate(entry.end!), deltaDays));
                   if (!nextStart || !nextEnd) {
                     return Promise.resolve(false);
                   }
@@ -173,9 +166,7 @@ const GanttTaskBar = ({
               return ok;
             } catch (error) {
               setLastError(
-                error instanceof Error
-                  ? error.message
-                  : '複数タスクの更新に失敗しました。'
+                error instanceof Error ? error.message : '複数タスクの更新に失敗しました。'
               );
               if (previousStart && previousEnd) {
                 setSelectedTask({ ...target, start: previousStart, end: previousEnd });
@@ -205,9 +196,7 @@ const GanttTaskBar = ({
         }
         return ok;
       } catch (error) {
-        setLastError(
-          error instanceof Error ? error.message : '日程の更新に失敗しました。'
-        );
+        setLastError(error instanceof Error ? error.message : '日程の更新に失敗しました。');
         if (previousStart && previousEnd) {
           setSelectedTask({ ...target, start: previousStart, end: previousEnd });
         }
@@ -223,7 +212,8 @@ const GanttTaskBar = ({
 
   const draggingClass = isDragging ? 'gantt-bar--dragging' : '';
   const selectedClass = isSelected ? 'gantt-bar--selected' : '';
-  const barClassName = ['gantt-bar', className, draggingClass, selectedClass]
+  const compactClass = width < 72 ? 'gantt-bar--compact' : '';
+  const barClassName = ['gantt-bar', className, draggingClass, selectedClass, compactClass]
     .filter(Boolean)
     .join(' ');
 
@@ -297,7 +287,10 @@ const GanttTaskBar = ({
         className="gantt-resize-handle gantt-resize-handle--left"
         onMouseDown={isInlineEditing ? undefined : handleResizeStart('left')}
       />
-      <div className="gantt-bar-content" onMouseDown={isInlineEditing ? undefined : handleMoveStart}>
+      <div
+        className="gantt-bar-content"
+        onMouseDown={isInlineEditing ? undefined : handleMoveStart}
+      >
         {isInlineEditing ? (
           <input
             ref={inputRef}
@@ -322,7 +315,7 @@ const GanttTaskBar = ({
             onClick={(event) => event.stopPropagation()}
           />
         ) : (
-          <span>{task.taskName}</span>
+          <span title={task.taskName}>{task.taskName}</span>
         )}
       </div>
       <div
@@ -353,8 +346,8 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
     row.type === 'member'
       ? row.memberName
       : row.type === 'project'
-        ? row.projectId ?? ''
-        : row.task?.taskKeyFull ?? row.id;
+        ? (row.projectId ?? '')
+        : (row.task?.taskKeyFull ?? row.id);
   const dataProjectId = row.projectId ?? '';
 
   const handleRowContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -386,11 +379,15 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
       data-member-name={row.memberName}
       data-project-id={dataProjectId}
     >
-      <div className={`gantt-label gantt-label--level-${row.level}`} style={{ width: data.labelWidth }}>
+      <div
+        className={`gantt-label gantt-label--level-${row.level}`}
+        style={{ width: data.labelWidth }}
+      >
         {isGroup && groupId ? (
           <button
             type="button"
             className="gantt-toggle"
+            title={row.label}
             aria-expanded={!isCollapsed}
             onClick={(event) => {
               event.stopPropagation();
@@ -398,10 +395,12 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
             }}
           >
             <span className="gantt-toggle__icon">{isCollapsed ? '▸' : '▾'}</span>
-            <span>{row.label}</span>
+            <span className="gantt-toggle__text">{row.label}</span>
           </button>
         ) : (
-          row.label
+          <span className="gantt-label__text" title={row.label}>
+            {row.label}
+          </span>
         )}
       </div>
       <div
@@ -453,51 +452,50 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
             style={{ left: data.selectedColumnRect.left, width: data.selectedColumnRect.width }}
           />
         ) : null}
-        {row.type === 'task' && row.task && row.task.start && row.task.end ? (
-          (() => {
-            const startDate = data.toUtcDate(row.task.start);
-            const endDate = data.toUtcDate(row.task.end);
-            const originalDurationDays = data.diffDays(startDate, endDate) + 1;
-            const clippedStart =
-              startDate < data.timelineStart ? data.timelineStart : startDate;
-            const clippedEnd = endDate > data.timelineEnd ? data.timelineEnd : endDate;
-            if (clippedEnd < clippedStart) {
-              return null;
-            }
-            const durationDays = data.diffDays(clippedStart, clippedEnd) + 1;
-            const left = data.diffDays(data.timelineStart, clippedStart) * data.dayWidth;
-            const baseClassName = data.getBarClassName?.(row.task) ?? '';
-            const isHighlighted = data.query
-              ? data.buildSearchHaystack(row.task).includes(data.query)
-              : false;
-            const highlightClass = isHighlighted ? 'gantt-bar--highlighted' : '';
-            const className = [baseClassName, highlightClass].filter(Boolean).join(' ');
-            const tooltip = data.buildTooltip(row.task);
+        {row.type === 'task' && row.task && row.task.start && row.task.end
+          ? (() => {
+              const startDate = data.toUtcDate(row.task.start);
+              const endDate = data.toUtcDate(row.task.end);
+              const originalDurationDays = data.diffDays(startDate, endDate) + 1;
+              const clippedStart = startDate < data.timelineStart ? data.timelineStart : startDate;
+              const clippedEnd = endDate > data.timelineEnd ? data.timelineEnd : endDate;
+              if (clippedEnd < clippedStart) {
+                return null;
+              }
+              const durationDays = data.diffDays(clippedStart, clippedEnd) + 1;
+              const left = data.diffDays(data.timelineStart, clippedStart) * data.dayWidth;
+              const baseClassName = data.getBarClassName?.(row.task) ?? '';
+              const isHighlighted = data.query
+                ? data.buildSearchHaystack(row.task).includes(data.query)
+                : false;
+              const highlightClass = isHighlighted ? 'gantt-bar--highlighted' : '';
+              const className = [baseClassName, highlightClass].filter(Boolean).join(' ');
+              const tooltip = data.buildTooltip(row.task);
 
-            const barWidth = Math.max(data.dayWidth, durationDays * data.dayWidth);
-            return (
-              <GanttTaskBar
-                task={row.task}
-                left={left}
-                width={barWidth}
-                dayWidth={data.dayWidth}
-                durationDays={originalDurationDays}
-                className={className}
-                tooltip={tooltip}
-                setSelectedTask={data.setSelectedTask}
-                selectedTaskIds={data.selectedTaskIds}
-                toggleTaskSelection={data.toggleTaskSelection}
-                setLastError={data.setLastError}
-                updateTask={data.updateTask}
-                inlineEditTaskKey={data.inlineEditTaskKey}
-                startInlineEdit={data.startInlineEdit}
-                stopInlineEdit={data.stopInlineEdit}
-                showContextMenu={data.showContextMenu}
-                taskLookup={data.taskLookup}
-              />
-            );
-          })()
-        ) : null}
+              const barWidth = Math.max(data.dayWidth, durationDays * data.dayWidth);
+              return (
+                <GanttTaskBar
+                  task={row.task}
+                  left={left}
+                  width={barWidth}
+                  dayWidth={data.dayWidth}
+                  durationDays={originalDurationDays}
+                  className={className}
+                  tooltip={tooltip}
+                  setSelectedTask={data.setSelectedTask}
+                  selectedTaskIds={data.selectedTaskIds}
+                  toggleTaskSelection={data.toggleTaskSelection}
+                  setLastError={data.setLastError}
+                  updateTask={data.updateTask}
+                  inlineEditTaskKey={data.inlineEditTaskKey}
+                  startInlineEdit={data.startInlineEdit}
+                  stopInlineEdit={data.stopInlineEdit}
+                  showContextMenu={data.showContextMenu}
+                  taskLookup={data.taskLookup}
+                />
+              );
+            })()
+          : null}
       </div>
     </div>
   );
