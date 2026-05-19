@@ -387,6 +387,18 @@ body {
   animation: fadeUp 0.35s ease;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .page-header h1 {
   margin: 0 0 6px 0;
 }
@@ -736,6 +748,76 @@ body {
   flex-wrap: wrap;
 }
 
+.load-legend {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.load-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.load-legend__swatch {
+  width: 18px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px solid rgba(22, 18, 14, 0.08);
+}
+
+.load-legend__swatch--low {
+  background: #6da86d;
+}
+
+.load-legend__swatch--medium {
+  background: #d49a35;
+}
+
+.load-legend__swatch--high {
+  background: #c8534b;
+}
+
+.gantt-controls-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-height: 36px;
+}
+
+.gantt-view-controls {
+  gap: 6px;
+}
+
+.gantt-page .range-control {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.gantt-page .range-control span {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.gantt-page .text-input {
+  height: 34px;
+  padding: 6px 9px;
+}
+
+.gantt-page .cmd-button {
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -932,13 +1014,10 @@ body {
 }
 
 .gantt-page {
-  gap: 16px;
-  /* 追加: Flexレイアウトにして縦方向に並べる */
+  gap: 8px;
   display: flex;
   flex-direction: column;
-  /* 追加: 親要素(.main-pane)の高さ一杯に広げる */
   height: 100%;
-  /* 追加: ページ自体のスクロールバーを抑制 */
   overflow: hidden;
 }
 .gantt {
@@ -1146,9 +1225,80 @@ body {
   white-space: nowrap;
 }
 
+.gantt-load-badge {
+  flex: 0 0 auto;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fffaf2;
+}
+
+.gantt-load-badge--low {
+  background: #5f9860;
+}
+
+.gantt-load-badge--medium {
+  background: #c78325;
+}
+
+.gantt-load-badge--high {
+  background: #b94840;
+}
+
 .gantt-label--header {
   background: var(--panel-strong);
   z-index: 11;
+}
+
+.gantt-row--load-summary {
+  min-height: 32px;
+  height: 32px;
+  background: #fff7e8;
+  border-bottom-color: rgba(173, 126, 54, 0.45);
+}
+
+.gantt-load-summary-label {
+  color: #6d4d13;
+  font-weight: 800;
+}
+
+.gantt-load-summary-track {
+  display: block;
+  min-height: 32px;
+  background-color: rgba(255, 250, 242, 0.62);
+}
+
+.gantt-load-summary-bar {
+  position: absolute;
+  top: 6px;
+  height: 20px;
+  border-radius: 3px;
+  color: #fffaf2;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  z-index: 4;
+  box-shadow: 0 4px 8px rgba(22, 18, 14, 0.18);
+  pointer-events: none;
+}
+
+.gantt-load-summary-bar--low {
+  background: #5f9860;
+}
+
+.gantt-load-summary-bar--medium {
+  background: #c78325;
+}
+
+.gantt-load-summary-bar--high {
+  background: #b94840;
 }
 
 .gantt-label--level-1 {
@@ -1258,7 +1408,7 @@ body {
   top: 5px;
   height: 18px;
   background: linear-gradient(90deg, #2f7c6f, #3a9a89);
-  border-radius: 999px;
+  border-radius: 4px;
   color: #fffaf2;
   padding: 0 10px;
   display: flex;
@@ -1270,6 +1420,54 @@ body {
   user-select: none;
   touch-action: none;
   z-index: 2;
+}
+
+.gantt-load-segment {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.16;
+}
+
+.gantt-load-segment--low {
+  background: #6da86d;
+}
+
+.gantt-load-segment--medium {
+  background: #d49a35;
+}
+
+.gantt-load-segment--high {
+  background: #c8534b;
+}
+
+.gantt-aggregate-bar {
+  position: absolute;
+  top: 6px;
+  height: 16px;
+  border-radius: 3px;
+  color: #fffaf2;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  z-index: 3;
+  box-shadow: 0 4px 8px rgba(22, 18, 14, 0.18);
+  pointer-events: none;
+}
+
+.gantt-aggregate-bar--low {
+  background: #5f9860;
+}
+
+.gantt-aggregate-bar--medium {
+  background: #c78325;
+}
+
+.gantt-aggregate-bar--high {
+  background: #b94840;
 }
 
 .gantt-bar span {

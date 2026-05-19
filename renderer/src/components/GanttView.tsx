@@ -14,6 +14,7 @@ import {
   getWeekendRects,
   toUtcDate
 } from '../utils/ganttMath';
+import { buildWorkloadSegments } from '../utils/workloadSegments';
 import GanttHeader from './GanttHeader';
 import GanttRow, { type GanttRowData, type GanttRowItem } from './GanttRow';
 
@@ -272,9 +273,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     let derivedRangeEnd: string | null = null;
 
     if (scheduled.length > 0) {
-      const sortedByStart = [...scheduled].sort((a, b) =>
-        a.start!.localeCompare(b.start!)
-      );
+      const sortedByStart = [...scheduled].sort((a, b) => a.start!.localeCompare(b.start!));
       const sortedByEnd = [...scheduled].sort((a, b) => a.end!.localeCompare(b.end!));
       derivedRangeStart = sortedByStart[0].start!;
       derivedRangeEnd = sortedByEnd[sortedByEnd.length - 1].end!;
@@ -292,6 +291,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
         id: `member:${memberName}`,
         type: 'member',
         label: memberName,
+        aggregateTasks: Array.from(projects.values()).flat(),
         level: 0,
         memberName,
         projectId: null
@@ -301,6 +301,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
           id: `project:${memberName}:${projectId}`,
           type: 'project',
           label: projectId,
+          aggregateTasks: tasks,
           level: 1,
           memberName,
           projectId
@@ -428,12 +429,23 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
 
   const { unitDays, columnWidth } = zoomConfig[zoom];
   const dayWidth = columnWidth / unitDays;
-  const rangeDays =
-    timelineStart && timelineEnd ? diffUtcDays(timelineStart, timelineEnd) + 1 : 0;
+  const rangeDays = timelineStart && timelineEnd ? diffUtcDays(timelineStart, timelineEnd) + 1 : 0;
   const columnCount = timelineStart && timelineEnd ? Math.ceil(rangeDays / unitDays) : 0;
   const timelineWidth = columnCount * columnWidth;
   const labelWidth = 260;
   const totalWidth = labelWidth + timelineWidth;
+  const workloadSummarySegments = useMemo(() => {
+    if (!timelineStart || !timelineEnd) {
+      return [];
+    }
+    return buildWorkloadSegments(
+      rangeFilteredTasks,
+      timelineStart,
+      timelineEnd,
+      unitDays,
+      columnWidth
+    );
+  }, [rangeFilteredTasks, timelineStart, timelineEnd, unitDays, columnWidth]);
   const weekendRects = useMemo(() => {
     if (!timelineStart || !timelineEnd) {
       return [];
@@ -605,6 +617,8 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       timelineWidth,
       totalWidth,
       dayWidth,
+      unitDays,
+      columnWidth,
       query,
       timelineStart,
       timelineEnd,
@@ -638,6 +652,8 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     timelineWidth,
     totalWidth,
     dayWidth,
+    unitDays,
+    columnWidth,
     query,
     timelineStart,
     timelineEnd,
@@ -676,7 +692,6 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     Inner.displayName = 'GanttInnerElement';
     return Inner;
   }, [totalWidth]);
-
 
   useEffect(() => {
     const scrollElement = scrollRef.current;
@@ -775,9 +790,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       }
 
       const durationDays =
-        task.start && task.end
-          ? diffUtcDays(toUtcDate(task.start), toUtcDate(task.end)) + 1
-          : 1;
+        task.start && task.end ? diffUtcDays(toUtcDate(task.start), toUtcDate(task.end)) + 1 : 1;
       const endIso = formatIsoDate(addUtcDays(startDate, Math.max(0, durationDays - 1)));
       const nextProjectGroup = projectGroups.get(projectId) ?? task.projectGroup ?? null;
 
@@ -798,26 +811,14 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
         }
       } catch (error) {
         console.error('Failed to schedule task from drawer.', error);
-        setLastError(
-          error instanceof Error ? error.message : '未確定タスクの更新に失敗しました。'
-        );
+        setLastError(error instanceof Error ? error.message : '未確定タスクの更新に失敗しました。');
       }
     },
-    [
-      timelineStart,
-      taskLookup,
-      projectGroups,
-      updateTask,
-      setLastError,
-      labelWidth,
-      dayWidth
-    ]
+    [timelineStart, taskLookup, projectGroups, updateTask, setLastError, labelWidth, dayWidth]
   );
 
   if (sourceTasks.length === 0) {
-    return (
-      <div className="empty-state">{emptyLabel ?? 'インポート済みデータがありません。'}</div>
-    );
+    return <div className="empty-state">{emptyLabel ?? 'インポート済みデータがありません。'}</div>;
   }
 
   if (!displayRangeStart || !displayRangeEnd) {
@@ -853,6 +854,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
             zoom={zoom}
             scrollLeft={headerScrollLeft}
             ticks={ticks}
+            workloadSegments={workloadSummarySegments}
           />
         </div>
         <div className="gantt-body" onDragOver={handleDragOver} onDrop={handleDrop}>

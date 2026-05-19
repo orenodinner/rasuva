@@ -5,12 +5,14 @@ import type { NormalizedTask, TaskUpdateInput } from '@domain';
 import type { ContextMenuTarget } from '../state/slices/uiSlice';
 import { useTaskInteraction } from '../hooks/useTaskInteraction';
 import { addUtcDays, diffUtcDays, formatIsoDate, toUtcDate } from '../utils/ganttMath';
+import { buildWorkloadSegments, getWorkloadLevel } from '../utils/workloadSegments';
 
 export interface GanttRowItem {
   id: string;
   type: 'member' | 'project' | 'task';
   label: string;
   task?: NormalizedTask;
+  aggregateTasks?: NormalizedTask[];
   level: number;
   memberName: string;
   projectId: string | null;
@@ -22,6 +24,8 @@ export interface GanttRowData {
   timelineWidth: number;
   totalWidth: number;
   dayWidth: number;
+  unitDays: number;
+  columnWidth: number;
   query: string;
   timelineStart: Date;
   timelineEnd: Date;
@@ -349,6 +353,17 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
         ? (row.projectId ?? '')
         : (row.task?.taskKeyFull ?? row.id);
   const dataProjectId = row.projectId ?? '';
+  const workloadSegments = isGroup
+    ? buildWorkloadSegments(
+        row.aggregateTasks,
+        data.timelineStart,
+        data.timelineEnd,
+        data.unitDays,
+        data.columnWidth
+      )
+    : [];
+  const maxLoad = workloadSegments.reduce((max, segment) => Math.max(max, segment.count), 0);
+  const showAggregateBars = isGroup && isCollapsed && workloadSegments.length > 0;
 
   const handleRowContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (row.type !== 'project' || !row.projectId) {
@@ -396,6 +411,11 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
           >
             <span className="gantt-toggle__icon">{isCollapsed ? '▸' : '▾'}</span>
             <span className="gantt-toggle__text">{row.label}</span>
+            {maxLoad > 0 ? (
+              <span className={`gantt-load-badge gantt-load-badge--${getWorkloadLevel(maxLoad)}`}>
+                {maxLoad}
+              </span>
+            ) : null}
           </button>
         ) : (
           <span className="gantt-label__text" title={row.label}>
@@ -452,6 +472,26 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
             style={{ left: data.selectedColumnRect.left, width: data.selectedColumnRect.width }}
           />
         ) : null}
+        {workloadSegments.map((segment) => (
+          <div
+            key={`load-${segment.key}`}
+            className={`gantt-load-segment gantt-load-segment--${segment.level}`}
+            style={{ left: segment.left, width: segment.width }}
+            title={`同時進行 ${segment.count}件`}
+          />
+        ))}
+        {showAggregateBars
+          ? workloadSegments.map((segment) => (
+              <div
+                key={`aggregate-${segment.key}`}
+                className={`gantt-aggregate-bar gantt-aggregate-bar--${segment.level}`}
+                style={{ left: segment.left, width: segment.width }}
+                title={`集計: 同時進行 ${segment.count}件`}
+              >
+                {segment.count > 1 ? segment.count : null}
+              </div>
+            ))
+          : null}
         {row.type === 'task' && row.task && row.task.start && row.task.end
           ? (() => {
               const startDate = data.toUtcDate(row.task.start);

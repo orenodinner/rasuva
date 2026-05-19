@@ -99,9 +99,7 @@ const GanttPage = () => {
         return false;
       }
       return (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
+        target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
       );
     };
 
@@ -145,9 +143,7 @@ const GanttPage = () => {
           }
         } catch (error) {
           console.error('Failed to delete task from keyboard shortcut.', error);
-          setLastError(
-            error instanceof Error ? error.message : 'タスクの削除に失敗しました。'
-          );
+          setLastError(error instanceof Error ? error.message : 'タスクの削除に失敗しました。');
         }
         return;
       }
@@ -203,60 +199,73 @@ const GanttPage = () => {
 
   return (
     <div className="page gantt-page">
-      <div className="page-header">
-        <h1>ガント</h1>
-        <p>担当者 → プロジェクト → タスクのタイムラインです。</p>
-      </div>
-      <div className="view-toggle">
-        <label className="range-control">
-          <span>開始</span>
-          <input
-            className="text-input"
-            type="date"
-            value={rangeStart ?? ''}
-            onChange={(event) => setRange(event.target.value || null, rangeEnd)}
-          />
-        </label>
-        <label className="range-control">
-          <span>終了</span>
-          <input
-            className="text-input"
-            type="date"
-            value={rangeEnd ?? ''}
-            onChange={(event) => setRange(rangeStart, event.target.value || null)}
-          />
-        </label>
-        <button
-          className="cmd-button cmd-button--ghost"
-          type="button"
-          onClick={() => setRange(null, null)}
-        >
-          期間リセット
-        </button>
-        <button
-          className="cmd-button cmd-button--ghost"
-          type="button"
-          onClick={() => collapseAll(allGroupIds)}
-          disabled={allGroupIds.length === 0}
-        >
-          すべて折りたたむ
-        </button>
-        <button
-          className="cmd-button cmd-button--ghost"
-          type="button"
-          onClick={expandAll}
-          disabled={collapsedGroups.length === 0}
-        >
-          すべて展開
-        </button>
-        <button
-          className={`cmd-button cmd-button--ghost${isUnscheduledDrawerOpen ? ' cmd-button--active' : ''}`}
-          type="button"
-          onClick={toggleUnscheduledDrawer}
-          disabled={unscheduledCount === 0}
-        >
-          未確定タスク ({unscheduledCount}件)
-        </button>
+      <h1 className="visually-hidden">ガント</h1>
+      <div className="gantt-controls-strip" aria-label="ガント表示設定">
+        <div className="view-toggle gantt-view-controls">
+          <label className="range-control">
+            <span>開始</span>
+            <input
+              className="text-input"
+              type="date"
+              value={rangeStart ?? ''}
+              onChange={(event) => setRange(event.target.value || null, rangeEnd)}
+            />
+          </label>
+          <label className="range-control">
+            <span>終了</span>
+            <input
+              className="text-input"
+              type="date"
+              value={rangeEnd ?? ''}
+              onChange={(event) => setRange(rangeStart, event.target.value || null)}
+            />
+          </label>
+          <button
+            className="cmd-button cmd-button--ghost"
+            type="button"
+            onClick={() => setRange(null, null)}
+          >
+            期間リセット
+          </button>
+          <button
+            className="cmd-button cmd-button--ghost"
+            type="button"
+            onClick={() => collapseAll(allGroupIds)}
+            disabled={allGroupIds.length === 0}
+          >
+            すべて折りたたむ
+          </button>
+          <button
+            className="cmd-button cmd-button--ghost"
+            type="button"
+            onClick={expandAll}
+            disabled={collapsedGroups.length === 0}
+          >
+            すべて展開
+          </button>
+          <button
+            className={`cmd-button cmd-button--ghost${isUnscheduledDrawerOpen ? ' cmd-button--active' : ''}`}
+            type="button"
+            onClick={toggleUnscheduledDrawer}
+            disabled={unscheduledCount === 0}
+          >
+            未確定 ({unscheduledCount})
+          </button>
+        </div>
+        <div className="load-legend" aria-label="工数負荷">
+          <span className="load-legend__item">
+            <span className="load-legend__swatch load-legend__swatch--low" />
+            1件
+          </span>
+          <span className="load-legend__item">
+            <span className="load-legend__swatch load-legend__swatch--medium" />
+            2件
+          </span>
+          <span className="load-legend__item">
+            <span className="load-legend__swatch load-legend__swatch--high" />
+            3件以上
+          </span>
+        </div>
       </div>
       <GanttView />
       <UnscheduledDrawer isOpen={isUnscheduledDrawerOpen} />
