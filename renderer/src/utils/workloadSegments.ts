@@ -74,3 +74,46 @@ export const buildWorkloadSegments = (
 
   return segments;
 };
+
+export const getWorkloadCountForBlockKey = (
+  tasks: NormalizedTask[] | undefined,
+  timelineStart: Date,
+  timelineEnd: Date,
+  unitDays: number,
+  blockKey: string | null
+): number => {
+  if (!blockKey) {
+    return 0;
+  }
+
+  const scheduled = (tasks ?? []).filter(
+    (task) => task.status === 'scheduled' && task.start && task.end
+  );
+  if (scheduled.length === 0) {
+    return 0;
+  }
+
+  const blockStartDate = toUtcDate(blockKey);
+  if (Number.isNaN(blockStartDate.getTime())) {
+    return 0;
+  }
+
+  if (blockStartDate < timelineStart || blockStartDate > timelineEnd) {
+    return 0;
+  }
+
+  const rangeDays = diffUtcDays(timelineStart, timelineEnd) + 1;
+  const offsetDays = diffUtcDays(timelineStart, blockStartDate);
+  const blockStartDays = Math.floor(offsetDays / unitDays) * unitDays;
+  const normalizedBlockStart = addUtcDays(timelineStart, blockStartDays);
+  const blockEnd = addUtcDays(
+    normalizedBlockStart,
+    Math.min(unitDays - 1, rangeDays - blockStartDays - 1)
+  );
+
+  return scheduled.filter((task) => {
+    const start = toUtcDate(task.start!);
+    const end = toUtcDate(task.end!);
+    return start <= blockEnd && end >= normalizedBlockStart;
+  }).length;
+};

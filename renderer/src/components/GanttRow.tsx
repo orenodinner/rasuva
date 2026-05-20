@@ -5,7 +5,11 @@ import type { NormalizedTask, TaskUpdateInput } from '@domain';
 import type { ContextMenuTarget } from '../state/slices/uiSlice';
 import { useTaskInteraction } from '../hooks/useTaskInteraction';
 import { addUtcDays, diffUtcDays, formatIsoDate, toUtcDate } from '../utils/ganttMath';
-import { buildWorkloadSegments, getWorkloadLevel } from '../utils/workloadSegments';
+import {
+  buildWorkloadSegments,
+  getWorkloadCountForBlockKey,
+  getWorkloadLevel
+} from '../utils/workloadSegments';
 
 export interface GanttRowItem {
   id: string;
@@ -32,6 +36,7 @@ export interface GanttRowData {
   weekendRects: { left: number; width: number }[];
   todayRect: { left: number; width: number } | null;
   selectedColumnRect: { left: number; width: number } | null;
+  activeLoadColumnKey: string | null;
   projectGroups: Map<string, string | null>;
   collapsedGroups: string[];
   toggleGroup: (groupId: string) => void;
@@ -363,6 +368,16 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
       )
     : [];
   const maxLoad = workloadSegments.reduce((max, segment) => Math.max(max, segment.count), 0);
+  const activeLoad = isGroup
+    ? getWorkloadCountForBlockKey(
+        row.aggregateTasks,
+        data.timelineStart,
+        data.timelineEnd,
+        data.unitDays,
+        data.activeLoadColumnKey
+      )
+    : 0;
+  const badgeLoad = data.activeLoadColumnKey ? activeLoad : maxLoad;
   const showAggregateBars = isGroup && isCollapsed && workloadSegments.length > 0;
 
   const handleRowContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -409,16 +424,19 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
               data.toggleGroup(groupId);
             }}
           >
-            <span className="gantt-toggle__icon">{isCollapsed ? '▸' : '▾'}</span>
-            <span className="gantt-toggle__text">{row.label}</span>
-            {maxLoad > 0 ? (
-              <span className={`gantt-load-badge gantt-load-badge--${getWorkloadLevel(maxLoad)}`}>
-                {maxLoad}
+             <span className="gantt-toggle__icon">{isCollapsed ? '▸' : '▾'}</span>
+             <span className="gantt-toggle__text">{row.label}</span>
+            {badgeLoad > 0 ? (
+              <span
+                className={`gantt-load-badge gantt-load-badge--${getWorkloadLevel(badgeLoad)}`}
+                title={data.activeLoadColumnKey ? `選択期間の同時進行 ${badgeLoad}件` : undefined}
+              >
+                {badgeLoad}
               </span>
             ) : null}
-          </button>
-        ) : (
-          <span className="gantt-label__text" title={row.label}>
+           </button>
+         ) : (
+           <span className="gantt-label__text" title={row.label}>
             {row.label}
           </span>
         )}

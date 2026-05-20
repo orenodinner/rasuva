@@ -481,6 +481,23 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     };
   }, [timelineStart, timelineEnd, selectedColumnKey, dayWidth, unitDays]);
 
+  const activeLoadColumnKey = useMemo(() => {
+    if (selectedColumnKey) {
+      return selectedColumnKey;
+    }
+    if (!timelineStart || !timelineEnd) {
+      return null;
+    }
+    const today = getTodayUtcDate();
+    if (today < timelineStart || today > timelineEnd) {
+      return null;
+    }
+    const offsetDays = diffUtcDays(timelineStart, today);
+    const blockStartDays = Math.floor(offsetDays / unitDays) * unitDays;
+    const blockStartDate = addUtcDays(timelineStart, blockStartDays);
+    return formatIsoDate(blockStartDate);
+  }, [selectedColumnKey, timelineStart, timelineEnd, unitDays]);
+
   const ticks = useMemo(() => {
     if (!timelineStart) {
       return [];
@@ -625,6 +642,7 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       weekendRects,
       todayRect,
       selectedColumnRect,
+      activeLoadColumnKey,
       projectGroups,
       collapsedGroups,
       toggleGroup,
@@ -658,12 +676,13 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     timelineStart,
     timelineEnd,
     weekendRects,
-    todayRect,
-    selectedColumnRect,
-    projectGroups,
-    collapsedGroups,
-    toggleGroup,
-    setSelectedTask,
+      todayRect,
+      selectedColumnRect,
+      activeLoadColumnKey,
+      projectGroups,
+      collapsedGroups,
+      toggleGroup,
+      setSelectedTask,
     selectedTaskIds,
     toggleTaskSelection,
     setLastError,
