@@ -1211,6 +1211,50 @@ body {
   min-width: 0;
 }
 
+.gantt-label-group {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.gantt-member-drag,
+.gantt-member-order-actions button {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fffaf2;
+  color: var(--text-muted);
+  display: inline-grid;
+  place-items: center;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gantt-member-drag {
+  cursor: grab;
+}
+
+.gantt-member-drag:active {
+  cursor: grabbing;
+}
+
+.gantt-member-order-actions {
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.gantt-member-drag:hover,
+.gantt-member-order-actions button:hover {
+  border-color: rgba(173, 126, 54, 0.75);
+  color: var(--text);
+}
+
 .gantt-toggle__icon {
   font-size: 12px;
   color: var(--text-muted);

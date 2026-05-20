@@ -21,6 +21,7 @@ const ViewsPage = () => {
   const rangeStart = useAppStore((state) => state.rangeStart);
   const rangeEnd = useAppStore((state) => state.rangeEnd);
   const collapsedGroups = useAppStore((state) => state.collapsedGroups);
+  const memberOrder = useAppStore((state) => state.memberOrder);
 
   useEffect(() => {
     loadViews();
@@ -35,7 +36,8 @@ const ViewsPage = () => {
       zoom,
       rangeStart,
       rangeEnd,
-      collapsedGroups
+      collapsedGroups,
+      memberOrder
     };
     await saveView(name.trim(), state);
     setName('');
@@ -78,6 +80,7 @@ const ViewsPage = () => {
                     : '指定なし'}
                 </span>
                 <span>折りたたみ {(view.state.collapsedGroups ?? []).length} 件</span>
+                <span>担当者順 {(view.state.memberOrder ?? []).length} 件</span>
               </div>
               <div className="list-actions">
                 <button

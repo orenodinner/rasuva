@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
+import type {
+  CSSProperties,
+  DragEvent as ReactDragEvent,
+  MouseEvent as ReactMouseEvent
+} from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { NormalizedTask, TaskUpdateInput } from '@domain';
 import type { ContextMenuTarget } from '../state/slices/uiSlice';
@@ -35,6 +39,8 @@ export interface GanttRowData {
   projectGroups: Map<string, string | null>;
   collapsedGroups: string[];
   toggleGroup: (groupId: string) => void;
+  moveMember: (memberName: string, direction: -1 | 1) => void;
+  reorderMember: (sourceMemberName: string, targetMemberName: string) => void;
   setSelectedTask: (task: NormalizedTask) => void;
   selectedTaskIds: string[];
   toggleTaskSelection: (task: NormalizedTask) => void;
@@ -364,6 +370,7 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
     : [];
   const maxLoad = workloadSegments.reduce((max, segment) => Math.max(max, segment.count), 0);
   const showAggregateBars = isGroup && isCollapsed && workloadSegments.length > 0;
+  const canReorderMember = row.type === 'member';
 
   const handleRowContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (row.type !== 'project' || !row.projectId) {
@@ -383,12 +390,49 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
     });
   };
 
+  const handleMemberDragStart = (event: ReactDragEvent<HTMLButtonElement>) => {
+    if (!canReorderMember) {
+      return;
+    }
+    event.stopPropagation();
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('application/x-rasuva-member', row.memberName);
+  };
+
+  const handleMemberDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!canReorderMember) {
+      return;
+    }
+    const sourceMember = event.dataTransfer.types.includes('application/x-rasuva-member');
+    if (!sourceMember) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleMemberDrop = (event: ReactDragEvent<HTMLDivElement>) => {
+    if (!canReorderMember) {
+      return;
+    }
+    const sourceMember = event.dataTransfer.getData('application/x-rasuva-member');
+    if (!sourceMember || sourceMember === row.memberName) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    data.reorderMember(sourceMember, row.memberName);
+  };
+
   return (
     <div
       className={`gantt-row gantt-row--${row.type}`}
       style={rowStyle}
       onClick={() => row.task && data.setSelectedTask(row.task)}
       onContextMenu={handleRowContextMenu}
+      onDragOver={handleMemberDragOver}
+      onDrop={handleMemberDrop}
       data-row-type={dataRowType}
       data-row-id={dataRowId}
       data-member-name={row.memberName}
@@ -399,24 +443,65 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
         style={{ width: data.labelWidth }}
       >
         {isGroup && groupId ? (
-          <button
-            type="button"
-            className="gantt-toggle"
-            title={row.label}
-            aria-expanded={!isCollapsed}
-            onClick={(event) => {
-              event.stopPropagation();
-              data.toggleGroup(groupId);
-            }}
-          >
-            <span className="gantt-toggle__icon">{isCollapsed ? '▸' : '▾'}</span>
-            <span className="gantt-toggle__text">{row.label}</span>
-            {maxLoad > 0 ? (
-              <span className={`gantt-load-badge gantt-load-badge--${getWorkloadLevel(maxLoad)}`}>
-                {maxLoad}
-              </span>
+          <div className="gantt-label-group">
+            {canReorderMember ? (
+              <button
+                type="button"
+                className="gantt-member-drag"
+                draggable
+                title="ドラッグして担当者を並び替え"
+                aria-label={`${row.label}をドラッグして並び替え`}
+                onClick={(event) => event.stopPropagation()}
+                onDragStart={handleMemberDragStart}
+              >
+                ↕
+              </button>
             ) : null}
-          </button>
+            <button
+              type="button"
+              className="gantt-toggle"
+              title={row.label}
+              aria-expanded={!isCollapsed}
+              onClick={(event) => {
+                event.stopPropagation();
+                data.toggleGroup(groupId);
+              }}
+            >
+              <span className="gantt-toggle__icon">{isCollapsed ? '▸' : '▾'}</span>
+              <span className="gantt-toggle__text">{row.label}</span>
+              {maxLoad > 0 ? (
+                <span className={`gantt-load-badge gantt-load-badge--${getWorkloadLevel(maxLoad)}`}>
+                  {maxLoad}
+                </span>
+              ) : null}
+            </button>
+            {canReorderMember ? (
+              <div className="gantt-member-order-actions" aria-label={`${row.label}の表示順`}>
+                <button
+                  type="button"
+                  title="上へ移動"
+                  aria-label={`${row.label}を上へ移動`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    data.moveMember(row.memberName, -1);
+                  }}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  title="下へ移動"
+                  aria-label={`${row.label}を下へ移動`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    data.moveMember(row.memberName, 1);
+                  }}
+                >
+                  ↓
+                </button>
+              </div>
+            ) : null}
+          </div>
         ) : (
           <span className="gantt-label__text" title={row.label}>
             {row.label}
