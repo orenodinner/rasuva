@@ -8,11 +8,15 @@ let db: ReturnType<typeof createDb> | null = null;
 const createMainWindow = () => {
   const preloadPath = join(__dirname, '../preload/index.js');
   const isDev = !app.isPackaged;
+  const iconPath = isDev
+    ? join(app.getAppPath(), 'icon.png')
+    : join(process.resourcesPath, 'icon.png');
   const window = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1100,
     minHeight: 720,
+    icon: iconPath,
     show: false,
     webPreferences: {
       contextIsolation: true,
@@ -29,8 +33,7 @@ const createMainWindow = () => {
     }
   });
 
-  const devServerUrl =
-    process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_RENDERER_URL || null;
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL || process.env.ELECTRON_RENDERER_URL || null;
   if (devServerUrl) {
     window.loadURL(devServerUrl);
   } else if (isDev) {
