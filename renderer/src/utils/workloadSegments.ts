@@ -74,3 +74,14 @@ export const buildWorkloadSegments = (
 
   return segments;
 };
+
+export const getPeakWeeklyTaskCount = (
+  tasks: NormalizedTask[] | undefined,
+  timelineStart: Date,
+  timelineEnd: Date
+) => {
+  return buildWorkloadSegments(tasks, timelineStart, timelineEnd, 7, 1).reduce(
+    (max, segment) => Math.max(max, segment.count),
+    0
+  );
+};

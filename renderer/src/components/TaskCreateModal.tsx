@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent
+} from 'react';
 
 type TaskCreateMode = 'project' | 'task';
 
@@ -109,7 +116,7 @@ const TaskCreateModal = ({
     if (!isOpen) {
       return undefined;
     }
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape' && !isSubmitting) {
         onClose();
       }
@@ -180,7 +187,7 @@ const TaskCreateModal = ({
     return null;
   }
 
-  const handleModalKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const handleModalKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Tab') {
       return;
     }

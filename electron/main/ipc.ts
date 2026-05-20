@@ -1,15 +1,12 @@
 import { BrowserWindow, Menu, MenuItem, dialog, ipcMain } from 'electron';
 import { z } from 'zod';
 import {
-  addUtcDays,
   convertFlatTasksToRawImport,
   convertNormalizedTasksToRawImport,
   diffTasks,
   flattenTasksByMember,
   formatIsoDate,
   generateTimelineStructure,
-  getNextSundayAfterUtc,
-  getSundayOnOrBeforeUtc,
   mergeTasksForSave,
   normalizeImport,
   parseIsoDate,
@@ -19,13 +16,12 @@ import {
   TaskCreateSchema
 } from '@domain';
 import type { DbClient } from '@db';
-import type { FlatTaskRow, NormalizedTask } from '@domain';
+import type { FlatTaskRow, NormalizedTask, TaskStatus } from '@domain';
 import { writeFileSync } from 'fs';
 import ExcelJS from 'exceljs';
 import { IPC_CHANNELS } from '../shared/ipcChannels';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const MS_PER_WEEK = MS_PER_DAY * 7;
 
 type HistoryState = { pointer: number; ids: number[] };
 
@@ -105,38 +101,6 @@ const formatTaskRangeLabel = (start: Date | null, end: Date | null) => {
   const startLabel = formatMonthDay(start);
   const endLabel = formatMonthDay(end);
   return startLabel === endLabel ? startLabel : `${startLabel}-${endLabel}`;
-};
-
-const formatMonthDayPadded = (date: Date) => {
-  const month = pad2(date.getUTCMonth() + 1);
-  const day = pad2(date.getUTCDate());
-  return `${month}/${day}`;
-};
-
-const getMondayOnOrBeforeUtc = (date: Date) => {
-  const day = date.getUTCDay();
-  const offset = (day + 6) % 7;
-  return addUtcDays(date, -offset);
-};
-
-const getSundayOnOrAfterUtc = (date: Date) => {
-  const day = date.getUTCDay();
-  const offset = day === 0 ? 0 : 7 - day;
-  return addUtcDays(date, offset);
-};
-
-const getProjectWeekNumber = (date: Date) => {
-  const weekStart = getSundayOnOrBeforeUtc(date);
-  const year = weekStart.getUTCFullYear();
-  const jan1 = new Date(Date.UTC(year, 0, 1));
-  const firstSunday = getNextSundayAfterUtc(jan1);
-
-  if (weekStart.getTime() <= jan1.getTime() || weekStart.getTime() < firstSunday.getTime()) {
-    return 1;
-  }
-
-  const diffWeeks = Math.floor((weekStart.getTime() - firstSunday.getTime()) / MS_PER_WEEK);
-  return diffWeeks + 2;
 };
 
 const excelSerialToDate = (value: number) => {
@@ -666,8 +630,7 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: 'End date must be on or after start date.' };
     }
 
-    const status =
-      start === null || end === null ? 'unscheduled' : ('scheduled' as const);
+    const status: TaskStatus = start === null || end === null ? 'unscheduled' : 'scheduled';
     const assignees = normalizeAssignees(assigneesRaw).filter((name) => name !== memberName);
     const rawDate = buildTaskRawDate(start, end);
 
@@ -1029,6 +992,7 @@ export const registerIpcHandlers = (db: DbClient) => {
             {
               type: 'containsText',
               operator: 'containsText',
+              priority: 1,
               text: '■',
               style: {
                 font: { color: { argb: 'FF1E8E3E' } }
@@ -1164,6 +1128,7 @@ export const registerIpcHandlers = (db: DbClient) => {
             {
               type: 'containsText',
               operator: 'containsText',
+              priority: 1,
               text: '■',
               style: {
                 font: { color: { argb: 'FF1E8E3E' } }

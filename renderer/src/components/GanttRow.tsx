@@ -9,7 +9,11 @@ import type { NormalizedTask, TaskUpdateInput } from '@domain';
 import type { ContextMenuTarget } from '../state/slices/uiSlice';
 import { useTaskInteraction } from '../hooks/useTaskInteraction';
 import { addUtcDays, diffUtcDays, formatIsoDate, toUtcDate } from '../utils/ganttMath';
-import { buildWorkloadSegments, getWorkloadLevel } from '../utils/workloadSegments';
+import {
+  buildWorkloadSegments,
+  getPeakWeeklyTaskCount,
+  getWorkloadLevel
+} from '../utils/workloadSegments';
 
 export interface GanttRowItem {
   id: string;
@@ -368,7 +372,9 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
         data.columnWidth
       )
     : [];
-  const maxLoad = workloadSegments.reduce((max, segment) => Math.max(max, segment.count), 0);
+  const maxLoad = isGroup
+    ? getPeakWeeklyTaskCount(row.aggregateTasks, data.timelineStart, data.timelineEnd)
+    : 0;
   const showAggregateBars = isGroup && isCollapsed && workloadSegments.length > 0;
   const canReorderMember = row.type === 'member';
 
