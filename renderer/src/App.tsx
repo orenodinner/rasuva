@@ -16,6 +16,7 @@ import ImportsPage from './pages/ImportsPage';
 import ViewsPage from './pages/ViewsPage';
 import ExportPage from './pages/ExportPage';
 import SettingsPage from './pages/SettingsPage';
+import PromptTemplatesPage from './pages/PromptTemplatesPage';
 import MembersPage from './pages/MembersPage';
 import GroupsPage from './pages/GroupsPage';
 import ProjectsPage from './pages/ProjectsPage';
@@ -74,9 +75,7 @@ const App = () => {
           }
         } catch (error) {
           console.error('Failed to unschedule task from context menu.', error);
-          setLastError(
-            error instanceof Error ? error.message : '未確定への更新に失敗しました。'
-          );
+          setLastError(error instanceof Error ? error.message : '未確定への更新に失敗しました。');
         }
       }
     });
@@ -89,9 +88,7 @@ const App = () => {
         return false;
       }
       return (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
+        target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
       );
     };
 
@@ -203,6 +200,7 @@ const App = () => {
               <Route path="/invalid" element={<InvalidPage />} />
               <Route path="/imports" element={<ImportsPage />} />
               <Route path="/views" element={<ViewsPage />} />
+              <Route path="/prompt-templates" element={<PromptTemplatesPage />} />
               <Route path="/schedules" element={<SchedulesPage />} />
               <Route path="/export" element={<ExportPage />} />
               <Route path="/settings" element={<SettingsPage />} />

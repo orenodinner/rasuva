@@ -14,6 +14,7 @@ Member -> Project -> Task timelines alongside diff summaries and audit-friendly 
 - Interactive Gantt timeline (drag to move, resize to change dates, multi-select move, weekend shading), plus Unscheduled and Invalid lists.
 - Inline edit (double click) and context menu (right click) on task bars.
 - Import history, Saved Views, CSV/Excel/JSON export (Excel includes a Gantt sheet with green ■ and red ★).
+- Local AI prompt templates for producing Rasuva import JSON from external notes.
 - Sub-assignees supported via `assign`, showing the same task on multiple member rows.
 - Excel import (Tasks sheet) to update tasks via preview + diff.
 - Saved Views restore search/zoom/range/collapsed groups; CommandBar has status quick filters.
@@ -106,6 +107,7 @@ Note: tests run under Node, so `better-sqlite3` is rebuilt for Node via `pretest
 ```
 
 Date rules:
+
 - `start/end` null -> `unscheduled`
 - invalid date format -> `invalid_date`
 - 1-day task uses `start=end`
@@ -135,6 +137,7 @@ All IPC payloads are validated with zod in the main process.
 ## Data storage
 
 SQLite database is created at:
+
 - Windows: `%APPDATA%/Rasuva/rasuva.db`
 
 Snapshots are stored per import for auditability. Archived tasks remain in historical imports and are
@@ -175,6 +178,7 @@ OSS のみで構成された Electron + TypeScript + React デスクトップア
 - ガントタイムラインのドラッグ移動・リサイズ・複数選択移動・週末ハイライトに対応。
 - タスクバーのダブルクリック編集、右クリックメニューに対応。
 - インポート履歴、Saved Views、CSV / Excel / JSON エクスポート（Excel はガントシート付き。■=緑、★=赤）。
+- 外部メモから Rasuva 用 JSON を作るための AI プロンプト定型文をローカル保存。
 - `assign` によるサブ担当に対応し、同一タスクを複数行に表示。
 - Excel インポート（Tasks シート）で更新に対応。
 - 保存ビューは検索/ズーム/表示期間/折りたたみを復元し、CommandBar にステータスフィルタを備えます。
@@ -267,6 +271,7 @@ npm run test
 ```
 
 日付ルール:
+
 - `start/end` が null -> `unscheduled`
 - 不正フォーマット -> `invalid_date`
 - 1 日タスクは `start=end`
@@ -296,6 +301,7 @@ IPC の入力はすべて main プロセス側で zod により検証されま�
 ## データ保存
 
 SQLite データベースは以下に作成されます:
+
 - Windows: `%APPDATA%/Rasuva/rasuva.db`
 
 インポートごとにスナップショットを保持し、監査向けに履歴を残します。

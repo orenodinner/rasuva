@@ -14,6 +14,7 @@ const navItems = [
   { to: '/invalid', label: '不正日付' },
   { to: '/imports', label: '履歴' },
   { to: '/views', label: '保存ビュー' },
+  { to: '/prompt-templates', label: 'AI定型文' },
   { to: '/export', label: 'エクスポート' },
   { to: '/settings', label: '設定' }
 ];
