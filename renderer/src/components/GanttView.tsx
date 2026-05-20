@@ -184,7 +184,9 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const rangeStart = useAppStore((state) => state.rangeStart);
   const rangeEnd = useAppStore((state) => state.rangeEnd);
   const collapsedGroups = useAppStore((state) => state.collapsedGroups);
+  const memberOrder = useAppStore((state) => state.memberOrder);
   const setCollapsedGroups = useAppStore((state) => state.setCollapsedGroups);
+  const setMemberOrder = useAppStore((state) => state.setMemberOrder);
   const toggleGroup = useAppStore((state) => state.toggleGroup);
   const setFocusDate = useAppStore((state) => state.setFocusDate);
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
@@ -284,9 +286,15 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     }
 
     const members = groupTasks(rangeFilteredTasks);
+    const orderedMemberNames = memberOrder.filter((memberName) => members.has(memberName));
+    const orderedMemberSet = new Set(orderedMemberNames);
+    const memberEntries = [
+      ...orderedMemberNames.map((memberName) => [memberName, members.get(memberName)!] as const),
+      ...Array.from(members.entries()).filter(([memberName]) => !orderedMemberSet.has(memberName))
+    ];
     const rows: GanttRowItem[] = [];
 
-    Array.from(members.entries()).forEach(([memberName, projects]) => {
+    memberEntries.forEach(([memberName, projects]) => {
       rows.push({
         id: `member:${memberName}`,
         type: 'member',
@@ -321,7 +329,53 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     });
 
     return { rows, derivedRangeStart, derivedRangeEnd };
-  }, [rangeFilteredTasks]);
+  }, [rangeFilteredTasks, memberOrder]);
+
+  const displayedMemberNames = useMemo(() => {
+    const names: string[] = [];
+    rows.forEach((row) => {
+      if (row.type === 'member') {
+        names.push(row.memberName);
+      }
+    });
+    return names;
+  }, [rows]);
+
+  const moveMember = useCallback(
+    (memberName: string, direction: -1 | 1) => {
+      const currentIndex = displayedMemberNames.indexOf(memberName);
+      if (currentIndex < 0) {
+        return;
+      }
+      const nextIndex = currentIndex + direction;
+      if (nextIndex < 0 || nextIndex >= displayedMemberNames.length) {
+        return;
+      }
+      const nextOrder = [...displayedMemberNames];
+      const [moved] = nextOrder.splice(currentIndex, 1);
+      nextOrder.splice(nextIndex, 0, moved);
+      setMemberOrder(nextOrder);
+    },
+    [displayedMemberNames, setMemberOrder]
+  );
+
+  const reorderMember = useCallback(
+    (sourceMemberName: string, targetMemberName: string) => {
+      if (sourceMemberName === targetMemberName) {
+        return;
+      }
+      const sourceIndex = displayedMemberNames.indexOf(sourceMemberName);
+      const targetIndex = displayedMemberNames.indexOf(targetMemberName);
+      if (sourceIndex < 0 || targetIndex < 0) {
+        return;
+      }
+      const nextOrder = [...displayedMemberNames];
+      const [moved] = nextOrder.splice(sourceIndex, 1);
+      nextOrder.splice(targetIndex, 0, moved);
+      setMemberOrder(nextOrder);
+    },
+    [displayedMemberNames, setMemberOrder]
+  );
 
   const displayRangeStart = rangeStart ?? derivedRangeStart;
   const displayRangeEnd = rangeEnd ?? derivedRangeEnd;
@@ -628,6 +682,8 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       projectGroups,
       collapsedGroups,
       toggleGroup,
+      moveMember,
+      reorderMember,
       setSelectedTask,
       selectedTaskIds,
       toggleTaskSelection,
@@ -663,6 +719,8 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     projectGroups,
     collapsedGroups,
     toggleGroup,
+    moveMember,
+    reorderMember,
     setSelectedTask,
     selectedTaskIds,
     toggleTaskSelection,

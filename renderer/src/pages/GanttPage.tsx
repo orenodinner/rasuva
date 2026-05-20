@@ -13,6 +13,8 @@ const GanttPage = () => {
   const setRange = useAppStore((state) => state.setRange);
   const collapsedGroups = useAppStore((state) => state.collapsedGroups);
   const setCollapsedGroups = useAppStore((state) => state.setCollapsedGroups);
+  const memberOrder = useAppStore((state) => state.memberOrder);
+  const setMemberOrder = useAppStore((state) => state.setMemberOrder);
   const collapseAll = useAppStore((state) => state.collapseAll);
   const expandAll = useAppStore((state) => state.expandAll);
   const isUnscheduledDrawerOpen = useAppStore((state) => state.isUnscheduledDrawerOpen);
@@ -68,30 +70,38 @@ const GanttPage = () => {
     }
     hasLoadedRef.current = false;
     let nextGroups: string[] | null = null;
+    let nextMemberOrder: string[] | null = null;
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
-        const parsed = JSON.parse(raw) as { collapsedGroups?: unknown };
+        const parsed = JSON.parse(raw) as { collapsedGroups?: unknown; memberOrder?: unknown };
         if (Array.isArray(parsed.collapsedGroups)) {
           nextGroups = parsed.collapsedGroups.filter(
+            (value): value is string => typeof value === 'string'
+          );
+        }
+        if (Array.isArray(parsed.memberOrder)) {
+          nextMemberOrder = parsed.memberOrder.filter(
             (value): value is string => typeof value === 'string'
           );
         }
       }
     } catch {
       nextGroups = null;
+      nextMemberOrder = null;
     }
     setCollapsedGroups(nextGroups ?? []);
+    setMemberOrder(nextMemberOrder ?? []);
     hasLoadedRef.current = true;
-  }, [storageKey, setCollapsedGroups]);
+  }, [storageKey, setCollapsedGroups, setMemberOrder]);
 
   useEffect(() => {
     if (!storageKey || !hasLoadedRef.current) {
       return;
     }
-    const payload = JSON.stringify({ collapsedGroups });
+    const payload = JSON.stringify({ collapsedGroups, memberOrder });
     localStorage.setItem(storageKey, payload);
-  }, [storageKey, collapsedGroups]);
+  }, [storageKey, collapsedGroups, memberOrder]);
 
   useEffect(() => {
     const isTypingElement = (target: EventTarget | null) => {

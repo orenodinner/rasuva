@@ -5,11 +5,13 @@ import type { AppState } from '../store';
 export interface ViewSlice {
   views: SavedViewItem[];
   collapsedGroups: string[];
+  memberOrder: string[];
   rangeStart: string | null;
   rangeEnd: string | null;
   loadViews: () => Promise<void>;
   saveView: (name: string, state: SavedViewState) => Promise<void>;
   setCollapsedGroups: (groups: string[]) => void;
+  setMemberOrder: (members: string[]) => void;
   toggleGroup: (groupId: string) => void;
   collapseAll: (groupIds: string[]) => void;
   expandAll: () => void;
@@ -17,12 +19,12 @@ export interface ViewSlice {
   applyViewState: (state: SavedViewState) => void;
 }
 
-const API_MISSING_MESSAGE =
-  'Preload API が利用できません。preload の読み込みを確認してください。';
+const API_MISSING_MESSAGE = 'Preload API が利用できません。preload の読み込みを確認してください。';
 
 export const createViewSlice: StateCreator<AppState, [], [], ViewSlice> = (set, get) => ({
   views: [],
   collapsedGroups: [],
+  memberOrder: [],
   rangeStart: null,
   rangeEnd: null,
   loadViews: async () => {
@@ -62,6 +64,7 @@ export const createViewSlice: StateCreator<AppState, [], [], ViewSlice> = (set, 
     }
   },
   setCollapsedGroups: (groups) => set({ collapsedGroups: groups }),
+  setMemberOrder: (members) => set({ memberOrder: Array.from(new Set(members)) }),
   toggleGroup: (groupId) => {
     set((state) => {
       const exists = state.collapsedGroups.includes(groupId);
@@ -86,6 +89,7 @@ export const createViewSlice: StateCreator<AppState, [], [], ViewSlice> = (set, 
   applyViewState: (state) => {
     set({
       collapsedGroups: state.collapsedGroups ?? [],
+      memberOrder: state.memberOrder ?? [],
       rangeStart: state.rangeStart ?? null,
       rangeEnd: state.rangeEnd ?? null
     });
