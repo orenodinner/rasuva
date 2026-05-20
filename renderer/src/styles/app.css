@@ -1195,6 +1195,9 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .gantt-toggle {
@@ -1209,6 +1212,36 @@ body {
   color: inherit;
   max-width: 100%;
   min-width: 0;
+  flex: 1 1 auto;
+}
+
+.gantt-member-order-controls {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.gantt-member-order-button {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #fffaf2;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+  font-size: 12px;
+}
+
+.gantt-member-order-button:hover:not(:disabled) {
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+.gantt-member-order-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 
 .gantt-toggle__icon {

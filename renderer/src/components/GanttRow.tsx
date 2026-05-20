@@ -35,6 +35,8 @@ export interface GanttRowData {
   projectGroups: Map<string, string | null>;
   collapsedGroups: string[];
   toggleGroup: (groupId: string) => void;
+  moveMember: (memberName: string, direction: 'up' | 'down') => void;
+  canMoveMember: (memberName: string, direction: 'up' | 'down') => boolean;
   setSelectedTask: (task: NormalizedTask) => void;
   selectedTaskIds: string[];
   toggleTaskSelection: (task: NormalizedTask) => void;
@@ -422,6 +424,36 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
             {row.label}
           </span>
         )}
+        {row.type === 'member' ? (
+          <div className="gantt-member-order-controls" aria-label={`${row.memberName} の表示順`}>
+            <button
+              type="button"
+              className="gantt-member-order-button"
+              title="上へ移動"
+              aria-label={`${row.memberName} を上へ移動`}
+              disabled={!data.canMoveMember(row.memberName, 'up')}
+              onClick={(event) => {
+                event.stopPropagation();
+                data.moveMember(row.memberName, 'up');
+              }}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              className="gantt-member-order-button"
+              title="下へ移動"
+              aria-label={`${row.memberName} を下へ移動`}
+              disabled={!data.canMoveMember(row.memberName, 'down')}
+              onClick={(event) => {
+                event.stopPropagation();
+                data.moveMember(row.memberName, 'down');
+              }}
+            >
+              ↓
+            </button>
+          </div>
+        ) : null}
       </div>
       <div
         className="gantt-timeline"

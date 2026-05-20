@@ -14,6 +14,7 @@ import {
   getWeekendRects,
   toUtcDate
 } from '../utils/ganttMath';
+import { moveMemberInOrder, sanitizeMemberOrder } from '../utils/memberOrder';
 import { buildWorkloadSegments } from '../utils/workloadSegments';
 import GanttHeader from './GanttHeader';
 import GanttRow, { type GanttRowData, type GanttRowItem } from './GanttRow';
@@ -184,7 +185,9 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
   const rangeStart = useAppStore((state) => state.rangeStart);
   const rangeEnd = useAppStore((state) => state.rangeEnd);
   const collapsedGroups = useAppStore((state) => state.collapsedGroups);
+  const memberOrder = useAppStore((state) => state.memberOrder);
   const setCollapsedGroups = useAppStore((state) => state.setCollapsedGroups);
+  const setMemberOrder = useAppStore((state) => state.setMemberOrder);
   const toggleGroup = useAppStore((state) => state.toggleGroup);
   const setFocusDate = useAppStore((state) => state.setFocusDate);
   const setSelectedTask = useAppStore((state) => state.setSelectedTask);
@@ -285,8 +288,13 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
 
     const members = groupTasks(rangeFilteredTasks);
     const rows: GanttRowItem[] = [];
+    const orderedMemberNames = sanitizeMemberOrder(memberOrder, Array.from(members.keys()));
 
-    Array.from(members.entries()).forEach(([memberName, projects]) => {
+    orderedMemberNames.forEach((memberName) => {
+      const projects = members.get(memberName);
+      if (!projects) {
+        return;
+      }
       rows.push({
         id: `member:${memberName}`,
         type: 'member',
@@ -321,7 +329,20 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     });
 
     return { rows, derivedRangeStart, derivedRangeEnd };
-  }, [rangeFilteredTasks]);
+  }, [rangeFilteredTasks, memberOrder]);
+
+  const availableMemberNames = useMemo(() => {
+    return sanitizeMemberOrder(memberOrder, Array.from(groupTasks(rangeFilteredTasks).keys()));
+  }, [rangeFilteredTasks, memberOrder]);
+
+  useEffect(() => {
+    if (
+      availableMemberNames.length !== memberOrder.length ||
+      availableMemberNames.some((name, index) => name !== memberOrder[index])
+    ) {
+      setMemberOrder(availableMemberNames);
+    }
+  }, [availableMemberNames, memberOrder, setMemberOrder]);
 
   const displayRangeStart = rangeStart ?? derivedRangeStart;
   const displayRangeEnd = rangeEnd ?? derivedRangeEnd;
@@ -607,6 +628,27 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     [timelineStart, timelineEnd, dayWidth, unitDays, timelineWidth]
   );
 
+  const moveMember = useCallback(
+    (memberName: string, direction: 'up' | 'down') => {
+      const nextOrder = moveMemberInOrder(availableMemberNames, memberName, direction);
+      if (nextOrder !== availableMemberNames) {
+        setMemberOrder(nextOrder);
+      }
+    },
+    [availableMemberNames, setMemberOrder]
+  );
+
+  const canMoveMember = useCallback(
+    (memberName: string, direction: 'up' | 'down') => {
+      const index = availableMemberNames.indexOf(memberName);
+      if (index < 0) {
+        return false;
+      }
+      return direction === 'up' ? index > 0 : index < availableMemberNames.length - 1;
+    },
+    [availableMemberNames]
+  );
+
   const listData = useMemo<GanttRowData | null>(() => {
     if (!timelineStart || !timelineEnd) {
       return null;
@@ -628,6 +670,8 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       projectGroups,
       collapsedGroups,
       toggleGroup,
+      moveMember,
+      canMoveMember,
       setSelectedTask,
       selectedTaskIds,
       toggleTaskSelection,
@@ -663,6 +707,8 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
     projectGroups,
     collapsedGroups,
     toggleGroup,
+    moveMember,
+    canMoveMember,
     setSelectedTask,
     selectedTaskIds,
     toggleTaskSelection,

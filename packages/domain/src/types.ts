@@ -161,6 +161,7 @@ export interface SavedViewState {
   rangeStart: string | null;
   rangeEnd: string | null;
   collapsedGroups: string[];
+  memberOrder?: string[];
 }
 
 export interface SavedViewItem {

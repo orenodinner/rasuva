@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent
+} from 'react';
 
 type TaskCreateMode = 'project' | 'task';
 
@@ -51,14 +58,10 @@ const TaskCreateModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const existingIds = useMemo(() => {
-    return new Set(
-      (existingProjectIds ?? []).map((id) => id.trim()).filter((id) => id.length > 0)
-    );
+    return new Set((existingProjectIds ?? []).map((id) => id.trim()).filter((id) => id.length > 0));
   }, [existingProjectIds]);
 
-  const trimmedProjectId = isProjectMode
-    ? projectIdInput.trim()
-    : (fixedProjectId ?? '').trim();
+  const trimmedProjectId = isProjectMode ? projectIdInput.trim() : (fixedProjectId ?? '').trim();
   const trimmedTaskName = taskName.trim();
   const trimmedMemberName = memberName.trim();
   const trimmedGroup = projectGroupInput.trim();
@@ -68,7 +71,7 @@ const TaskCreateModal = ({
     ? trimmedGroup.length > 0
       ? trimmedGroup
       : null
-    : fixedProjectGroup ?? null;
+    : (fixedProjectGroup ?? null);
   const displayError = errorMessage ?? localError;
   const duplicateMessageId = 'task-create-project-id-duplicate';
 
@@ -109,7 +112,7 @@ const TaskCreateModal = ({
     if (!isOpen) {
       return undefined;
     }
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape' && !isSubmitting) {
         onClose();
       }
@@ -144,7 +147,9 @@ const TaskCreateModal = ({
       return;
     }
     if (!trimmedTaskName) {
-      setLocalError(isProjectMode ? '初期タスク名を入力してください。' : 'タスク名を入力してください。');
+      setLocalError(
+        isProjectMode ? '初期タスク名を入力してください。' : 'タスク名を入力してください。'
+      );
       return;
     }
     if (!isProjectMode && !trimmedMemberName) {
@@ -180,7 +185,7 @@ const TaskCreateModal = ({
     return null;
   }
 
-  const handleModalKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const handleModalKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Tab') {
       return;
     }
@@ -192,7 +197,9 @@ const TaskCreateModal = ({
       root.querySelectorAll<HTMLElement>(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
       )
-    ).filter((element) => !element.hasAttribute('disabled') && !element.getAttribute('aria-hidden'));
+    ).filter(
+      (element) => !element.hasAttribute('disabled') && !element.getAttribute('aria-hidden')
+    );
     if (focusable.length === 0) {
       return;
     }

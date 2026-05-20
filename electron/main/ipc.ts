@@ -1,15 +1,12 @@
 import { BrowserWindow, Menu, MenuItem, dialog, ipcMain } from 'electron';
 import { z } from 'zod';
 import {
-  addUtcDays,
   convertFlatTasksToRawImport,
   convertNormalizedTasksToRawImport,
   diffTasks,
   flattenTasksByMember,
   formatIsoDate,
   generateTimelineStructure,
-  getNextSundayAfterUtc,
-  getSundayOnOrBeforeUtc,
   mergeTasksForSave,
   normalizeImport,
   parseIsoDate,
@@ -19,13 +16,12 @@ import {
   TaskCreateSchema
 } from '@domain';
 import type { DbClient } from '@db';
-import type { FlatTaskRow, NormalizedTask } from '@domain';
+import type { FlatTaskRow, NormalizedTask, TaskStatus } from '@domain';
 import { writeFileSync } from 'fs';
 import ExcelJS from 'exceljs';
 import { IPC_CHANNELS } from '../shared/ipcChannels';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const MS_PER_WEEK = MS_PER_DAY * 7;
 
 type HistoryState = { pointer: number; ids: number[] };
 
@@ -105,38 +101,6 @@ const formatTaskRangeLabel = (start: Date | null, end: Date | null) => {
   const startLabel = formatMonthDay(start);
   const endLabel = formatMonthDay(end);
   return startLabel === endLabel ? startLabel : `${startLabel}-${endLabel}`;
-};
-
-const formatMonthDayPadded = (date: Date) => {
-  const month = pad2(date.getUTCMonth() + 1);
-  const day = pad2(date.getUTCDate());
-  return `${month}/${day}`;
-};
-
-const getMondayOnOrBeforeUtc = (date: Date) => {
-  const day = date.getUTCDay();
-  const offset = (day + 6) % 7;
-  return addUtcDays(date, -offset);
-};
-
-const getSundayOnOrAfterUtc = (date: Date) => {
-  const day = date.getUTCDay();
-  const offset = day === 0 ? 0 : 7 - day;
-  return addUtcDays(date, offset);
-};
-
-const getProjectWeekNumber = (date: Date) => {
-  const weekStart = getSundayOnOrBeforeUtc(date);
-  const year = weekStart.getUTCFullYear();
-  const jan1 = new Date(Date.UTC(year, 0, 1));
-  const firstSunday = getNextSundayAfterUtc(jan1);
-
-  if (weekStart.getTime() <= jan1.getTime() || weekStart.getTime() < firstSunday.getTime()) {
-    return 1;
-  }
-
-  const diffWeeks = Math.floor((weekStart.getTime() - firstSunday.getTime()) / MS_PER_WEEK);
-  return diffWeeks + 2;
 };
 
 const excelSerialToDate = (value: number) => {
@@ -264,7 +228,8 @@ const viewStateSchema = z.object({
   zoom: z.enum(['day', 'week', 'month', 'quarter']),
   rangeStart: z.string().nullable(),
   rangeEnd: z.string().nullable(),
-  collapsedGroups: z.array(z.string())
+  collapsedGroups: z.array(z.string()),
+  memberOrder: z.array(z.string()).optional()
 });
 
 const viewSaveSchema = z.object({
@@ -395,9 +360,7 @@ const tasksToCsv = (tasks: NormalizedTask[]) => {
     task.rawDate
   ]);
 
-  return [header, ...rows]
-    .map((row) => row.map((value) => escapeCsv(value)).join(','))
-    .join('\n');
+  return [header, ...rows].map((row) => row.map((value) => escapeCsv(value)).join(',')).join('\n');
 };
 
 export const registerIpcHandlers = (db: DbClient) => {
@@ -493,8 +456,8 @@ export const registerIpcHandlers = (db: DbClient) => {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(filePath);
 
-    const sheet = workbook.worksheets.find((worksheet) =>
-      worksheet.name.toLowerCase().trim() === 'tasks'
+    const sheet = workbook.worksheets.find(
+      (worksheet) => worksheet.name.toLowerCase().trim() === 'tasks'
     );
 
     if (!sheet) {
@@ -666,8 +629,7 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: 'End date must be on or after start date.' };
     }
 
-    const status =
-      start === null || end === null ? 'unscheduled' : ('scheduled' as const);
+    const status: TaskStatus = start === null || end === null ? 'unscheduled' : 'scheduled';
     const assignees = normalizeAssignees(assigneesRaw).filter((name) => name !== memberName);
     const rawDate = buildTaskRawDate(start, end);
 
@@ -775,10 +737,7 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: '指定されたインポートが見つかりません。' };
     }
 
-    const previousImportId = db.getPreviousImportId(
-      parsedPayload.data.scheduleId,
-      targetImportId
-    );
+    const previousImportId = db.getPreviousImportId(parsedPayload.data.scheduleId, targetImportId);
     const currentTasks = db.getTasksByImportId(targetImportId);
     const previousTasks = previousImportId ? db.getTasksByImportId(previousImportId) : [];
 
@@ -1028,6 +987,7 @@ export const registerIpcHandlers = (db: DbClient) => {
           rules: [
             {
               type: 'containsText',
+              priority: 1,
               operator: 'containsText',
               text: '■',
               style: {
@@ -1163,6 +1123,7 @@ export const registerIpcHandlers = (db: DbClient) => {
           rules: [
             {
               type: 'containsText',
+              priority: 1,
               operator: 'containsText',
               text: '■',
               style: {
@@ -1305,9 +1266,7 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: '終了日が開始日より前です。' };
     }
 
-    const noteWithReason = reason
-      ? `${note ? `${note}\n` : ''}理由: ${reason}`
-      : note;
+    const noteWithReason = reason ? `${note ? `${note}\n` : ''}理由: ${reason}` : note;
 
     const historyResult = db.updateTaskWithHistory(importId, currentTaskKeyFull, {
       memberName,
