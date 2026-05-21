@@ -269,6 +269,10 @@ body {
   min-height: 0;
 }
 
+.content-shell--details-hidden {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .main-pane {
   padding: 24px;
   overflow: auto;

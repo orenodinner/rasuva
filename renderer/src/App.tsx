@@ -40,6 +40,7 @@ const App = () => {
   const updateTask = useAppStore((state) => state.updateTask);
   const setLastError = useAppStore((state) => state.setLastError);
   const closeTaskCreateModal = useAppStore((state) => state.closeTaskCreateModal);
+  const isDetailsPaneVisible = useAppStore((state) => state.isDetailsPaneVisible);
   const [taskCreateError, setTaskCreateError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -184,7 +185,11 @@ const App = () => {
       <SideNav />
       <div className="main-shell">
         <CommandBar />
-        <div className="content-shell">
+        <div
+          className={
+            isDetailsPaneVisible ? 'content-shell' : 'content-shell content-shell--details-hidden'
+          }
+        >
           <main className="main-pane">
             {lastError ? <div className="alert">{lastError}</div> : null}
             <Routes>
@@ -206,7 +211,7 @@ const App = () => {
               <Route path="/settings" element={<SettingsPage />} />
             </Routes>
           </main>
-          <DetailsPane />
+          {isDetailsPaneVisible ? <DetailsPane /> : null}
         </div>
       </div>
       <TaskCreateModal

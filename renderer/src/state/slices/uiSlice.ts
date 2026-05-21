@@ -15,6 +15,7 @@ export interface UISlice {
   lastError: string | null;
   shouldFocusEdit: boolean;
   inlineEditTaskKey: string | null;
+  isDetailsPaneVisible: boolean;
   taskCreateModal: {
     isOpen: boolean;
     projectId: string | null;
@@ -42,6 +43,7 @@ export interface UISlice {
   consumeEditFocus: () => void;
   startInlineEdit: (taskKeyFull: string) => void;
   stopInlineEdit: () => void;
+  toggleDetailsPane: () => void;
   toggleUnscheduledDrawer: () => void;
   openTaskCreateModal: (payload: { projectId: string; projectGroup?: string | null }) => void;
   closeTaskCreateModal: () => void;
@@ -64,6 +66,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => {
     lastError: null,
     shouldFocusEdit: false,
     inlineEditTaskKey: null,
+    isDetailsPaneVisible: true,
     taskCreateModal: {
       isOpen: false,
       projectId: null,
@@ -91,6 +94,8 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => {
     consumeEditFocus: () => set({ shouldFocusEdit: false }),
     startInlineEdit: (taskKeyFull) => set({ inlineEditTaskKey: taskKeyFull }),
     stopInlineEdit: () => set({ inlineEditTaskKey: null }),
+    toggleDetailsPane: () =>
+      set((state) => ({ isDetailsPaneVisible: !state.isDetailsPaneVisible })),
     toggleUnscheduledDrawer: () =>
       set((state) => ({ isUnscheduledDrawerOpen: !state.isUnscheduledDrawerOpen })),
     openTaskCreateModal: ({ projectId, projectGroup }) =>

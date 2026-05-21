@@ -5,9 +5,12 @@ import { useAppStore } from '../state/store';
 const CommandBar = () => {
   const navigate = useNavigate();
   const searchRef = useRef<HTMLInputElement>(null);
-  const { search, setSearch, zoom, setZoom, setFocusDate, undo, redo, canUndo, canRedo } = useAppStore();
+  const { search, setSearch, zoom, setZoom, setFocusDate, undo, redo, canUndo, canRedo } =
+    useAppStore();
   const statusFilter = useAppStore((state) => state.statusFilter);
   const setStatusFilter = useAppStore((state) => state.setStatusFilter);
+  const isDetailsPaneVisible = useAppStore((state) => state.isDetailsPaneVisible);
+  const toggleDetailsPane = useAppStore((state) => state.toggleDetailsPane);
   const gantt = useAppStore((state) => state.gantt);
 
   useEffect(() => {
@@ -138,6 +141,16 @@ const CommandBar = () => {
             </button>
           ))}
         </div>
+        <button
+          className={
+            isDetailsPaneVisible ? 'cmd-button cmd-button--active' : 'cmd-button cmd-button--ghost'
+          }
+          type="button"
+          onClick={toggleDetailsPane}
+          aria-pressed={isDetailsPaneVisible}
+        >
+          詳細 {isDetailsPaneVisible ? 'ON' : 'OFF'}
+        </button>
       </div>
     </div>
   );
