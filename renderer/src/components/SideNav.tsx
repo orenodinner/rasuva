@@ -26,13 +26,6 @@ const SideNav = () => {
   const switchSchedule = useAppStore((state) => state.switchSchedule);
   return (
     <aside className="side-nav">
-      <div className="side-nav__brand">
-        <div className="brand-mark">R</div>
-        <div>
-          <div className="brand-title">Rasuva</div>
-          <div className="brand-subtitle">Gantt Ops</div>
-        </div>
-      </div>
       <div className="schedule-switcher">
         <div className="schedule-switcher__label">スケジュール</div>
         <select
