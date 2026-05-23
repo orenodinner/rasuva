@@ -11,7 +11,7 @@ import { useTaskInteraction } from '../hooks/useTaskInteraction';
 import { addUtcDays, diffUtcDays, formatIsoDate, toUtcDate } from '../utils/ganttMath';
 import {
   buildWorkloadSegments,
-  getPeakWeeklyTaskCount,
+  getCurrentWeekTaskCount,
   getWorkloadLevel
 } from '../utils/workloadSegments';
 
@@ -372,9 +372,7 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
         data.columnWidth
       )
     : [];
-  const maxLoad = isGroup
-    ? getPeakWeeklyTaskCount(row.aggregateTasks, data.timelineStart, data.timelineEnd)
-    : 0;
+  const currentWeekLoad = isGroup ? getCurrentWeekTaskCount(row.aggregateTasks) : 0;
   const showAggregateBars = isGroup && isCollapsed && workloadSegments.length > 0;
   const canReorderMember = row.type === 'member';
 
@@ -475,9 +473,12 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
             >
               <span className="gantt-toggle__icon">{isCollapsed ? '▸' : '▾'}</span>
               <span className="gantt-toggle__text">{row.label}</span>
-              {maxLoad > 0 ? (
-                <span className={`gantt-load-badge gantt-load-badge--${getWorkloadLevel(maxLoad)}`}>
-                  {maxLoad}
+              {currentWeekLoad > 0 ? (
+                <span
+                  className={`gantt-load-badge gantt-load-badge--${getWorkloadLevel(currentWeekLoad)}`}
+                  title={`今週の予定タスク ${currentWeekLoad}件`}
+                >
+                  {currentWeekLoad}
                 </span>
               ) : null}
             </button>

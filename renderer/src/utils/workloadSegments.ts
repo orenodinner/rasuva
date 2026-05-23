@@ -1,5 +1,5 @@
 import type { NormalizedTask } from '@domain';
-import { addUtcDays, diffUtcDays, toUtcDate } from './ganttMath';
+import { addUtcDays, diffUtcDays, getTodayUtcDate, toUtcDate } from './ganttMath';
 
 export type WorkloadLevel = 'low' | 'medium' | 'high';
 
@@ -75,13 +75,23 @@ export const buildWorkloadSegments = (
   return segments;
 };
 
-export const getPeakWeeklyTaskCount = (
+export const getCurrentWeekTaskCount = (
   tasks: NormalizedTask[] | undefined,
-  timelineStart: Date,
-  timelineEnd: Date
+  today: Date = getTodayUtcDate()
 ) => {
-  return buildWorkloadSegments(tasks, timelineStart, timelineEnd, 7, 1).reduce(
-    (max, segment) => Math.max(max, segment.count),
-    0
+  const scheduled = (tasks ?? []).filter(
+    (task) => task.status === 'scheduled' && task.start && task.end
   );
+  if (scheduled.length === 0 || Number.isNaN(today.getTime())) {
+    return 0;
+  }
+
+  const weekStart = addUtcDays(today, -today.getUTCDay());
+  const weekEnd = addUtcDays(weekStart, 6);
+
+  return scheduled.filter((task) => {
+    const start = toUtcDate(task.start!);
+    const end = toUtcDate(task.end!);
+    return start <= weekEnd && end >= weekStart;
+  }).length;
 };
