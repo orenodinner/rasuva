@@ -522,8 +522,7 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
         tabIndex={0}
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
-          const scrollLeft = data.getScrollLeft();
-          const x = event.clientX - rect.left + scrollLeft;
+          const x = event.clientX - rect.left;
           if (x < 0 || x > data.timelineWidth) {
             return;
           }

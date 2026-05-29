@@ -642,14 +642,14 @@ const GanttView = ({ tasks, emptyLabel, getBarClassName }: GanttViewProps) => {
       if (x < 0 || x > timelineWidth) {
         return;
       }
-      const clickedDate = getDateFromX(x, timelineStart, dayWidth);
-      if (Number.isNaN(clickedDate.getTime())) {
+      if (dayWidth <= 0 || unitDays <= 0) {
         return;
       }
-      if (clickedDate < timelineStart || clickedDate > timelineEnd) {
+      const rangeDays = diffUtcDays(timelineStart, timelineEnd) + 1;
+      const offsetDays = Math.min(rangeDays - 1, Math.floor(x / dayWidth));
+      if (offsetDays < 0) {
         return;
       }
-      const offsetDays = diffUtcDays(timelineStart, clickedDate);
       const blockStartDays = Math.floor(offsetDays / unitDays) * unitDays;
       const blockStartDate = addUtcDays(timelineStart, blockStartDays);
       const blockKey = formatIsoDate(blockStartDate);
