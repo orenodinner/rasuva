@@ -320,6 +320,15 @@ body {
   font-weight: 600;
 }
 
+.detail-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .detail-input,
 .detail-textarea {
   width: 100%;
@@ -1521,6 +1530,13 @@ body {
   z-index: 2;
 }
 
+.gantt-bar--completed {
+  background: #eef8ef;
+  color: #1e7f3f;
+  border: 1px solid rgba(30, 127, 63, 0.35);
+  box-shadow: 0 6px 10px rgba(30, 127, 63, 0.14);
+}
+
 .gantt-load-segment {
   position: absolute;
   top: 0;
@@ -1698,6 +1714,11 @@ body {
 .gantt-bar--archived {
   background: linear-gradient(90deg, #7b7b7b, #9a9a9a);
   box-shadow: 0 6px 10px rgba(123, 123, 123, 0.25);
+}
+
+.task-name--completed {
+  color: #1e7f3f;
+  font-weight: 800;
 }
 
 .gantt-context-menu {

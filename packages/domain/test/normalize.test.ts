@@ -140,7 +140,8 @@ describe('normalizeImport', () => {
                   start: '2024-01-01',
                   end: '2024-01-01',
                   raw_date: '2024-01-01',
-                  assign: ['Bob', '  ', 'Alice', 'Bob', 'Charlie']
+                  assign: ['Bob', '  ', 'Alice', 'Bob', 'Charlie'],
+                  completed: true
                 }
               ]
             }
@@ -150,6 +151,7 @@ describe('normalizeImport', () => {
     };
     const { tasks } = normalizeImport(raw);
     expect(tasks[0].assignees).toEqual(['Bob', 'Charlie']);
+    expect(tasks[0].completed).toBe(true);
   });
 
   it('converts flat rows into raw import structure', () => {

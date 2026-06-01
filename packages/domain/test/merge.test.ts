@@ -14,7 +14,8 @@ const makeTask = (overrides: Partial<NormalizedTask>): NormalizedTask => ({
   end: overrides.end ?? '2024-01-01',
   rawDate: overrides.rawDate ?? '2024-01-01',
   note: overrides.note ?? null,
-  status: overrides.status ?? 'scheduled'
+  status: overrides.status ?? 'scheduled',
+  completed: overrides.completed ?? false
 });
 
 describe('mergeTasksForSave', () => {
@@ -49,8 +50,20 @@ describe('summarizeTasksForImport', () => {
   it('counts status totals and unique members/projects', () => {
     const tasks = [
       makeTask({ memberName: 'Alice', projectId: 'P-1', status: 'scheduled' }),
-      makeTask({ memberName: 'Alice', projectId: 'P-2', status: 'unscheduled', start: null, end: null }),
-      makeTask({ memberName: 'Bob', projectId: 'P-2', status: 'invalid_date', start: null, end: null })
+      makeTask({
+        memberName: 'Alice',
+        projectId: 'P-2',
+        status: 'unscheduled',
+        start: null,
+        end: null
+      }),
+      makeTask({
+        memberName: 'Bob',
+        projectId: 'P-2',
+        status: 'invalid_date',
+        start: null,
+        end: null
+      })
     ];
 
     const summary = summarizeTasksForImport(tasks, 2, 1);

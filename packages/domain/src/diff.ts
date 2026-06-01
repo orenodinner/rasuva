@@ -9,7 +9,8 @@ const hasTaskChanged = (prev: NormalizedTask, next: NormalizedTask) => {
     prev.memberName !== next.memberName ||
     prev.projectGroup !== next.projectGroup ||
     prev.assignees.join('|') !== next.assignees.join('|') ||
-    prev.status !== next.status
+    prev.status !== next.status ||
+    prev.completed !== next.completed
   );
 };
 

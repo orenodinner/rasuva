@@ -131,16 +131,40 @@ const ContextMenu = () => {
             start: null,
             end: null,
             note: task.note ?? null,
-            assignees: task.assignees ?? []
+            assignees: task.assignees ?? [],
+            completed: task.completed
           });
           if (!ok) {
             setLastError('未確定への更新に失敗しました。');
           }
         } catch (error) {
           console.error('Failed to unschedule task from context menu.', error);
-          setLastError(
-            error instanceof Error ? error.message : '未確定への更新に失敗しました。'
-          );
+          setLastError(error instanceof Error ? error.message : '未確定への更新に失敗しました。');
+        }
+      };
+
+      const handleToggleCompleted = async () => {
+        setSelectedTask(task);
+        hideContextMenu();
+        try {
+          const ok = await updateTask({
+            currentTaskKeyFull: task.taskKeyFull,
+            memberName: task.memberName,
+            projectId: task.projectId,
+            projectGroup: task.projectGroup ?? null,
+            taskName: task.taskName,
+            start: task.start ?? null,
+            end: task.end ?? null,
+            note: task.note ?? null,
+            assignees: task.assignees ?? [],
+            completed: !task.completed
+          });
+          if (!ok) {
+            setLastError('完了状態の更新に失敗しました。');
+          }
+        } catch (error) {
+          console.error('Failed to toggle task completion from context menu.', error);
+          setLastError(error instanceof Error ? error.message : '完了状態の更新に失敗しました。');
         }
       };
 
@@ -162,7 +186,8 @@ const ContextMenu = () => {
             assignees: task.assignees ?? [],
             start: task.start ?? null,
             end: task.end ?? null,
-            note: task.note ?? null
+            note: task.note ?? null,
+            completed: task.completed
           });
           if (!ok) {
             setLastError('タスクの複製に失敗しました。');
@@ -210,6 +235,13 @@ const ContextMenu = () => {
           </button>
           <button type="button" className="gantt-context-menu__item" onClick={handleDuplicate}>
             タスクを複製
+          </button>
+          <button
+            type="button"
+            className="gantt-context-menu__item"
+            onClick={handleToggleCompleted}
+          >
+            {task.completed ? '未完了に戻す' : '完了にする'}
           </button>
           <button
             type="button"

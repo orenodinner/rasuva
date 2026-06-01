@@ -102,7 +102,7 @@ const formatQuarterRange = (date: Date) => {
 const buildTooltip = (task: NormalizedTask) => {
   const note = task.note?.trim();
   const noteSnippet = note ? (note.length > 60 ? `${note.slice(0, 60)}…` : note) : null;
-  const parts = [`原文: ${task.rawDate}`];
+  const parts = [`完了: ${task.completed ? 'はい' : 'いいえ'}`, `原文: ${task.rawDate}`];
   if (noteSnippet) {
     parts.push(`メモ: ${noteSnippet}`);
   }

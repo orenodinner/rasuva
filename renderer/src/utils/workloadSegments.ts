@@ -95,3 +95,34 @@ export const getCurrentWeekTaskCount = (
     return start <= weekEnd && end >= weekStart;
   }).length;
 };
+
+export const getPeakWeeklyTaskCount = (
+  tasks: NormalizedTask[] | undefined,
+  rangeStart: Date,
+  rangeEnd: Date
+) => {
+  const scheduled = (tasks ?? []).filter(
+    (task) => task.status === 'scheduled' && task.start && task.end
+  );
+  if (
+    scheduled.length === 0 ||
+    Number.isNaN(rangeStart.getTime()) ||
+    Number.isNaN(rangeEnd.getTime())
+  ) {
+    return 0;
+  }
+
+  let peak = 0;
+  let weekStart = rangeStart;
+  while (weekStart <= rangeEnd) {
+    const weekEnd = addUtcDays(weekStart, Math.min(6, diffUtcDays(weekStart, rangeEnd)));
+    const count = scheduled.filter((task) => {
+      const start = toUtcDate(task.start!);
+      const end = toUtcDate(task.end!);
+      return start <= weekEnd && end >= weekStart;
+    }).length;
+    peak = Math.max(peak, count);
+    weekStart = addUtcDays(weekStart, 7);
+  }
+  return peak;
+};

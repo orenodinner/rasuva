@@ -25,6 +25,7 @@ const DetailsPane = () => {
   const [note, setNote] = useState('');
   const [reason, setReason] = useState('');
   const [assigneesText, setAssigneesText] = useState('');
+  const [completed, setCompleted] = useState(false);
   const taskNameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -39,6 +40,7 @@ const DetailsPane = () => {
       setNote('');
       setReason('');
       setAssigneesText('');
+      setCompleted(false);
       return;
     }
     setIsEditing(false);
@@ -51,6 +53,7 @@ const DetailsPane = () => {
     setNote(task.note ?? '');
     setReason('');
     setAssigneesText(task.assignees.join(', '));
+    setCompleted(task.completed);
   }, [task]);
 
   useEffect(() => {
@@ -133,6 +136,7 @@ const DetailsPane = () => {
       end: end.trim() ? end.trim() : null,
       note: note.trim() ? note.trim() : null,
       assignees,
+      completed,
       reason: trimmedReason.length > 0 ? trimmedReason : null
     });
     if (ok) {
@@ -141,8 +145,7 @@ const DetailsPane = () => {
     }
   };
 
-  const isSaveDisabled =
-    !taskName.trim() || !memberName.trim() || !projectId.trim() || !task;
+  const isSaveDisabled = !taskName.trim() || !memberName.trim() || !projectId.trim() || !task;
 
   return (
     <aside className="details-pane">
@@ -154,30 +157,32 @@ const DetailsPane = () => {
           <div className="detail-block">
             <div className="detail-label">タスク名 *</div>
             {isEditing ? (
-                <input
-                  className="detail-input"
-                  ref={taskNameInputRef}
-                  value={taskName}
-                  onChange={(event) => {
-                    clearRequiredFieldsError();
-                    setTaskName(event.target.value);
-                  }}
-                />
+              <input
+                className="detail-input"
+                ref={taskNameInputRef}
+                value={taskName}
+                onChange={(event) => {
+                  clearRequiredFieldsError();
+                  setTaskName(event.target.value);
+                }}
+              />
             ) : (
-              <div className="detail-value">{task.taskName}</div>
+              <div className={`detail-value ${task.completed ? 'task-name--completed' : ''}`}>
+                {task.taskName}
+              </div>
             )}
           </div>
           <div className="detail-block">
             <div className="detail-label">担当者 *</div>
             {isEditing ? (
-                <input
-                  className="detail-input"
-                  value={memberName}
-                  onChange={(event) => {
-                    clearRequiredFieldsError();
-                    setMemberName(event.target.value);
-                  }}
-                />
+              <input
+                className="detail-input"
+                value={memberName}
+                onChange={(event) => {
+                  clearRequiredFieldsError();
+                  setMemberName(event.target.value);
+                }}
+              />
             ) : (
               <div className="detail-value">{task.memberName}</div>
             )}
@@ -185,14 +190,14 @@ const DetailsPane = () => {
           <div className="detail-block">
             <div className="detail-label">プロジェクトID *</div>
             {isEditing ? (
-                <input
-                  className="detail-input"
-                  value={projectId}
-                  onChange={(event) => {
-                    clearRequiredFieldsError();
-                    setProjectId(event.target.value);
-                  }}
-                />
+              <input
+                className="detail-input"
+                value={projectId}
+                onChange={(event) => {
+                  clearRequiredFieldsError();
+                  setProjectId(event.target.value);
+                }}
+              />
             ) : (
               <div className="detail-value">{task.projectId}</div>
             )}
@@ -214,6 +219,21 @@ const DetailsPane = () => {
             <div className={`status-pill status-pill--${task.status}`}>
               {getStatusLabel(task.status)}
             </div>
+          </div>
+          <div className="detail-block">
+            <div className="detail-label">完了</div>
+            {isEditing ? (
+              <label className="detail-checkbox">
+                <input
+                  type="checkbox"
+                  checked={completed}
+                  onChange={(event) => setCompleted(event.target.checked)}
+                />
+                完了済み
+              </label>
+            ) : (
+              <div className="detail-value">{task.completed ? '完了' : '未完了'}</div>
+            )}
           </div>
 
           <div className="detail-nav">

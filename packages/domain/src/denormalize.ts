@@ -28,7 +28,10 @@ export const convertNormalizedTasksToRawImport = (tasks: NormalizedTask[]): RawI
   const members: RawImport['members'] = [];
   const memberIndex = new Map<
     string,
-    { member: RawImport['members'][number]; projects: Map<string, RawImport['members'][number]['projects'][number]> }
+    {
+      member: RawImport['members'][number];
+      projects: Map<string, RawImport['members'][number]['projects'][number]>;
+    }
   >();
 
   tasks.forEach((task) => {
@@ -69,7 +72,8 @@ export const convertNormalizedTasksToRawImport = (tasks: NormalizedTask[]): RawI
       end,
       raw_date: rawDate,
       note: toTrimmed(task.note),
-      assign: task.assignees ?? []
+      assign: task.assignees ?? [],
+      completed: task.completed
     });
   });
 

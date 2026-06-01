@@ -22,7 +22,8 @@ const makeTask = (overrides: Partial<NormalizedTask>): NormalizedTask => ({
   end: overrides.end ?? '2024-01-01',
   rawDate: overrides.rawDate ?? '2024-01-01',
   note: overrides.note ?? null,
-  status: overrides.status ?? 'scheduled'
+  status: overrides.status ?? 'scheduled',
+  completed: overrides.completed ?? false
 });
 
 describe('flattenTasksByMember', () => {

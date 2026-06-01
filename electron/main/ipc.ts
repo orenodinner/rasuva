@@ -184,6 +184,20 @@ const parseAssigneesCell = (value: unknown) => {
     .filter((item) => item.length > 0);
 };
 
+const cellToBoolean = (value: unknown) => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+  const text = cellToText(value)?.toLowerCase();
+  if (!text) {
+    return false;
+  }
+  return ['1', 'true', 'yes', 'y', 'done', 'completed', '完了'].includes(text);
+};
+
 const toColumnLetter = (index: number) => {
   let result = '';
   let current = index;
@@ -270,6 +284,7 @@ const taskUpdateSchema = z.object({
   end: z.string().nullable(),
   note: z.string().nullable(),
   assignees: z.array(z.string()),
+  completed: z.boolean().optional(),
   reason: z.string().nullable().optional()
 });
 
@@ -295,6 +310,7 @@ const contextMenuTaskSchema = z.object({
   note: z.string().nullable().optional(),
   assignees: z.array(z.string()).optional(),
   status: z.enum(['scheduled', 'unscheduled', 'invalid_date']),
+  completed: z.boolean().optional().default(false),
   id: z.number().int().optional()
 });
 
@@ -342,6 +358,7 @@ const tasksToCsv = (tasks: NormalizedTask[]) => {
     'start',
     'end',
     'status',
+    'completed',
     'note',
     'raw_date'
   ];
@@ -355,13 +372,12 @@ const tasksToCsv = (tasks: NormalizedTask[]) => {
     task.start,
     task.end,
     task.status,
+    task.completed ? 'true' : 'false',
     task.note,
     task.rawDate
   ]);
 
-  return [header, ...rows]
-    .map((row) => row.map((value) => escapeCsv(value)).join(','))
-    .join('\n');
+  return [header, ...rows].map((row) => row.map((value) => escapeCsv(value)).join(',')).join('\n');
 };
 
 export const registerIpcHandlers = (db: DbClient) => {
@@ -457,8 +473,8 @@ export const registerIpcHandlers = (db: DbClient) => {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(filePath);
 
-    const sheet = workbook.worksheets.find((worksheet) =>
-      worksheet.name.toLowerCase().trim() === 'tasks'
+    const sheet = workbook.worksheets.find(
+      (worksheet) => worksheet.name.toLowerCase().trim() === 'tasks'
     );
 
     if (!sheet) {
@@ -513,6 +529,9 @@ export const registerIpcHandlers = (db: DbClient) => {
       const rawDate = headerMap.has('raw_date')
         ? cellToText(row.getCell(headerMap.get('raw_date')!).value)
         : null;
+      const completed = headerMap.has('completed')
+        ? cellToBoolean(row.getCell(headerMap.get('completed')!).value)
+        : false;
 
       rows.push({
         member_name: memberName,
@@ -523,7 +542,8 @@ export const registerIpcHandlers = (db: DbClient) => {
         start,
         end,
         note,
-        raw_date: rawDate
+        raw_date: rawDate,
+        completed
       });
     });
 
@@ -601,7 +621,8 @@ export const registerIpcHandlers = (db: DbClient) => {
       assignees: assigneesRaw,
       start: startRaw,
       end: endRaw,
-      note: noteRaw
+      note: noteRaw,
+      completed: completedRaw
     } = parsedPayload.data;
 
     const projectId = projectIdRaw.trim();
@@ -644,7 +665,8 @@ export const registerIpcHandlers = (db: DbClient) => {
       end,
       rawDate,
       note,
-      status
+      status,
+      completed: completedRaw === true
     };
 
     const existingImportId = importIdRaw ?? db.getLatestImportId(scheduleId);
@@ -680,7 +702,8 @@ export const registerIpcHandlers = (db: DbClient) => {
                   end,
                   raw_date: rawDate,
                   note,
-                  assign: assignees
+                  assign: assignees,
+                  completed: completedRaw === true
                 }
               ]
             }
@@ -738,10 +761,7 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: '指定されたインポートが見つかりません。' };
     }
 
-    const previousImportId = db.getPreviousImportId(
-      parsedPayload.data.scheduleId,
-      targetImportId
-    );
+    const previousImportId = db.getPreviousImportId(parsedPayload.data.scheduleId, targetImportId);
     const currentTasks = db.getTasksByImportId(targetImportId);
     const previousTasks = previousImportId ? db.getTasksByImportId(previousImportId) : [];
 
@@ -864,7 +884,8 @@ export const registerIpcHandlers = (db: DbClient) => {
       { header: 'assignees', key: 'assignees', width: 26 },
       { header: 'start', key: 'start', width: 14 },
       { header: 'end', key: 'end', width: 14 },
-      { header: 'status', key: 'status', width: 14 }
+      { header: 'status', key: 'status', width: 14 },
+      { header: 'completed', key: 'completed', width: 12 }
     ];
 
     const scheduledTasks = tasks.filter(
@@ -959,7 +980,8 @@ export const registerIpcHandlers = (db: DbClient) => {
           assignees: task.assignees.join(', '),
           start: taskStart,
           end: taskEnd,
-          status: task.status
+          status: task.status,
+          completed: task.completed
         });
 
         if (task.status !== 'scheduled' || !taskStart || !taskEnd) {
@@ -1150,6 +1172,7 @@ export const registerIpcHandlers = (db: DbClient) => {
       { header: 'start', key: 'start', width: 14 },
       { header: 'end', key: 'end', width: 14 },
       { header: 'status', key: 'status', width: 14 },
+      { header: 'completed', key: 'completed', width: 12 },
       { header: 'note', key: 'note', width: 30 },
       { header: 'raw_date', key: 'rawDate', width: 22 },
       { header: 'task_key_full', key: 'taskKeyFull', width: 32 }
@@ -1165,6 +1188,7 @@ export const registerIpcHandlers = (db: DbClient) => {
         start: task.start ?? '',
         end: task.end ?? '',
         status: task.status,
+        completed: task.completed,
         note: task.note ?? '',
         rawDate: task.rawDate,
         taskKeyFull: task.taskKeyFull
@@ -1246,6 +1270,7 @@ export const registerIpcHandlers = (db: DbClient) => {
     const assignees = normalizeAssignees(parsedPayload.data.assignees).filter(
       (name) => name !== memberName
     );
+    const completed = parsedPayload.data.completed;
 
     if (!memberName || !projectId || !taskName) {
       return { ok: false, error: 'Required fields are missing.' };
@@ -1262,17 +1287,20 @@ export const registerIpcHandlers = (db: DbClient) => {
       return { ok: false, error: '終了日が不正です（YYYY-MM-DD を想定）。' };
     }
 
-    let status: 'scheduled' | 'unscheduled' | 'invalid_date' = 'scheduled';
+    const currentTask = db.getTaskByKey(importId, currentTaskKeyFull);
+    if (!currentTask) {
+      return { ok: false, error: '更新対象のタスクが見つかりません。' };
+    }
+
+    let status: TaskStatus = 'scheduled';
 
     if (start === null || end === null) {
-      status = 'unscheduled';
+      status = currentTask.status === 'invalid_date' ? 'invalid_date' : 'unscheduled';
     } else if (end < start) {
       return { ok: false, error: '終了日が開始日より前です。' };
     }
 
-    const noteWithReason = reason
-      ? `${note ? `${note}\n` : ''}理由: ${reason}`
-      : note;
+    const noteWithReason = reason ? `${note ? `${note}\n` : ''}理由: ${reason}` : note;
 
     const historyResult = db.updateTaskWithHistory(importId, currentTaskKeyFull, {
       memberName,
@@ -1283,7 +1311,8 @@ export const registerIpcHandlers = (db: DbClient) => {
       end: status === 'scheduled' ? end : null,
       note: noteWithReason,
       status,
-      assignees
+      assignees,
+      completed
     });
 
     if (!historyResult) {
@@ -1399,6 +1428,13 @@ export const registerIpcHandlers = (db: DbClient) => {
       })
     );
     menu.append(new MenuItem({ type: 'separator' }));
+    menu.append(
+      new MenuItem({
+        label: task.completed ? '未完了に戻す' : '完了にする',
+        click: () =>
+          event.sender.send(IPC_CHANNELS.menuAction, { action: 'toggle-completed', task })
+      })
+    );
     menu.append(
       new MenuItem({
         label: '未確定に戻す (Unschedule)',

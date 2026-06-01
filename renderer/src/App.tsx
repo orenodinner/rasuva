@@ -69,7 +69,8 @@ const App = () => {
             start: null,
             end: null,
             note: payload.task.note ?? null,
-            assignees: payload.task.assignees ?? []
+            assignees: payload.task.assignees ?? [],
+            completed: payload.task.completed
           });
           if (!ok) {
             setLastError('未確定への更新に失敗しました。');
@@ -77,6 +78,27 @@ const App = () => {
         } catch (error) {
           console.error('Failed to unschedule task from context menu.', error);
           setLastError(error instanceof Error ? error.message : '未確定への更新に失敗しました。');
+        }
+      } else if (payload.action === 'toggle-completed') {
+        try {
+          const ok = await updateTask({
+            currentTaskKeyFull: payload.task.taskKeyFull,
+            memberName: payload.task.memberName,
+            projectId: payload.task.projectId,
+            projectGroup: payload.task.projectGroup ?? null,
+            taskName: payload.task.taskName,
+            start: payload.task.start ?? null,
+            end: payload.task.end ?? null,
+            note: payload.task.note ?? null,
+            assignees: payload.task.assignees ?? [],
+            completed: !payload.task.completed
+          });
+          if (!ok) {
+            setLastError('完了状態の更新に失敗しました。');
+          }
+        } catch (error) {
+          console.error('Failed to toggle task completion from context menu.', error);
+          setLastError(error instanceof Error ? error.message : '完了状態の更新に失敗しました。');
         }
       }
     });

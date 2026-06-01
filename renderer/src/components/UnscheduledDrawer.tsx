@@ -50,7 +50,16 @@ const UnscheduledDrawer = ({ isOpen }: UnscheduledDrawerProps) => {
               onClick={() => setSelectedTask(task)}
             >
               <div>
-                <div className="unscheduled-item__title">{task.taskName}</div>
+                <div
+                  className={[
+                    'unscheduled-item__title',
+                    task.completed ? 'task-name--completed' : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {task.taskName}
+                </div>
                 <div className="unscheduled-item__meta">
                   {task.projectId} / {task.memberName}
                 </div>

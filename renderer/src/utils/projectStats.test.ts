@@ -18,7 +18,8 @@ const makeTask = (overrides: Partial<NormalizedTask> = {}): NormalizedTask => {
     end: hasEnd ? (overrides.end ?? null) : '2024-01-12',
     rawDate: overrides.rawDate ?? '2024-01-10..2024-01-12',
     note: overrides.note ?? null,
-    status: overrides.status ?? 'scheduled'
+    status: overrides.status ?? 'scheduled',
+    completed: overrides.completed ?? false
   };
 };
 

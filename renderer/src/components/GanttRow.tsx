@@ -227,7 +227,15 @@ const GanttTaskBar = ({
   const draggingClass = isDragging ? 'gantt-bar--dragging' : '';
   const selectedClass = isSelected ? 'gantt-bar--selected' : '';
   const compactClass = width < 72 ? 'gantt-bar--compact' : '';
-  const barClassName = ['gantt-bar', className, draggingClass, selectedClass, compactClass]
+  const completedClass = task.completed ? 'gantt-bar--completed' : '';
+  const barClassName = [
+    'gantt-bar',
+    className,
+    draggingClass,
+    selectedClass,
+    compactClass,
+    completedClass
+  ]
     .filter(Boolean)
     .join(' ');
 
@@ -329,7 +337,9 @@ const GanttTaskBar = ({
             onClick={(event) => event.stopPropagation()}
           />
         ) : (
-          <span title={task.taskName}>{task.taskName}</span>
+          <span className={task.completed ? 'task-name--completed' : ''} title={task.taskName}>
+            {task.taskName}
+          </span>
         )}
       </div>
       <div
@@ -510,7 +520,12 @@ const GanttRow = ({ index, style, data }: ListChildComponentProps<GanttRowData>)
             ) : null}
           </div>
         ) : (
-          <span className="gantt-label__text" title={row.label}>
+          <span
+            className={['gantt-label__text', row.task?.completed ? 'task-name--completed' : '']
+              .filter(Boolean)
+              .join(' ')}
+            title={row.label}
+          >
             {row.label}
           </span>
         )}

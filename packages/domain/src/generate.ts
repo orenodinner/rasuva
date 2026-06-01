@@ -35,9 +35,7 @@ export const generateNormalizedTasks = (
 
   const baseDate = new Date(`${startDate}T00:00:00Z`);
   const members = Array.from({ length: memberCount }, (_, index) => `Member-${index + 1}`);
-  const projects = Array.from({ length: projectCount }, (_, index) =>
-    `P-${pad2(index + 1)}`
-  );
+  const projects = Array.from({ length: projectCount }, (_, index) => `P-${pad2(index + 1)}`);
 
   return Array.from({ length: count }, (_, index) => {
     const memberName = members[index % memberCount];
@@ -79,7 +77,8 @@ export const generateNormalizedTasks = (
       end: endIso,
       rawDate,
       note: null,
-      status
+      status,
+      completed: false
     };
   });
 };

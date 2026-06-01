@@ -14,7 +14,8 @@ const makeTask = (): NormalizedTask => ({
   end: '2024-01-02',
   rawDate: '2024-01-01..2024-01-02',
   note: null,
-  status: 'scheduled'
+  status: 'scheduled',
+  completed: false
 });
 
 describe('db', () => {
@@ -66,13 +67,15 @@ describe('db', () => {
       end: '2024-01-03',
       note: 'Updated',
       status: 'scheduled',
-      assignees: ['Bob', 'Eve']
+      assignees: ['Bob', 'Eve'],
+      completed: true
     });
 
     const updated = db.getTaskByKey(importId, tasks[0].taskKeyFull);
     expect(updated?.start).toBe('2024-01-02');
     expect(updated?.note).toBe('Updated');
     expect(updated?.assignees).toEqual(['Bob', 'Eve']);
+    expect(updated?.completed).toBe(true);
 
     db.close();
   });

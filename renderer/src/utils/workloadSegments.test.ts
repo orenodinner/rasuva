@@ -15,7 +15,8 @@ const makeTask = (overrides: Partial<NormalizedTask> = {}): NormalizedTask => ({
   end: overrides.end ?? '2024-01-01',
   rawDate: overrides.rawDate ?? '2024-01-01',
   note: overrides.note ?? null,
-  status: overrides.status ?? 'scheduled'
+  status: overrides.status ?? 'scheduled',
+  completed: overrides.completed ?? false
 });
 
 describe('getPeakWeeklyTaskCount', () => {
@@ -27,9 +28,7 @@ describe('getPeakWeeklyTaskCount', () => {
       makeTask({ taskKeyFull: 'P-1::D', start: null, end: null, status: 'unscheduled' })
     ];
 
-    expect(
-      getPeakWeeklyTaskCount(tasks, toUtcDate('2024-01-01'), toUtcDate('2024-01-31'))
-    ).toBe(2);
+    expect(getPeakWeeklyTaskCount(tasks, toUtcDate('2024-01-01'), toUtcDate('2024-01-31'))).toBe(2);
   });
 
   it('does not use the visible zoom column size for group load badges', () => {

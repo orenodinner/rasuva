@@ -16,6 +16,7 @@ describe('convertNormalizedTasksToRawImport', () => {
     rawDate: '2024-01-01..2024-01-02',
     note: null,
     status: 'scheduled',
+    completed: false,
     ...overrides
   });
 
@@ -33,7 +34,8 @@ describe('convertNormalizedTasksToRawImport', () => {
         end: '2024-01-12',
         rawDate: '2024-01-10..2024-01-12',
         note: null,
-        status: 'scheduled'
+        status: 'scheduled',
+        completed: true
       },
       {
         taskKey: 'P1::Build',
@@ -47,7 +49,8 @@ describe('convertNormalizedTasksToRawImport', () => {
         end: null,
         rawDate: 'TBD',
         note: null,
-        status: 'unscheduled'
+        status: 'unscheduled',
+        completed: false
       },
       {
         taskKey: 'P2::Ship',
@@ -61,7 +64,8 @@ describe('convertNormalizedTasksToRawImport', () => {
         end: '2024-02-02',
         rawDate: '2024-02-01..2024-02-02',
         note: 'Ready',
-        status: 'scheduled'
+        status: 'scheduled',
+        completed: false
       }
     ];
 
@@ -80,7 +84,8 @@ describe('convertNormalizedTasksToRawImport', () => {
       end: '2024-01-12',
       raw_date: '2024-01-10..2024-01-12',
       note: null,
-      assign: ['Bob']
+      assign: ['Bob'],
+      completed: true
     });
     expect(aliceProject?.tasks?.[1]).toMatchObject({
       task_name: 'Build',
@@ -88,7 +93,8 @@ describe('convertNormalizedTasksToRawImport', () => {
       end: null,
       raw_date: 'TBD',
       note: null,
-      assign: []
+      assign: [],
+      completed: false
     });
 
     const ben = raw.members.find((member) => member.name === 'Ben');

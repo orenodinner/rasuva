@@ -23,14 +23,12 @@ const TaskList = ({ tasks, onSelect, emptyLabel }: TaskListProps) => {
         <div>状態</div>
       </div>
       {tasks.map((task) => (
-        <button
-          key={task.taskKeyFull}
-          className="task-table__row"
-          onClick={() => onSelect(task)}
-        >
+        <button key={task.taskKeyFull} className="task-table__row" onClick={() => onSelect(task)}>
           <div>{task.memberName}</div>
           <div>{task.projectId}</div>
-          <div className="task-table__task">{task.taskName}</div>
+          <div className={`task-table__task ${task.completed ? 'task-name--completed' : ''}`}>
+            {task.taskName}
+          </div>
           <div>{task.start ?? '—'}</div>
           <div>{task.end ?? '—'}</div>
           <div>

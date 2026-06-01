@@ -180,7 +180,8 @@ export const normalizeImport = (raw: RawImport) => {
           end,
           rawDate: task.raw_date,
           note: toTrimmed(task.note),
-          status
+          status,
+          completed: task.completed === true
         });
       });
     });
@@ -218,7 +219,13 @@ const buildRawDate = (start: string | null, end: string | null, rawDate: string 
 
 export const convertFlatTasksToRawImport = (rows: FlatTaskRow[]): RawImport => {
   const members: RawImport['members'] = [];
-  const memberIndex = new Map<string, { member: RawImport['members'][number]; projects: Map<string, RawImport['members'][number]['projects'][number]> }>();
+  const memberIndex = new Map<
+    string,
+    {
+      member: RawImport['members'][number];
+      projects: Map<string, RawImport['members'][number]['projects'][number]>;
+    }
+  >();
 
   rows.forEach((row) => {
     const memberName = toTrimmed(row.member_name) ?? '不明';
@@ -258,7 +265,8 @@ export const convertFlatTasksToRawImport = (rows: FlatTaskRow[]): RawImport => {
       end,
       raw_date: rawDate,
       note: toTrimmed(row.note),
-      assign: row.assignees ?? []
+      assign: row.assignees ?? [],
+      completed: row.completed === true
     });
   });
 

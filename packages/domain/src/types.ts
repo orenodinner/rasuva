@@ -42,6 +42,7 @@ export interface RawTask {
   raw_date: string;
   note?: string | null;
   assign?: string[] | null;
+  completed?: boolean | null;
 }
 
 export interface NormalizedTask {
@@ -58,6 +59,7 @@ export interface NormalizedTask {
   rawDate: string;
   note: string | null;
   status: TaskStatus;
+  completed: boolean;
 }
 
 export interface TaskUpdateInput {
@@ -71,6 +73,7 @@ export interface TaskUpdateInput {
   end: string | null;
   note: string | null;
   assignees: string[];
+  completed?: boolean;
   reason?: string | null;
 }
 
@@ -86,6 +89,7 @@ export interface TaskCreateInput {
   start: string | null;
   end: string | null;
   note: string | null;
+  completed?: boolean;
 }
 
 export interface ImportWarning {
@@ -190,4 +194,5 @@ export interface FlatTaskRow {
   end: string | null;
   note?: string | null;
   raw_date?: string | null;
+  completed?: boolean | null;
 }

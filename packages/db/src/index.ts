@@ -89,8 +89,7 @@ UPDATE saved_views SET schedule_id = 1 WHERE schedule_id IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_imports_schedule_id ON imports(schedule_id);
 CREATE INDEX IF NOT EXISTS idx_views_schedule_id ON saved_views(schedule_id);
-`
-,
+`,
   `
 CREATE TABLE IF NOT EXISTS command_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,7 +103,8 @@ CREATE TABLE IF NOT EXISTS command_history (
 );
 
 CREATE INDEX IF NOT EXISTS idx_history_import ON command_history(import_id);
-`
+`,
+  `ALTER TABLE tasks ADD COLUMN completed INTEGER NOT NULL DEFAULT 0;`
 ];
 
 interface TaskRow {
@@ -121,6 +121,7 @@ interface TaskRow {
   raw_date: string;
   note: string | null;
   status: NormalizedTask['status'];
+  completed: number;
 }
 
 interface ImportRow {
@@ -207,10 +208,7 @@ export interface DbClient {
   getTasksByImportId: (importId: number) => NormalizedTask[];
   getTaskByKey: (importId: number, taskKeyFull: string) => NormalizedTask | null;
   deleteTask: (importId: number, taskKeyFull: string) => boolean;
-  deleteTaskWithHistory: (
-    importId: number,
-    taskKeyFull: string
-  ) => { taskKeyFull: string } | null;
+  deleteTaskWithHistory: (importId: number, taskKeyFull: string) => { taskKeyFull: string } | null;
   updateTask: (importId: number, taskKeyFull: string, updates: TaskUpdatePayload) => string | null;
   getImportById: (scheduleId: number, importId: number) => ImportListItem | null;
   getSavedViews: (scheduleId: number) => SavedViewItem[];
@@ -269,7 +267,8 @@ const rowToTask = (row: TaskRow): NormalizedTask => ({
   end: row.end,
   rawDate: row.raw_date,
   note: row.note,
-  status: row.status
+  status: row.status,
+  completed: Boolean(row.completed)
 });
 
 const rowToImportItem = (row: ImportRow): ImportListItem => ({
@@ -299,6 +298,7 @@ const isNormalizedTaskSnapshot = (value: unknown): value is NormalizedTask => {
   const start = record.start;
   const end = record.end;
   const note = record.note;
+  const completed = record.completed;
 
   if (id !== undefined && typeof id !== 'number') {
     return false;
@@ -326,11 +326,10 @@ const isNormalizedTaskSnapshot = (value: unknown): value is NormalizedTask => {
   if (note !== null && note !== undefined && typeof note !== 'string') {
     return false;
   }
-  if (
-    status !== 'scheduled' &&
-    status !== 'unscheduled' &&
-    status !== 'invalid_date'
-  ) {
+  if (completed !== undefined && typeof completed !== 'boolean') {
+    return false;
+  }
+  if (status !== 'scheduled' && status !== 'unscheduled' && status !== 'invalid_date') {
     return false;
   }
   return true;
@@ -342,7 +341,12 @@ const parseTaskSnapshot = (value: string | null): NormalizedTask | null => {
   }
   try {
     const parsed = JSON.parse(value) as unknown;
-    return isNormalizedTaskSnapshot(parsed) ? parsed : null;
+    return isNormalizedTaskSnapshot(parsed)
+      ? {
+          ...(parsed as NormalizedTask),
+          completed: (parsed as Partial<NormalizedTask>).completed ?? false
+        }
+      : null;
   } catch {
     return null;
   }
@@ -449,7 +453,8 @@ export const createDb = (dbPath: string): DbClient => {
         end,
         raw_date,
         note,
-        status
+        status,
+        completed
       ) VALUES (
         @import_id,
         @task_key,
@@ -463,7 +468,8 @@ export const createDb = (dbPath: string): DbClient => {
         @end,
         @raw_date,
         @note,
-        @status
+        @status,
+        @completed
       )
     `);
 
@@ -482,7 +488,8 @@ export const createDb = (dbPath: string): DbClient => {
           end: task.end,
           raw_date: task.rawDate,
           note: task.note,
-          status: task.status
+          status: task.status,
+          completed: task.completed ? 1 : 0
         });
       });
     });
@@ -509,7 +516,8 @@ export const createDb = (dbPath: string): DbClient => {
           end,
           raw_date,
           note,
-          status
+          status,
+          completed
         ) VALUES (
           @import_id,
           @task_key,
@@ -523,7 +531,8 @@ export const createDb = (dbPath: string): DbClient => {
           @end,
           @raw_date,
           @note,
-          @status
+          @status,
+          @completed
         )
       `);
 
@@ -540,7 +549,8 @@ export const createDb = (dbPath: string): DbClient => {
         end: payload.end,
         raw_date: payload.rawDate,
         note: payload.note,
-        status: payload.status
+        status: payload.status,
+        completed: payload.completed ? 1 : 0
       });
 
       return {
@@ -716,11 +726,7 @@ export const createDb = (dbPath: string): DbClient => {
     return `${baseKey}#${suffix}`;
   };
 
-  const updateTask = (
-    importId: number,
-    currentTaskKeyFull: string,
-    updates: TaskUpdatePayload
-  ) => {
+  const updateTask = (importId: number, currentTaskKeyFull: string, updates: TaskUpdatePayload) => {
     const current = getTaskByKey(importId, currentTaskKeyFull);
     if (!current) {
       return null;
@@ -733,6 +739,7 @@ export const createDb = (dbPath: string): DbClient => {
         ? current.taskKeyFull
         : getNextTaskKeyFull(importId, baseKey, currentTaskKeyFull);
 
+    const completed = updates.completed ?? current.completed;
     const stmt = db.prepare(`
       UPDATE tasks
       SET member_name = @member_name,
@@ -745,6 +752,7 @@ export const createDb = (dbPath: string): DbClient => {
           end = @end,
           note = @note,
           status = @status,
+          completed = @completed,
           assignees_json = @assignees_json
       WHERE import_id = @importId AND task_key_full = @currentTaskKeyFull
     `);
@@ -762,6 +770,7 @@ export const createDb = (dbPath: string): DbClient => {
       end: updates.end ?? null,
       note: updates.note ?? null,
       status: updates.status,
+      completed: completed ? 1 : 0,
       assignees_json: JSON.stringify(updates.assignees)
     });
 
@@ -836,6 +845,7 @@ export const createDb = (dbPath: string): DbClient => {
           raw_date = @raw_date,
           note = @note,
           status = @status,
+          completed = @completed,
           assignees_json = @assignees_json
       WHERE id = @id
     `);
@@ -854,6 +864,7 @@ export const createDb = (dbPath: string): DbClient => {
         raw_date: snapshot.rawDate,
         note: snapshot.note ?? null,
         status: snapshot.status,
+        completed: snapshot.completed ? 1 : 0,
         assignees_json: JSON.stringify(snapshot.assignees)
       });
       return result.changes > 0;
@@ -932,7 +943,9 @@ export const createDb = (dbPath: string): DbClient => {
 
   const listSchedules = (): ScheduleItem[] => {
     const rows = db
-      .prepare(`SELECT id, name, description, created_at, updated_at FROM schedules ORDER BY id ASC`)
+      .prepare(
+        `SELECT id, name, description, created_at, updated_at FROM schedules ORDER BY id ASC`
+      )
       .all() as ScheduleRow[];
     return rows.map(rowToScheduleItem);
   };
@@ -989,15 +1002,13 @@ export const createDb = (dbPath: string): DbClient => {
   };
 
   const deleteSchedule = (scheduleId: number): boolean => {
-    const countRow = db
-      .prepare(`SELECT COUNT(*) as count FROM schedules`)
-      .get() as { count: number };
+    const countRow = db.prepare(`SELECT COUNT(*) as count FROM schedules`).get() as {
+      count: number;
+    };
     if (countRow.count <= 1) {
       return false;
     }
-    const exists = db
-      .prepare(`SELECT 1 FROM schedules WHERE id = @scheduleId`)
-      .get({ scheduleId });
+    const exists = db.prepare(`SELECT 1 FROM schedules WHERE id = @scheduleId`).get({ scheduleId });
     if (!exists) {
       return false;
     }

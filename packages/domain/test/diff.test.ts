@@ -14,7 +14,8 @@ const baseTask: NormalizedTask = {
   end: '2024-01-02',
   rawDate: '2024-01-01..2024-01-02',
   note: null,
-  status: 'scheduled'
+  status: 'scheduled',
+  completed: false
 };
 
 describe('diffTasks', () => {
@@ -45,6 +46,11 @@ describe('diffTasks', () => {
     const prev: NormalizedTask[] = [baseTask];
     const next: NormalizedTask[] = [{ ...baseTask, assignees: ['Bob'] }];
     const diff = diffTasks(prev, next);
+    expect(diff.summary.updated).toBe(1);
+  });
+
+  it('detects completion changes as updates', () => {
+    const diff = diffTasks([baseTask], [{ ...baseTask, completed: true }]);
     expect(diff.summary.updated).toBe(1);
   });
 });

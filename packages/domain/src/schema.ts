@@ -6,7 +6,8 @@ export const RawTaskSchema = z.object({
   end: z.string().nullable(),
   raw_date: z.string(),
   note: z.string().nullable().optional(),
-  assign: z.array(z.string()).nullable().optional()
+  assign: z.array(z.string()).nullable().optional(),
+  completed: z.boolean().nullable().optional()
 });
 
 export const RawProjectSchema = z.object({
@@ -33,7 +34,14 @@ export const TaskCreateSchema = z.object({
   taskName: z.string().min(1),
   memberName: z.string().min(1),
   assignees: z.array(z.string()),
-  start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
-  end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
-  note: z.string().nullable()
+  start: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable(),
+  end: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable(),
+  note: z.string().nullable(),
+  completed: z.boolean().optional()
 });
